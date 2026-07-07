@@ -3,8 +3,8 @@ package net.mehvahdjukaar.codecui;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import net.minecraft.core.Registry;
-import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -34,7 +34,7 @@ public sealed interface Schema<A> {
 
     record Str(int minLen, int maxLen, @Nullable Pattern pattern) implements Schema<String> {}
 
-    record ResourceId(@Nullable ResourceKey<? extends Registry<?>> registry) implements Schema<Identifier> {}
+    record ResourceId(@Nullable ResourceKey<? extends Registry<?>> registry) implements Schema<ResourceLocation> {}
 
     record Enum<A>(List<A> options, Function<A, String> label) implements Schema<A> {}
 

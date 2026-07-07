@@ -4,7 +4,7 @@ A small, dependency-free API that lets a mod **declare an edit surface for its o
 DataFixerUpper `Codec`s**, so a CodecUI-aware editor can render them. No vanilla-codec
 inference, no UI — just the declaration vocabulary.
 
-Multi-loader (Fabric + NeoForge), Minecraft 1.21.11. Depends on nothing beyond Minecraft +
+Multi-loader (Fabric + NeoForge), Minecraft 1.21.1. Depends on nothing beyond Minecraft +
 DataFixerUpper.
 
 ## What a consuming mod uses

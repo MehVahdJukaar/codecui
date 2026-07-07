@@ -1,6 +1,7 @@
 package net.mehvahdjukaar.codecui;
 
 import com.mojang.datafixers.util.Either;
+import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.Registry;
@@ -105,6 +106,20 @@ public final class SchemaCodecs {
             codec = elementCodec.listOf(minSize, maxSize);
         }
         Schema<List<E>> schema = new Schema.ListOf<>(elementCodec.schema(), minSize, maxSize);
+        return SchemaCodec.of(codec, schema);
+    }
+
+    /** An unbounded {@code Map<K, V>} codec paired with a {@link Schema.MapOf} (key + value editors). */
+    public static <K, V> SchemaCodec<Map<K, V>> map(SchemaCodec<K> keyCodec, SchemaCodec<V> valueCodec) {
+        Codec<Map<K, V>> codec = Codec.unboundedMap(keyCodec, valueCodec);
+        Schema<Map<K, V>> schema = new Schema.MapOf<>(keyCodec.schema(), valueCodec.schema());
+        return SchemaCodec.of(codec, schema);
+    }
+
+    /** A {@link Pair} codec paired with a {@link Schema.PairOf} (first + second editors). */
+    public static <F, S> SchemaCodec<Pair<F, S>> pair(SchemaCodec<F> first, SchemaCodec<S> second) {
+        Codec<Pair<F, S>> codec = Codec.pair(first, second);
+        Schema<Pair<F, S>> schema = new Schema.PairOf<>(first.schema(), second.schema());
         return SchemaCodec.of(codec, schema);
     }
 
