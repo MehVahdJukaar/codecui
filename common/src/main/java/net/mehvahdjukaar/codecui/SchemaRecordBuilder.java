@@ -2,6 +2,16 @@ package net.mehvahdjukaar.codecui;
 
 import com.mojang.datafixers.util.Function3;
 import com.mojang.datafixers.util.Function4;
+import com.mojang.datafixers.util.Function5;
+import com.mojang.datafixers.util.Function6;
+import com.mojang.datafixers.util.Function7;
+import com.mojang.datafixers.util.Function8;
+import com.mojang.datafixers.util.Function9;
+import com.mojang.datafixers.util.Function10;
+import com.mojang.datafixers.util.Function11;
+import com.mojang.datafixers.util.Function12;
+import com.mojang.datafixers.util.Function13;
+import com.mojang.datafixers.util.Function14;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import org.jetbrains.annotations.Nullable;
@@ -130,7 +140,99 @@ public final class SchemaRecordBuilder<A> {
         return SchemaCodec.of(codec, buildSchema());
     }
 
-    // TODO: build5..build8 once a callsite needs them. Mirror the build4 pattern with Function5..Function8.
+    public <F1, F2, F3, F4, F5> SchemaCodec<A> build5(Function5<F1, F2, F3, F4, F5, A> ctor,
+                                                      Field<A, F1> f1, Field<A, F2> f2, Field<A, F3> f3,
+                                                      Field<A, F4> f4, Field<A, F5> f5) {
+        validate(f1, f2, f3, f4, f5);
+        MapCodec<F1> mc1 = mapCodecFor(f1);
+        MapCodec<F2> mc2 = mapCodecFor(f2);
+        MapCodec<F3> mc3 = mapCodecFor(f3);
+        MapCodec<F4> mc4 = mapCodecFor(f4);
+        MapCodec<F5> mc5 = mapCodecFor(f5);
+        var codec = RecordCodecBuilder.<A>create(i -> i.apply5(
+                ctor,
+                RecordCodecBuilder.of(f1.getter, mc1),
+                RecordCodecBuilder.of(f2.getter, mc2),
+                RecordCodecBuilder.of(f3.getter, mc3),
+                RecordCodecBuilder.of(f4.getter, mc4),
+                RecordCodecBuilder.of(f5.getter, mc5)
+        ));
+        return SchemaCodec.of(codec, buildSchema());
+    }
+
+    public <F1, F2, F3, F4, F5, F6> SchemaCodec<A> build6(Function6<F1, F2, F3, F4, F5, F6, A> ctor,
+                                                          Field<A, F1> f1, Field<A, F2> f2, Field<A, F3> f3,
+                                                          Field<A, F4> f4, Field<A, F5> f5, Field<A, F6> f6) {
+        validate(f1, f2, f3, f4, f5, f6);
+        MapCodec<F1> mc1 = mapCodecFor(f1);
+        MapCodec<F2> mc2 = mapCodecFor(f2);
+        MapCodec<F3> mc3 = mapCodecFor(f3);
+        MapCodec<F4> mc4 = mapCodecFor(f4);
+        MapCodec<F5> mc5 = mapCodecFor(f5);
+        MapCodec<F6> mc6 = mapCodecFor(f6);
+        var codec = RecordCodecBuilder.<A>create(i -> i.apply6(
+                ctor,
+                RecordCodecBuilder.of(f1.getter, mc1),
+                RecordCodecBuilder.of(f2.getter, mc2),
+                RecordCodecBuilder.of(f3.getter, mc3),
+                RecordCodecBuilder.of(f4.getter, mc4),
+                RecordCodecBuilder.of(f5.getter, mc5),
+                RecordCodecBuilder.of(f6.getter, mc6)
+        ));
+        return SchemaCodec.of(codec, buildSchema());
+    }
+
+    public <F1, F2, F3, F4, F5, F6, F7> SchemaCodec<A> build7(Function7<F1, F2, F3, F4, F5, F6, F7, A> ctor,
+                                                              Field<A, F1> f1, Field<A, F2> f2, Field<A, F3> f3,
+                                                              Field<A, F4> f4, Field<A, F5> f5, Field<A, F6> f6,
+                                                              Field<A, F7> f7) {
+        validate(f1, f2, f3, f4, f5, f6, f7);
+        MapCodec<F1> mc1 = mapCodecFor(f1);
+        MapCodec<F2> mc2 = mapCodecFor(f2);
+        MapCodec<F3> mc3 = mapCodecFor(f3);
+        MapCodec<F4> mc4 = mapCodecFor(f4);
+        MapCodec<F5> mc5 = mapCodecFor(f5);
+        MapCodec<F6> mc6 = mapCodecFor(f6);
+        MapCodec<F7> mc7 = mapCodecFor(f7);
+        var codec = RecordCodecBuilder.<A>create(i -> i.apply7(
+                ctor,
+                RecordCodecBuilder.of(f1.getter, mc1),
+                RecordCodecBuilder.of(f2.getter, mc2),
+                RecordCodecBuilder.of(f3.getter, mc3),
+                RecordCodecBuilder.of(f4.getter, mc4),
+                RecordCodecBuilder.of(f5.getter, mc5),
+                RecordCodecBuilder.of(f6.getter, mc6),
+                RecordCodecBuilder.of(f7.getter, mc7)
+        ));
+        return SchemaCodec.of(codec, buildSchema());
+    }
+
+    public <F1, F2, F3, F4, F5, F6, F7, F8> SchemaCodec<A> build8(Function8<F1, F2, F3, F4, F5, F6, F7, F8, A> ctor,
+                                                                  Field<A, F1> f1, Field<A, F2> f2, Field<A, F3> f3,
+                                                                  Field<A, F4> f4, Field<A, F5> f5, Field<A, F6> f6,
+                                                                  Field<A, F7> f7, Field<A, F8> f8) {
+        validate(f1, f2, f3, f4, f5, f6, f7, f8);
+        MapCodec<F1> mc1 = mapCodecFor(f1);
+        MapCodec<F2> mc2 = mapCodecFor(f2);
+        MapCodec<F3> mc3 = mapCodecFor(f3);
+        MapCodec<F4> mc4 = mapCodecFor(f4);
+        MapCodec<F5> mc5 = mapCodecFor(f5);
+        MapCodec<F6> mc6 = mapCodecFor(f6);
+        MapCodec<F7> mc7 = mapCodecFor(f7);
+        MapCodec<F8> mc8 = mapCodecFor(f8);
+        var codec = RecordCodecBuilder.<A>create(i -> i.apply8(
+                ctor,
+                RecordCodecBuilder.of(f1.getter, mc1),
+                RecordCodecBuilder.of(f2.getter, mc2),
+                RecordCodecBuilder.of(f3.getter, mc3),
+                RecordCodecBuilder.of(f4.getter, mc4),
+                RecordCodecBuilder.of(f5.getter, mc5),
+                RecordCodecBuilder.of(f6.getter, mc6),
+                RecordCodecBuilder.of(f7.getter, mc7),
+                RecordCodecBuilder.of(f8.getter, mc8)
+        ));
+        return SchemaCodec.of(codec, buildSchema());
+    }
 
     // ---- MapCodec-producing variants, for use as dispatch sub-codecs. ----
 
