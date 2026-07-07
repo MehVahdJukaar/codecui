@@ -1,0 +1,13 @@
+{
+  "minVersion": "0.8",
+  "required": true,
+  "compatibilityLevel": "JAVA_21",
+  "package": "net.mehvahdjukaar.codecui.mixins.fabric",
+  "mixins": [
+  ],
+  "client": [
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
