@@ -269,6 +269,292 @@ public final class SchemaRecordBuilder<A> {
         return SchemaMapCodec.of(mapCodec, buildSchema());
     }
 
+    public <F1, F2, F3, F4> SchemaMapCodec<A> buildMapCodec4(Function4<F1, F2, F3, F4, A> ctor,
+                                                             Field<A, F1> f1, Field<A, F2> f2, Field<A, F3> f3, Field<A, F4> f4) {
+        validate(f1, f2, f3, f4);
+        MapCodec<F1> mc1 = mapCodecFor(f1);
+        MapCodec<F2> mc2 = mapCodecFor(f2);
+        MapCodec<F3> mc3 = mapCodecFor(f3);
+        MapCodec<F4> mc4 = mapCodecFor(f4);
+        MapCodec<A> mapCodec = RecordCodecBuilder.mapCodec(i -> i.group(
+                mc1.forGetter(f1.getter),
+                mc2.forGetter(f2.getter),
+                mc3.forGetter(f3.getter),
+                mc4.forGetter(f4.getter)
+        ).apply(i, ctor));
+        return SchemaMapCodec.of(mapCodec, buildSchema());
+    }
+
+    public <F1, F2, F3, F4, F5> SchemaMapCodec<A> buildMapCodec5(Function5<F1, F2, F3, F4, F5, A> ctor,
+                                                                 Field<A, F1> f1, Field<A, F2> f2, Field<A, F3> f3, Field<A, F4> f4, Field<A, F5> f5) {
+        validate(f1, f2, f3, f4, f5);
+        MapCodec<F1> mc1 = mapCodecFor(f1);
+        MapCodec<F2> mc2 = mapCodecFor(f2);
+        MapCodec<F3> mc3 = mapCodecFor(f3);
+        MapCodec<F4> mc4 = mapCodecFor(f4);
+        MapCodec<F5> mc5 = mapCodecFor(f5);
+        MapCodec<A> mapCodec = RecordCodecBuilder.mapCodec(i -> i.group(
+                mc1.forGetter(f1.getter),
+                mc2.forGetter(f2.getter),
+                mc3.forGetter(f3.getter),
+                mc4.forGetter(f4.getter),
+                mc5.forGetter(f5.getter)
+        ).apply(i, ctor));
+        return SchemaMapCodec.of(mapCodec, buildSchema());
+    }
+
+    public <F1, F2, F3, F4, F5, F6> SchemaMapCodec<A> buildMapCodec6(Function6<F1, F2, F3, F4, F5, F6, A> ctor,
+                                                                     Field<A, F1> f1, Field<A, F2> f2, Field<A, F3> f3, Field<A, F4> f4, Field<A, F5> f5, Field<A, F6> f6) {
+        validate(f1, f2, f3, f4, f5, f6);
+        MapCodec<F1> mc1 = mapCodecFor(f1);
+        MapCodec<F2> mc2 = mapCodecFor(f2);
+        MapCodec<F3> mc3 = mapCodecFor(f3);
+        MapCodec<F4> mc4 = mapCodecFor(f4);
+        MapCodec<F5> mc5 = mapCodecFor(f5);
+        MapCodec<F6> mc6 = mapCodecFor(f6);
+        MapCodec<A> mapCodec = RecordCodecBuilder.mapCodec(i -> i.group(
+                mc1.forGetter(f1.getter),
+                mc2.forGetter(f2.getter),
+                mc3.forGetter(f3.getter),
+                mc4.forGetter(f4.getter),
+                mc5.forGetter(f5.getter),
+                mc6.forGetter(f6.getter)
+        ).apply(i, ctor));
+        return SchemaMapCodec.of(mapCodec, buildSchema());
+    }
+
+    public <F1, F2, F3, F4, F5, F6, F7> SchemaMapCodec<A> buildMapCodec7(Function7<F1, F2, F3, F4, F5, F6, F7, A> ctor,
+                                                                         Field<A, F1> f1, Field<A, F2> f2, Field<A, F3> f3, Field<A, F4> f4, Field<A, F5> f5, Field<A, F6> f6, Field<A, F7> f7) {
+        validate(f1, f2, f3, f4, f5, f6, f7);
+        MapCodec<F1> mc1 = mapCodecFor(f1);
+        MapCodec<F2> mc2 = mapCodecFor(f2);
+        MapCodec<F3> mc3 = mapCodecFor(f3);
+        MapCodec<F4> mc4 = mapCodecFor(f4);
+        MapCodec<F5> mc5 = mapCodecFor(f5);
+        MapCodec<F6> mc6 = mapCodecFor(f6);
+        MapCodec<F7> mc7 = mapCodecFor(f7);
+        MapCodec<A> mapCodec = RecordCodecBuilder.mapCodec(i -> i.group(
+                mc1.forGetter(f1.getter),
+                mc2.forGetter(f2.getter),
+                mc3.forGetter(f3.getter),
+                mc4.forGetter(f4.getter),
+                mc5.forGetter(f5.getter),
+                mc6.forGetter(f6.getter),
+                mc7.forGetter(f7.getter)
+        ).apply(i, ctor));
+        return SchemaMapCodec.of(mapCodec, buildSchema());
+    }
+
+    public <F1, F2, F3, F4, F5, F6, F7, F8> SchemaMapCodec<A> buildMapCodec8(Function8<F1, F2, F3, F4, F5, F6, F7, F8, A> ctor,
+                                                                             Field<A, F1> f1, Field<A, F2> f2, Field<A, F3> f3, Field<A, F4> f4, Field<A, F5> f5, Field<A, F6> f6, Field<A, F7> f7, Field<A, F8> f8) {
+        validate(f1, f2, f3, f4, f5, f6, f7, f8);
+        MapCodec<F1> mc1 = mapCodecFor(f1);
+        MapCodec<F2> mc2 = mapCodecFor(f2);
+        MapCodec<F3> mc3 = mapCodecFor(f3);
+        MapCodec<F4> mc4 = mapCodecFor(f4);
+        MapCodec<F5> mc5 = mapCodecFor(f5);
+        MapCodec<F6> mc6 = mapCodecFor(f6);
+        MapCodec<F7> mc7 = mapCodecFor(f7);
+        MapCodec<F8> mc8 = mapCodecFor(f8);
+        MapCodec<A> mapCodec = RecordCodecBuilder.mapCodec(i -> i.group(
+                mc1.forGetter(f1.getter),
+                mc2.forGetter(f2.getter),
+                mc3.forGetter(f3.getter),
+                mc4.forGetter(f4.getter),
+                mc5.forGetter(f5.getter),
+                mc6.forGetter(f6.getter),
+                mc7.forGetter(f7.getter),
+                mc8.forGetter(f8.getter)
+        ).apply(i, ctor));
+        return SchemaMapCodec.of(mapCodec, buildSchema());
+    }
+
+    public <F1, F2, F3, F4, F5, F6, F7, F8, F9> SchemaMapCodec<A> buildMapCodec9(Function9<F1, F2, F3, F4, F5, F6, F7, F8, F9, A> ctor,
+                                                                                 Field<A, F1> f1, Field<A, F2> f2, Field<A, F3> f3, Field<A, F4> f4, Field<A, F5> f5, Field<A, F6> f6, Field<A, F7> f7, Field<A, F8> f8, Field<A, F9> f9) {
+        validate(f1, f2, f3, f4, f5, f6, f7, f8, f9);
+        MapCodec<F1> mc1 = mapCodecFor(f1);
+        MapCodec<F2> mc2 = mapCodecFor(f2);
+        MapCodec<F3> mc3 = mapCodecFor(f3);
+        MapCodec<F4> mc4 = mapCodecFor(f4);
+        MapCodec<F5> mc5 = mapCodecFor(f5);
+        MapCodec<F6> mc6 = mapCodecFor(f6);
+        MapCodec<F7> mc7 = mapCodecFor(f7);
+        MapCodec<F8> mc8 = mapCodecFor(f8);
+        MapCodec<F9> mc9 = mapCodecFor(f9);
+        MapCodec<A> mapCodec = RecordCodecBuilder.mapCodec(i -> i.group(
+                mc1.forGetter(f1.getter),
+                mc2.forGetter(f2.getter),
+                mc3.forGetter(f3.getter),
+                mc4.forGetter(f4.getter),
+                mc5.forGetter(f5.getter),
+                mc6.forGetter(f6.getter),
+                mc7.forGetter(f7.getter),
+                mc8.forGetter(f8.getter),
+                mc9.forGetter(f9.getter)
+        ).apply(i, ctor));
+        return SchemaMapCodec.of(mapCodec, buildSchema());
+    }
+
+    public <F1, F2, F3, F4, F5, F6, F7, F8, F9, F10> SchemaMapCodec<A> buildMapCodec10(Function10<F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, A> ctor,
+                                                                                       Field<A, F1> f1, Field<A, F2> f2, Field<A, F3> f3, Field<A, F4> f4, Field<A, F5> f5, Field<A, F6> f6, Field<A, F7> f7, Field<A, F8> f8, Field<A, F9> f9, Field<A, F10> f10) {
+        validate(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10);
+        MapCodec<F1> mc1 = mapCodecFor(f1);
+        MapCodec<F2> mc2 = mapCodecFor(f2);
+        MapCodec<F3> mc3 = mapCodecFor(f3);
+        MapCodec<F4> mc4 = mapCodecFor(f4);
+        MapCodec<F5> mc5 = mapCodecFor(f5);
+        MapCodec<F6> mc6 = mapCodecFor(f6);
+        MapCodec<F7> mc7 = mapCodecFor(f7);
+        MapCodec<F8> mc8 = mapCodecFor(f8);
+        MapCodec<F9> mc9 = mapCodecFor(f9);
+        MapCodec<F10> mc10 = mapCodecFor(f10);
+        MapCodec<A> mapCodec = RecordCodecBuilder.mapCodec(i -> i.group(
+                mc1.forGetter(f1.getter),
+                mc2.forGetter(f2.getter),
+                mc3.forGetter(f3.getter),
+                mc4.forGetter(f4.getter),
+                mc5.forGetter(f5.getter),
+                mc6.forGetter(f6.getter),
+                mc7.forGetter(f7.getter),
+                mc8.forGetter(f8.getter),
+                mc9.forGetter(f9.getter),
+                mc10.forGetter(f10.getter)
+        ).apply(i, ctor));
+        return SchemaMapCodec.of(mapCodec, buildSchema());
+    }
+
+    public <F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11> SchemaMapCodec<A> buildMapCodec11(Function11<F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, A> ctor,
+                                                                                            Field<A, F1> f1, Field<A, F2> f2, Field<A, F3> f3, Field<A, F4> f4, Field<A, F5> f5, Field<A, F6> f6, Field<A, F7> f7, Field<A, F8> f8, Field<A, F9> f9, Field<A, F10> f10, Field<A, F11> f11) {
+        validate(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11);
+        MapCodec<F1> mc1 = mapCodecFor(f1);
+        MapCodec<F2> mc2 = mapCodecFor(f2);
+        MapCodec<F3> mc3 = mapCodecFor(f3);
+        MapCodec<F4> mc4 = mapCodecFor(f4);
+        MapCodec<F5> mc5 = mapCodecFor(f5);
+        MapCodec<F6> mc6 = mapCodecFor(f6);
+        MapCodec<F7> mc7 = mapCodecFor(f7);
+        MapCodec<F8> mc8 = mapCodecFor(f8);
+        MapCodec<F9> mc9 = mapCodecFor(f9);
+        MapCodec<F10> mc10 = mapCodecFor(f10);
+        MapCodec<F11> mc11 = mapCodecFor(f11);
+        MapCodec<A> mapCodec = RecordCodecBuilder.mapCodec(i -> i.group(
+                mc1.forGetter(f1.getter),
+                mc2.forGetter(f2.getter),
+                mc3.forGetter(f3.getter),
+                mc4.forGetter(f4.getter),
+                mc5.forGetter(f5.getter),
+                mc6.forGetter(f6.getter),
+                mc7.forGetter(f7.getter),
+                mc8.forGetter(f8.getter),
+                mc9.forGetter(f9.getter),
+                mc10.forGetter(f10.getter),
+                mc11.forGetter(f11.getter)
+        ).apply(i, ctor));
+        return SchemaMapCodec.of(mapCodec, buildSchema());
+    }
+
+    public <F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12> SchemaMapCodec<A> buildMapCodec12(Function12<F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, A> ctor,
+                                                                                                 Field<A, F1> f1, Field<A, F2> f2, Field<A, F3> f3, Field<A, F4> f4, Field<A, F5> f5, Field<A, F6> f6, Field<A, F7> f7, Field<A, F8> f8, Field<A, F9> f9, Field<A, F10> f10, Field<A, F11> f11, Field<A, F12> f12) {
+        validate(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12);
+        MapCodec<F1> mc1 = mapCodecFor(f1);
+        MapCodec<F2> mc2 = mapCodecFor(f2);
+        MapCodec<F3> mc3 = mapCodecFor(f3);
+        MapCodec<F4> mc4 = mapCodecFor(f4);
+        MapCodec<F5> mc5 = mapCodecFor(f5);
+        MapCodec<F6> mc6 = mapCodecFor(f6);
+        MapCodec<F7> mc7 = mapCodecFor(f7);
+        MapCodec<F8> mc8 = mapCodecFor(f8);
+        MapCodec<F9> mc9 = mapCodecFor(f9);
+        MapCodec<F10> mc10 = mapCodecFor(f10);
+        MapCodec<F11> mc11 = mapCodecFor(f11);
+        MapCodec<F12> mc12 = mapCodecFor(f12);
+        MapCodec<A> mapCodec = RecordCodecBuilder.mapCodec(i -> i.group(
+                mc1.forGetter(f1.getter),
+                mc2.forGetter(f2.getter),
+                mc3.forGetter(f3.getter),
+                mc4.forGetter(f4.getter),
+                mc5.forGetter(f5.getter),
+                mc6.forGetter(f6.getter),
+                mc7.forGetter(f7.getter),
+                mc8.forGetter(f8.getter),
+                mc9.forGetter(f9.getter),
+                mc10.forGetter(f10.getter),
+                mc11.forGetter(f11.getter),
+                mc12.forGetter(f12.getter)
+        ).apply(i, ctor));
+        return SchemaMapCodec.of(mapCodec, buildSchema());
+    }
+
+    public <F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13> SchemaMapCodec<A> buildMapCodec13(Function13<F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, A> ctor,
+                                                                                                      Field<A, F1> f1, Field<A, F2> f2, Field<A, F3> f3, Field<A, F4> f4, Field<A, F5> f5, Field<A, F6> f6, Field<A, F7> f7, Field<A, F8> f8, Field<A, F9> f9, Field<A, F10> f10, Field<A, F11> f11, Field<A, F12> f12, Field<A, F13> f13) {
+        validate(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13);
+        MapCodec<F1> mc1 = mapCodecFor(f1);
+        MapCodec<F2> mc2 = mapCodecFor(f2);
+        MapCodec<F3> mc3 = mapCodecFor(f3);
+        MapCodec<F4> mc4 = mapCodecFor(f4);
+        MapCodec<F5> mc5 = mapCodecFor(f5);
+        MapCodec<F6> mc6 = mapCodecFor(f6);
+        MapCodec<F7> mc7 = mapCodecFor(f7);
+        MapCodec<F8> mc8 = mapCodecFor(f8);
+        MapCodec<F9> mc9 = mapCodecFor(f9);
+        MapCodec<F10> mc10 = mapCodecFor(f10);
+        MapCodec<F11> mc11 = mapCodecFor(f11);
+        MapCodec<F12> mc12 = mapCodecFor(f12);
+        MapCodec<F13> mc13 = mapCodecFor(f13);
+        MapCodec<A> mapCodec = RecordCodecBuilder.mapCodec(i -> i.group(
+                mc1.forGetter(f1.getter),
+                mc2.forGetter(f2.getter),
+                mc3.forGetter(f3.getter),
+                mc4.forGetter(f4.getter),
+                mc5.forGetter(f5.getter),
+                mc6.forGetter(f6.getter),
+                mc7.forGetter(f7.getter),
+                mc8.forGetter(f8.getter),
+                mc9.forGetter(f9.getter),
+                mc10.forGetter(f10.getter),
+                mc11.forGetter(f11.getter),
+                mc12.forGetter(f12.getter),
+                mc13.forGetter(f13.getter)
+        ).apply(i, ctor));
+        return SchemaMapCodec.of(mapCodec, buildSchema());
+    }
+
+    public <F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14> SchemaMapCodec<A> buildMapCodec14(Function14<F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, A> ctor,
+                                                                                                           Field<A, F1> f1, Field<A, F2> f2, Field<A, F3> f3, Field<A, F4> f4, Field<A, F5> f5, Field<A, F6> f6, Field<A, F7> f7, Field<A, F8> f8, Field<A, F9> f9, Field<A, F10> f10, Field<A, F11> f11, Field<A, F12> f12, Field<A, F13> f13, Field<A, F14> f14) {
+        validate(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14);
+        MapCodec<F1> mc1 = mapCodecFor(f1);
+        MapCodec<F2> mc2 = mapCodecFor(f2);
+        MapCodec<F3> mc3 = mapCodecFor(f3);
+        MapCodec<F4> mc4 = mapCodecFor(f4);
+        MapCodec<F5> mc5 = mapCodecFor(f5);
+        MapCodec<F6> mc6 = mapCodecFor(f6);
+        MapCodec<F7> mc7 = mapCodecFor(f7);
+        MapCodec<F8> mc8 = mapCodecFor(f8);
+        MapCodec<F9> mc9 = mapCodecFor(f9);
+        MapCodec<F10> mc10 = mapCodecFor(f10);
+        MapCodec<F11> mc11 = mapCodecFor(f11);
+        MapCodec<F12> mc12 = mapCodecFor(f12);
+        MapCodec<F13> mc13 = mapCodecFor(f13);
+        MapCodec<F14> mc14 = mapCodecFor(f14);
+        MapCodec<A> mapCodec = RecordCodecBuilder.mapCodec(i -> i.group(
+                mc1.forGetter(f1.getter),
+                mc2.forGetter(f2.getter),
+                mc3.forGetter(f3.getter),
+                mc4.forGetter(f4.getter),
+                mc5.forGetter(f5.getter),
+                mc6.forGetter(f6.getter),
+                mc7.forGetter(f7.getter),
+                mc8.forGetter(f8.getter),
+                mc9.forGetter(f9.getter),
+                mc10.forGetter(f10.getter),
+                mc11.forGetter(f11.getter),
+                mc12.forGetter(f12.getter),
+                mc13.forGetter(f13.getter),
+                mc14.forGetter(f14.getter)
+        ).apply(i, ctor));
+        return SchemaMapCodec.of(mapCodec, buildSchema());
+    }
+
     public record Field<A, F>(String name, SchemaCodec<F> codec, boolean optional,
                               @Nullable F defaultValue, Function<A, F> getter) {}
 }
