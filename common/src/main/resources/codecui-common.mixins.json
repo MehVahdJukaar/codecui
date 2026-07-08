@@ -4,6 +4,12 @@
   "compatibilityLevel": "JAVA_21",
   "package": "net.mehvahdjukaar.codecui.mixins",
   "mixins": [
+    "CodecXmapMixin",
+    "MapCodecXmapMixin",
+    "RecordCodecBuilderMixin",
+    "RecordCodecBuilderInstanceMixin",
+    "RegistryByNameCodecMixin",
+    "StringRepresentableCodecMixin"
   ],
   "client": [
   ],
