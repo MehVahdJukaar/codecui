@@ -11,11 +11,12 @@
     "homepage": "${mod_homepage}",
     "sources": "${mod_github}"
   },
+  "accessWidener": "${mod_id}.accesswidener",
   "license": "${mod_license}",
   "icon": "icon.png",
   "environment": "client",
   "entrypoints": {
-    "common": [
+    "client": [
       "net.mehvahdjukaar.codecui.platform.CodecUIFabric"
     ]
   },
@@ -24,8 +25,8 @@
     "${mod_id}-common.mixins.json"
   ],
   "depends": {
-    "fabricloader": ">=0.17",
-    "fabric": ">=0.116.0+1.21.1",
+    "fabricloader": ">=0.18",
+    "fabric": ">=0.140.0+1.21.11",
     "minecraft": "=${minecraft_version}"
   }
 }
