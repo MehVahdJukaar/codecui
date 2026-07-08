@@ -4,6 +4,9 @@ import com.mojang.datafixers.util.Either;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
+import net.mehvahdjukaar.codecui.internal.DispatchRegistry;
+import net.mehvahdjukaar.codecui.internal.SchemaResolver;
+import net.mehvahdjukaar.codecui.internal.SchemaTags;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceKey;
 
@@ -12,21 +15,58 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * Facade of the CodecUI declarative API: primitives and combinators that pair a {@link Codec}
  * with its {@link Schema}, so a mod can declare an editable surface for its own codecs and
  * have a CodecUI-aware editor render it.
  *
- * <p>This library performs <b>no</b> structural inference: every schema is stated explicitly —
- * here, via {@link SchemaCodec#of}, or via {@link SchemaRecord}/{@link SchemaRecordBuilder}.
- * An unknown raw codec degrades to {@link Schema.Opaque} (a raw-JSON editor) rather than being
- * guessed at. The declaration contract is simply: produce a {@link SchemaCodec} (or
- * {@link SchemaMapCodec}); the editor reads {@link SchemaCodec#schema()} off it.</p>
+ * <p>Schemas may be stated explicitly — here, via {@link SchemaCodec#of}, or via
+ * {@link SchemaRecord}/{@link SchemaRecordBuilder} — or inferred: {@link SchemaCodec#wrap}
+ * runs the bundled inference engine (structural walk + construction-mixin tags + registered
+ * companions/handlers). Anything the engine can't resolve degrades to {@link Schema.Opaque}
+ * (a raw-JSON editor). Extend the engine via {@link #registerCompanion}, {@link #registerHandler}
+ * and {@link #registerDispatchKeys}. The declaration contract is simply: produce a
+ * {@link SchemaCodec} (or {@link SchemaMapCodec}); the editor reads {@link SchemaCodec#schema()}.</p>
  */
 public final class SchemaCodecs {
 
     private SchemaCodecs() {}
+
+    // ---- inference-engine extension points (feed the resolver behind SchemaCodec.wrap) ----
+
+    /**
+     * Manually register a schema for a codec that can't be auto-introspected (opaque
+     * {@code Codec.of(enc, dec)} wrappers, etc.). After registration, any resolution of this
+     * codec — including nested inside another — finds the hand-crafted schema first.
+     */
+    public static <A> void registerCompanion(Codec<A> codec, Schema<A> schema) {
+        SchemaTags.tag(codec, schema);
+    }
+
+    /** Same as {@link #registerCompanion(Codec, Schema)} for a {@link MapCodec}. */
+    public static <A> void registerCompanion(MapCodec<A> codec, Schema<A> schema) {
+        SchemaTags.tag(codec, schema);
+    }
+
+    /**
+     * Register a {@link SchemaHandler} that teaches the resolver how to introspect a whole
+     * class of codecs. See {@link SchemaHandler} for contract, ordering and an example.
+     */
+    public static void registerHandler(SchemaHandler handler) {
+        SchemaResolver.registerHandler(handler);
+    }
+
+    /**
+     * Register the key set of a {@code Codec.dispatch(...)} family whose key type can't
+     * implement {@link EnumerableCodec} (vanilla or third-party K). Keys the dispatch accepts
+     * become entries in the variant picker, with fully resolved bodies.
+     */
+    public static <K> void registerDispatchKeys(Class<K> keyType, Supplier<List<K>> keys,
+                                                Function<K, MapCodec<?>> codecOf, Function<K, String> nameOf) {
+        DispatchRegistry.register(keyType, keys, codecOf, nameOf);
+    }
 
     // ---- primitive SchemaCodecs: declare a field without wrapping by hand ----
 

@@ -13,10 +13,11 @@ import java.util.function.Supplier;
  * to {@code static final SchemaCodec<X> CODEC = SchemaRecord.create(...)} (or {@code of}/
  * {@code lazy}) with no change for any code that uses it.
  *
- * <p>CodecUI performs <b>no</b> structural inference — declare the edit surface explicitly
- * via {@link #of}, {@link SchemaRecord}, {@link SchemaRecordBuilder} or the
- * {@link SchemaCodecs} combinators/primitives. A raw codec passed to {@link #wrap} that is
- * not already schema-carrying degrades to a {@link Schema.Opaque} (raw-JSON) surface.</p>
+ * <p>The edit surface can be declared explicitly via {@link #of}, {@link SchemaRecord},
+ * {@link SchemaRecordBuilder} or the {@link SchemaCodecs} combinators/primitives. A raw codec
+ * passed to {@link #wrap} is introspected by the bundled inference engine (structural walk +
+ * construction-mixin tags + registered companions/handlers); anything it can't resolve degrades
+ * to a {@link Schema.Opaque} (raw-JSON) surface.</p>
  */
 public sealed interface SchemaCodec<A> extends Codec<A> {
 
@@ -24,13 +25,14 @@ public sealed interface SchemaCodec<A> extends Codec<A> {
 
     /**
      * Return the codec unchanged when it already carries a schema; otherwise wrap it with a
-     * {@link Schema.Opaque} raw-JSON surface. (No inference engine is bundled here, so an
-     * unknown codec cannot be introspected — declare a real schema for a structured editor.)
+     * schema derived LAZILY by the inference engine on each {@link #schema()} call, so
+     * companions/handlers/registry content registered later are reflected. Anything the engine
+     * can't introspect degrades to a {@link Schema.Opaque} raw-JSON surface.
      */
     @SuppressWarnings("unchecked")
     static <A> SchemaCodec<A> wrap(Codec<A> codec) {
         if (codec instanceof SchemaCodec<?> sc) return (SchemaCodec<A>) sc;
-        return new SimpleSchemaCodec<>(codec, new Schema.Opaque<>(codec, null));
+        return lazy(codec, () -> net.mehvahdjukaar.codecui.internal.SchemaResolver.get().resolve(codec));
     }
 
     /** Wrap a raw codec with an explicit schema. */
