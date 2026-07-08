@@ -16,7 +16,7 @@
   "icon": "icon.png",
   "environment": "client",
   "entrypoints": {
-    "client": [
+    "main": [
       "net.mehvahdjukaar.codecui.platform.CodecUIFabric"
     ]
   },

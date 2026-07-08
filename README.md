@@ -9,22 +9,22 @@ nothing beyond Minecraft + DataFixerUpper.
 
 ## Adding it
 
-Published to [muon.rip](https://maven.muon.rip/releases). Jar-in-jar it so the library ships
-inside your mod:
+Published to the [somethingcatchy Nexus](https://registry.somethingcatchy.net/#browse/browse:maven-public).
+Jar-in-jar it so the library ships inside your mod:
 
 ```gradle
 repositories {
-    maven { url "https://maven.muon.rip/releases" }
+    maven { url "https://registry.somethingcatchy.net/repository/maven-public/" }
 }
 
 dependencies {
     // Fabric (Loom)
-    modImplementation "net.mehvahdjukaar:codecui-fabric:1.21.11-0.2.0"
-    include           "net.mehvahdjukaar:codecui-fabric:1.21.11-0.2.0"
+    modImplementation "net.mehvahdjukaar:codecui-fabric:1.21.11-0.4.0"
+    include           "net.mehvahdjukaar:codecui-fabric:1.21.11-0.4.0"
 
     // NeoForge (ModDevGradle)
-    implementation "net.mehvahdjukaar:codecui-neoforge:1.21.11-0.2.0"
-    jarJar         "net.mehvahdjukaar:codecui-neoforge:1.21.11-0.2.0"
+    implementation "net.mehvahdjukaar:codecui-neoforge:1.21.11-0.4.0"
+    jarJar         "net.mehvahdjukaar:codecui-neoforge:1.21.11-0.4.0"
 }
 ```
 

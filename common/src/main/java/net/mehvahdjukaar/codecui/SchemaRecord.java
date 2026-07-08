@@ -17,6 +17,7 @@ import com.mojang.datafixers.util.Function16;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
+import net.mehvahdjukaar.codecui.internal.BiggerCodecs;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -53,6 +54,23 @@ public final class SchemaRecord {
 
         public <F> FieldRef<A, F> field(String name, Codec<F> codec, Function<A, F> getter) {
             return field(name, SchemaCodec.wrap(codec), getter);
+        }
+
+        /**
+         * Field backed by an already-built {@link MapCodec} — e.g. a lenient wrapper that embeds
+         * its own key and default and recovers from malformed input. The map codec is used
+         * verbatim, so decode/encode semantics (including lenient fallback) are preserved exactly;
+         * {@code elementSchema} only supplies the schema the editor renders for the value. Treated
+         * as optional in the UI, since such wrappers always carry a fallback.
+         */
+        public <F> FieldRef<A, F> field(String name, MapCodec<F> mapCodec, SchemaCodec<F> elementSchema,
+                                        Function<A, F> getter) {
+            return new FieldRef<>(name, null, true, null, getter, mapCodec, elementSchema);
+        }
+
+        public <F> FieldRef<A, F> field(String name, MapCodec<F> mapCodec, Codec<F> elementSchema,
+                                        Function<A, F> getter) {
+            return field(name, mapCodec, SchemaCodec.wrap(elementSchema), getter);
         }
 
         public <F> FieldRef<A, F> optional(String name, SchemaCodec<F> codec, F defaultValue, Function<A, F> getter) {
@@ -175,6 +193,54 @@ public final class SchemaRecord {
                 FieldRef<A, F13> f13, FieldRef<A, F14> f14, FieldRef<A, F15> f15, FieldRef<A, F16> f16) {
             return new Group16<>(this, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16);
         }
+
+        // Arities 17..21 exceed DFU's built-in apply16; they route through BiggerCodecs.
+
+        public <F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17> Group17<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17> group(
+                FieldRef<A, F1> f1, FieldRef<A, F2> f2, FieldRef<A, F3> f3, FieldRef<A, F4> f4,
+                FieldRef<A, F5> f5, FieldRef<A, F6> f6, FieldRef<A, F7> f7, FieldRef<A, F8> f8,
+                FieldRef<A, F9> f9, FieldRef<A, F10> f10, FieldRef<A, F11> f11, FieldRef<A, F12> f12,
+                FieldRef<A, F13> f13, FieldRef<A, F14> f14, FieldRef<A, F15> f15, FieldRef<A, F16> f16,
+                FieldRef<A, F17> f17) {
+            return new Group17<>(this, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17);
+        }
+
+        public <F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18> Group18<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18> group(
+                FieldRef<A, F1> f1, FieldRef<A, F2> f2, FieldRef<A, F3> f3, FieldRef<A, F4> f4,
+                FieldRef<A, F5> f5, FieldRef<A, F6> f6, FieldRef<A, F7> f7, FieldRef<A, F8> f8,
+                FieldRef<A, F9> f9, FieldRef<A, F10> f10, FieldRef<A, F11> f11, FieldRef<A, F12> f12,
+                FieldRef<A, F13> f13, FieldRef<A, F14> f14, FieldRef<A, F15> f15, FieldRef<A, F16> f16,
+                FieldRef<A, F17> f17, FieldRef<A, F18> f18) {
+            return new Group18<>(this, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18);
+        }
+
+        public <F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19> Group19<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19> group(
+                FieldRef<A, F1> f1, FieldRef<A, F2> f2, FieldRef<A, F3> f3, FieldRef<A, F4> f4,
+                FieldRef<A, F5> f5, FieldRef<A, F6> f6, FieldRef<A, F7> f7, FieldRef<A, F8> f8,
+                FieldRef<A, F9> f9, FieldRef<A, F10> f10, FieldRef<A, F11> f11, FieldRef<A, F12> f12,
+                FieldRef<A, F13> f13, FieldRef<A, F14> f14, FieldRef<A, F15> f15, FieldRef<A, F16> f16,
+                FieldRef<A, F17> f17, FieldRef<A, F18> f18, FieldRef<A, F19> f19) {
+            return new Group19<>(this, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19);
+        }
+
+        public <F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, F20> Group20<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, F20> group(
+                FieldRef<A, F1> f1, FieldRef<A, F2> f2, FieldRef<A, F3> f3, FieldRef<A, F4> f4,
+                FieldRef<A, F5> f5, FieldRef<A, F6> f6, FieldRef<A, F7> f7, FieldRef<A, F8> f8,
+                FieldRef<A, F9> f9, FieldRef<A, F10> f10, FieldRef<A, F11> f11, FieldRef<A, F12> f12,
+                FieldRef<A, F13> f13, FieldRef<A, F14> f14, FieldRef<A, F15> f15, FieldRef<A, F16> f16,
+                FieldRef<A, F17> f17, FieldRef<A, F18> f18, FieldRef<A, F19> f19, FieldRef<A, F20> f20) {
+            return new Group20<>(this, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20);
+        }
+
+        public <F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, F20, F21> Group21<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, F20, F21> group(
+                FieldRef<A, F1> f1, FieldRef<A, F2> f2, FieldRef<A, F3> f3, FieldRef<A, F4> f4,
+                FieldRef<A, F5> f5, FieldRef<A, F6> f6, FieldRef<A, F7> f7, FieldRef<A, F8> f8,
+                FieldRef<A, F9> f9, FieldRef<A, F10> f10, FieldRef<A, F11> f11, FieldRef<A, F12> f12,
+                FieldRef<A, F13> f13, FieldRef<A, F14> f14, FieldRef<A, F15> f15, FieldRef<A, F16> f16,
+                FieldRef<A, F17> f17, FieldRef<A, F18> f18, FieldRef<A, F19> f19, FieldRef<A, F20> f20,
+                FieldRef<A, F21> f21) {
+            return new Group21<>(this, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21);
+        }
     }
 
     // ---- shared helpers ----
@@ -215,7 +281,8 @@ public final class SchemaRecord {
     /** Result of {@code instance.group(...)}; finishes with {@code .apply(instance, ctor)} then is built. */
     public sealed interface Group<A>
             permits Group1, Group2, Group3, Group4, Group5, Group6, Group7, Group8, Group9,
-                    Group10, Group11, Group12, Group13, Group14, Group15, Group16 {
+                    Group10, Group11, Group12, Group13, Group14, Group15, Group16,
+                    Group17, Group18, Group19, Group20, Group21 {
         SchemaCodec<A> build();
     }
 
@@ -963,6 +1030,296 @@ public final class SchemaRecord {
                     RecordCodecBuilder.of(f16.getter, mapCodecFor(f16))
             ).apply(i, ctor));
             return SchemaCodec.lazy(codec, () -> buildSchema(instance.type, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16));
+        }
+    }
+
+    // ---- Group17 ----
+
+    public static final class Group17<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17> implements Group<A> {
+        private final Instance<A> instance;
+        private final FieldRef<A, F1> f1; private final FieldRef<A, F2> f2; private final FieldRef<A, F3> f3;
+        private final FieldRef<A, F4> f4; private final FieldRef<A, F5> f5; private final FieldRef<A, F6> f6;
+        private final FieldRef<A, F7> f7; private final FieldRef<A, F8> f8; private final FieldRef<A, F9> f9;
+        private final FieldRef<A, F10> f10; private final FieldRef<A, F11> f11; private final FieldRef<A, F12> f12;
+        private final FieldRef<A, F13> f13; private final FieldRef<A, F14> f14; private final FieldRef<A, F15> f15;
+        private final FieldRef<A, F16> f16; private final FieldRef<A, F17> f17;
+        private BiggerCodecs.Function17<F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, A> ctor;
+
+        Group17(Instance<A> instance, FieldRef<A, F1> f1, FieldRef<A, F2> f2, FieldRef<A, F3> f3,
+                FieldRef<A, F4> f4, FieldRef<A, F5> f5, FieldRef<A, F6> f6, FieldRef<A, F7> f7,
+                FieldRef<A, F8> f8, FieldRef<A, F9> f9, FieldRef<A, F10> f10, FieldRef<A, F11> f11,
+                FieldRef<A, F12> f12, FieldRef<A, F13> f13, FieldRef<A, F14> f14, FieldRef<A, F15> f15,
+                FieldRef<A, F16> f16, FieldRef<A, F17> f17) {
+            this.instance = instance;
+            this.f1 = f1; this.f2 = f2; this.f3 = f3; this.f4 = f4; this.f5 = f5; this.f6 = f6; this.f7 = f7; this.f8 = f8;
+            this.f9 = f9; this.f10 = f10; this.f11 = f11; this.f12 = f12; this.f13 = f13; this.f14 = f14; this.f15 = f15; this.f16 = f16;
+            this.f17 = f17;
+        }
+
+        public Group17<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17> apply(Instance<A> i,
+                BiggerCodecs.Function17<F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, A> ctor) {
+            checkInstance(this.instance, i);
+            this.ctor = ctor;
+            return this;
+        }
+
+        @Override
+        public SchemaCodec<A> build() {
+            Codec<A> codec = RecordCodecBuilder.<A>create(i -> BiggerCodecs.group(i,
+                    RecordCodecBuilder.of(f1.getter, mapCodecFor(f1)),
+                    RecordCodecBuilder.of(f2.getter, mapCodecFor(f2)),
+                    RecordCodecBuilder.of(f3.getter, mapCodecFor(f3)),
+                    RecordCodecBuilder.of(f4.getter, mapCodecFor(f4)),
+                    RecordCodecBuilder.of(f5.getter, mapCodecFor(f5)),
+                    RecordCodecBuilder.of(f6.getter, mapCodecFor(f6)),
+                    RecordCodecBuilder.of(f7.getter, mapCodecFor(f7)),
+                    RecordCodecBuilder.of(f8.getter, mapCodecFor(f8)),
+                    RecordCodecBuilder.of(f9.getter, mapCodecFor(f9)),
+                    RecordCodecBuilder.of(f10.getter, mapCodecFor(f10)),
+                    RecordCodecBuilder.of(f11.getter, mapCodecFor(f11)),
+                    RecordCodecBuilder.of(f12.getter, mapCodecFor(f12)),
+                    RecordCodecBuilder.of(f13.getter, mapCodecFor(f13)),
+                    RecordCodecBuilder.of(f14.getter, mapCodecFor(f14)),
+                    RecordCodecBuilder.of(f15.getter, mapCodecFor(f15)),
+                    RecordCodecBuilder.of(f16.getter, mapCodecFor(f16)),
+                    RecordCodecBuilder.of(f17.getter, mapCodecFor(f17))
+            ).apply(i, ctor));
+            return SchemaCodec.lazy(codec, () -> buildSchema(instance.type, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17));
+        }
+    }
+
+    // ---- Group18 ----
+
+    public static final class Group18<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18> implements Group<A> {
+        private final Instance<A> instance;
+        private final FieldRef<A, F1> f1; private final FieldRef<A, F2> f2; private final FieldRef<A, F3> f3;
+        private final FieldRef<A, F4> f4; private final FieldRef<A, F5> f5; private final FieldRef<A, F6> f6;
+        private final FieldRef<A, F7> f7; private final FieldRef<A, F8> f8; private final FieldRef<A, F9> f9;
+        private final FieldRef<A, F10> f10; private final FieldRef<A, F11> f11; private final FieldRef<A, F12> f12;
+        private final FieldRef<A, F13> f13; private final FieldRef<A, F14> f14; private final FieldRef<A, F15> f15;
+        private final FieldRef<A, F16> f16; private final FieldRef<A, F17> f17; private final FieldRef<A, F18> f18;
+        private BiggerCodecs.Function18<F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, A> ctor;
+
+        Group18(Instance<A> instance, FieldRef<A, F1> f1, FieldRef<A, F2> f2, FieldRef<A, F3> f3,
+                FieldRef<A, F4> f4, FieldRef<A, F5> f5, FieldRef<A, F6> f6, FieldRef<A, F7> f7,
+                FieldRef<A, F8> f8, FieldRef<A, F9> f9, FieldRef<A, F10> f10, FieldRef<A, F11> f11,
+                FieldRef<A, F12> f12, FieldRef<A, F13> f13, FieldRef<A, F14> f14, FieldRef<A, F15> f15,
+                FieldRef<A, F16> f16, FieldRef<A, F17> f17, FieldRef<A, F18> f18) {
+            this.instance = instance;
+            this.f1 = f1; this.f2 = f2; this.f3 = f3; this.f4 = f4; this.f5 = f5; this.f6 = f6; this.f7 = f7; this.f8 = f8;
+            this.f9 = f9; this.f10 = f10; this.f11 = f11; this.f12 = f12; this.f13 = f13; this.f14 = f14; this.f15 = f15; this.f16 = f16;
+            this.f17 = f17; this.f18 = f18;
+        }
+
+        public Group18<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18> apply(Instance<A> i,
+                BiggerCodecs.Function18<F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, A> ctor) {
+            checkInstance(this.instance, i);
+            this.ctor = ctor;
+            return this;
+        }
+
+        @Override
+        public SchemaCodec<A> build() {
+            Codec<A> codec = RecordCodecBuilder.<A>create(i -> BiggerCodecs.group(i,
+                    RecordCodecBuilder.of(f1.getter, mapCodecFor(f1)),
+                    RecordCodecBuilder.of(f2.getter, mapCodecFor(f2)),
+                    RecordCodecBuilder.of(f3.getter, mapCodecFor(f3)),
+                    RecordCodecBuilder.of(f4.getter, mapCodecFor(f4)),
+                    RecordCodecBuilder.of(f5.getter, mapCodecFor(f5)),
+                    RecordCodecBuilder.of(f6.getter, mapCodecFor(f6)),
+                    RecordCodecBuilder.of(f7.getter, mapCodecFor(f7)),
+                    RecordCodecBuilder.of(f8.getter, mapCodecFor(f8)),
+                    RecordCodecBuilder.of(f9.getter, mapCodecFor(f9)),
+                    RecordCodecBuilder.of(f10.getter, mapCodecFor(f10)),
+                    RecordCodecBuilder.of(f11.getter, mapCodecFor(f11)),
+                    RecordCodecBuilder.of(f12.getter, mapCodecFor(f12)),
+                    RecordCodecBuilder.of(f13.getter, mapCodecFor(f13)),
+                    RecordCodecBuilder.of(f14.getter, mapCodecFor(f14)),
+                    RecordCodecBuilder.of(f15.getter, mapCodecFor(f15)),
+                    RecordCodecBuilder.of(f16.getter, mapCodecFor(f16)),
+                    RecordCodecBuilder.of(f17.getter, mapCodecFor(f17)),
+                    RecordCodecBuilder.of(f18.getter, mapCodecFor(f18))
+            ).apply(i, ctor));
+            return SchemaCodec.lazy(codec, () -> buildSchema(instance.type, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18));
+        }
+    }
+
+    // ---- Group19 ----
+
+    public static final class Group19<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19> implements Group<A> {
+        private final Instance<A> instance;
+        private final FieldRef<A, F1> f1; private final FieldRef<A, F2> f2; private final FieldRef<A, F3> f3;
+        private final FieldRef<A, F4> f4; private final FieldRef<A, F5> f5; private final FieldRef<A, F6> f6;
+        private final FieldRef<A, F7> f7; private final FieldRef<A, F8> f8; private final FieldRef<A, F9> f9;
+        private final FieldRef<A, F10> f10; private final FieldRef<A, F11> f11; private final FieldRef<A, F12> f12;
+        private final FieldRef<A, F13> f13; private final FieldRef<A, F14> f14; private final FieldRef<A, F15> f15;
+        private final FieldRef<A, F16> f16; private final FieldRef<A, F17> f17; private final FieldRef<A, F18> f18;
+        private final FieldRef<A, F19> f19;
+        private BiggerCodecs.Function19<F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, A> ctor;
+
+        Group19(Instance<A> instance, FieldRef<A, F1> f1, FieldRef<A, F2> f2, FieldRef<A, F3> f3,
+                FieldRef<A, F4> f4, FieldRef<A, F5> f5, FieldRef<A, F6> f6, FieldRef<A, F7> f7,
+                FieldRef<A, F8> f8, FieldRef<A, F9> f9, FieldRef<A, F10> f10, FieldRef<A, F11> f11,
+                FieldRef<A, F12> f12, FieldRef<A, F13> f13, FieldRef<A, F14> f14, FieldRef<A, F15> f15,
+                FieldRef<A, F16> f16, FieldRef<A, F17> f17, FieldRef<A, F18> f18, FieldRef<A, F19> f19) {
+            this.instance = instance;
+            this.f1 = f1; this.f2 = f2; this.f3 = f3; this.f4 = f4; this.f5 = f5; this.f6 = f6; this.f7 = f7; this.f8 = f8;
+            this.f9 = f9; this.f10 = f10; this.f11 = f11; this.f12 = f12; this.f13 = f13; this.f14 = f14; this.f15 = f15; this.f16 = f16;
+            this.f17 = f17; this.f18 = f18; this.f19 = f19;
+        }
+
+        public Group19<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19> apply(Instance<A> i,
+                BiggerCodecs.Function19<F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, A> ctor) {
+            checkInstance(this.instance, i);
+            this.ctor = ctor;
+            return this;
+        }
+
+        @Override
+        public SchemaCodec<A> build() {
+            Codec<A> codec = RecordCodecBuilder.<A>create(i -> BiggerCodecs.group(i,
+                    RecordCodecBuilder.of(f1.getter, mapCodecFor(f1)),
+                    RecordCodecBuilder.of(f2.getter, mapCodecFor(f2)),
+                    RecordCodecBuilder.of(f3.getter, mapCodecFor(f3)),
+                    RecordCodecBuilder.of(f4.getter, mapCodecFor(f4)),
+                    RecordCodecBuilder.of(f5.getter, mapCodecFor(f5)),
+                    RecordCodecBuilder.of(f6.getter, mapCodecFor(f6)),
+                    RecordCodecBuilder.of(f7.getter, mapCodecFor(f7)),
+                    RecordCodecBuilder.of(f8.getter, mapCodecFor(f8)),
+                    RecordCodecBuilder.of(f9.getter, mapCodecFor(f9)),
+                    RecordCodecBuilder.of(f10.getter, mapCodecFor(f10)),
+                    RecordCodecBuilder.of(f11.getter, mapCodecFor(f11)),
+                    RecordCodecBuilder.of(f12.getter, mapCodecFor(f12)),
+                    RecordCodecBuilder.of(f13.getter, mapCodecFor(f13)),
+                    RecordCodecBuilder.of(f14.getter, mapCodecFor(f14)),
+                    RecordCodecBuilder.of(f15.getter, mapCodecFor(f15)),
+                    RecordCodecBuilder.of(f16.getter, mapCodecFor(f16)),
+                    RecordCodecBuilder.of(f17.getter, mapCodecFor(f17)),
+                    RecordCodecBuilder.of(f18.getter, mapCodecFor(f18)),
+                    RecordCodecBuilder.of(f19.getter, mapCodecFor(f19))
+            ).apply(i, ctor));
+            return SchemaCodec.lazy(codec, () -> buildSchema(instance.type, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19));
+        }
+    }
+
+    // ---- Group20 ----
+
+    public static final class Group20<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, F20> implements Group<A> {
+        private final Instance<A> instance;
+        private final FieldRef<A, F1> f1; private final FieldRef<A, F2> f2; private final FieldRef<A, F3> f3;
+        private final FieldRef<A, F4> f4; private final FieldRef<A, F5> f5; private final FieldRef<A, F6> f6;
+        private final FieldRef<A, F7> f7; private final FieldRef<A, F8> f8; private final FieldRef<A, F9> f9;
+        private final FieldRef<A, F10> f10; private final FieldRef<A, F11> f11; private final FieldRef<A, F12> f12;
+        private final FieldRef<A, F13> f13; private final FieldRef<A, F14> f14; private final FieldRef<A, F15> f15;
+        private final FieldRef<A, F16> f16; private final FieldRef<A, F17> f17; private final FieldRef<A, F18> f18;
+        private final FieldRef<A, F19> f19; private final FieldRef<A, F20> f20;
+        private BiggerCodecs.Function20<F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, F20, A> ctor;
+
+        Group20(Instance<A> instance, FieldRef<A, F1> f1, FieldRef<A, F2> f2, FieldRef<A, F3> f3,
+                FieldRef<A, F4> f4, FieldRef<A, F5> f5, FieldRef<A, F6> f6, FieldRef<A, F7> f7,
+                FieldRef<A, F8> f8, FieldRef<A, F9> f9, FieldRef<A, F10> f10, FieldRef<A, F11> f11,
+                FieldRef<A, F12> f12, FieldRef<A, F13> f13, FieldRef<A, F14> f14, FieldRef<A, F15> f15,
+                FieldRef<A, F16> f16, FieldRef<A, F17> f17, FieldRef<A, F18> f18, FieldRef<A, F19> f19,
+                FieldRef<A, F20> f20) {
+            this.instance = instance;
+            this.f1 = f1; this.f2 = f2; this.f3 = f3; this.f4 = f4; this.f5 = f5; this.f6 = f6; this.f7 = f7; this.f8 = f8;
+            this.f9 = f9; this.f10 = f10; this.f11 = f11; this.f12 = f12; this.f13 = f13; this.f14 = f14; this.f15 = f15; this.f16 = f16;
+            this.f17 = f17; this.f18 = f18; this.f19 = f19; this.f20 = f20;
+        }
+
+        public Group20<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, F20> apply(Instance<A> i,
+                BiggerCodecs.Function20<F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, F20, A> ctor) {
+            checkInstance(this.instance, i);
+            this.ctor = ctor;
+            return this;
+        }
+
+        @Override
+        public SchemaCodec<A> build() {
+            Codec<A> codec = RecordCodecBuilder.<A>create(i -> BiggerCodecs.group(i,
+                    RecordCodecBuilder.of(f1.getter, mapCodecFor(f1)),
+                    RecordCodecBuilder.of(f2.getter, mapCodecFor(f2)),
+                    RecordCodecBuilder.of(f3.getter, mapCodecFor(f3)),
+                    RecordCodecBuilder.of(f4.getter, mapCodecFor(f4)),
+                    RecordCodecBuilder.of(f5.getter, mapCodecFor(f5)),
+                    RecordCodecBuilder.of(f6.getter, mapCodecFor(f6)),
+                    RecordCodecBuilder.of(f7.getter, mapCodecFor(f7)),
+                    RecordCodecBuilder.of(f8.getter, mapCodecFor(f8)),
+                    RecordCodecBuilder.of(f9.getter, mapCodecFor(f9)),
+                    RecordCodecBuilder.of(f10.getter, mapCodecFor(f10)),
+                    RecordCodecBuilder.of(f11.getter, mapCodecFor(f11)),
+                    RecordCodecBuilder.of(f12.getter, mapCodecFor(f12)),
+                    RecordCodecBuilder.of(f13.getter, mapCodecFor(f13)),
+                    RecordCodecBuilder.of(f14.getter, mapCodecFor(f14)),
+                    RecordCodecBuilder.of(f15.getter, mapCodecFor(f15)),
+                    RecordCodecBuilder.of(f16.getter, mapCodecFor(f16)),
+                    RecordCodecBuilder.of(f17.getter, mapCodecFor(f17)),
+                    RecordCodecBuilder.of(f18.getter, mapCodecFor(f18)),
+                    RecordCodecBuilder.of(f19.getter, mapCodecFor(f19)),
+                    RecordCodecBuilder.of(f20.getter, mapCodecFor(f20))
+            ).apply(i, ctor));
+            return SchemaCodec.lazy(codec, () -> buildSchema(instance.type, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20));
+        }
+    }
+
+    // ---- Group21 ----
+
+    public static final class Group21<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, F20, F21> implements Group<A> {
+        private final Instance<A> instance;
+        private final FieldRef<A, F1> f1; private final FieldRef<A, F2> f2; private final FieldRef<A, F3> f3;
+        private final FieldRef<A, F4> f4; private final FieldRef<A, F5> f5; private final FieldRef<A, F6> f6;
+        private final FieldRef<A, F7> f7; private final FieldRef<A, F8> f8; private final FieldRef<A, F9> f9;
+        private final FieldRef<A, F10> f10; private final FieldRef<A, F11> f11; private final FieldRef<A, F12> f12;
+        private final FieldRef<A, F13> f13; private final FieldRef<A, F14> f14; private final FieldRef<A, F15> f15;
+        private final FieldRef<A, F16> f16; private final FieldRef<A, F17> f17; private final FieldRef<A, F18> f18;
+        private final FieldRef<A, F19> f19; private final FieldRef<A, F20> f20; private final FieldRef<A, F21> f21;
+        private BiggerCodecs.Function21<F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, F20, F21, A> ctor;
+
+        Group21(Instance<A> instance, FieldRef<A, F1> f1, FieldRef<A, F2> f2, FieldRef<A, F3> f3,
+                FieldRef<A, F4> f4, FieldRef<A, F5> f5, FieldRef<A, F6> f6, FieldRef<A, F7> f7,
+                FieldRef<A, F8> f8, FieldRef<A, F9> f9, FieldRef<A, F10> f10, FieldRef<A, F11> f11,
+                FieldRef<A, F12> f12, FieldRef<A, F13> f13, FieldRef<A, F14> f14, FieldRef<A, F15> f15,
+                FieldRef<A, F16> f16, FieldRef<A, F17> f17, FieldRef<A, F18> f18, FieldRef<A, F19> f19,
+                FieldRef<A, F20> f20, FieldRef<A, F21> f21) {
+            this.instance = instance;
+            this.f1 = f1; this.f2 = f2; this.f3 = f3; this.f4 = f4; this.f5 = f5; this.f6 = f6; this.f7 = f7; this.f8 = f8;
+            this.f9 = f9; this.f10 = f10; this.f11 = f11; this.f12 = f12; this.f13 = f13; this.f14 = f14; this.f15 = f15; this.f16 = f16;
+            this.f17 = f17; this.f18 = f18; this.f19 = f19; this.f20 = f20; this.f21 = f21;
+        }
+
+        public Group21<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, F20, F21> apply(Instance<A> i,
+                BiggerCodecs.Function21<F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, F20, F21, A> ctor) {
+            checkInstance(this.instance, i);
+            this.ctor = ctor;
+            return this;
+        }
+
+        @Override
+        public SchemaCodec<A> build() {
+            Codec<A> codec = RecordCodecBuilder.<A>create(i -> BiggerCodecs.group(i,
+                    RecordCodecBuilder.of(f1.getter, mapCodecFor(f1)),
+                    RecordCodecBuilder.of(f2.getter, mapCodecFor(f2)),
+                    RecordCodecBuilder.of(f3.getter, mapCodecFor(f3)),
+                    RecordCodecBuilder.of(f4.getter, mapCodecFor(f4)),
+                    RecordCodecBuilder.of(f5.getter, mapCodecFor(f5)),
+                    RecordCodecBuilder.of(f6.getter, mapCodecFor(f6)),
+                    RecordCodecBuilder.of(f7.getter, mapCodecFor(f7)),
+                    RecordCodecBuilder.of(f8.getter, mapCodecFor(f8)),
+                    RecordCodecBuilder.of(f9.getter, mapCodecFor(f9)),
+                    RecordCodecBuilder.of(f10.getter, mapCodecFor(f10)),
+                    RecordCodecBuilder.of(f11.getter, mapCodecFor(f11)),
+                    RecordCodecBuilder.of(f12.getter, mapCodecFor(f12)),
+                    RecordCodecBuilder.of(f13.getter, mapCodecFor(f13)),
+                    RecordCodecBuilder.of(f14.getter, mapCodecFor(f14)),
+                    RecordCodecBuilder.of(f15.getter, mapCodecFor(f15)),
+                    RecordCodecBuilder.of(f16.getter, mapCodecFor(f16)),
+                    RecordCodecBuilder.of(f17.getter, mapCodecFor(f17)),
+                    RecordCodecBuilder.of(f18.getter, mapCodecFor(f18)),
+                    RecordCodecBuilder.of(f19.getter, mapCodecFor(f19)),
+                    RecordCodecBuilder.of(f20.getter, mapCodecFor(f20)),
+                    RecordCodecBuilder.of(f21.getter, mapCodecFor(f21))
+            ).apply(i, ctor));
+            return SchemaCodec.lazy(codec, () -> buildSchema(instance.type, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f21));
         }
     }
 

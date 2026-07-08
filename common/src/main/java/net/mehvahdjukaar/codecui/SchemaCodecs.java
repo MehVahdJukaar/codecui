@@ -4,6 +4,7 @@ import com.mojang.datafixers.util.Either;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
+import net.mehvahdjukaar.codecui.internal.AlternativeCodec;
 import net.mehvahdjukaar.codecui.internal.DispatchRegistry;
 import net.mehvahdjukaar.codecui.internal.SchemaResolver;
 import net.mehvahdjukaar.codecui.internal.SchemaTags;
@@ -226,6 +227,64 @@ public final class SchemaCodecs {
             }
             return Schema.anyOf(options);
         });
+    }
+
+    /**
+     * N-ary labeled alternatives: builds a "try each" wire codec (see {@link AlternativeCodec})
+     * AND a lazy flat {@link Schema.AnyOf} from the same declarations — each alternative stated
+     * once. Unlike {@link #withAlternative} (a 2-way {@link Codec#withAlternative} fold that always
+     * encodes with the primary), every alternative is tried for both decode and encode. Prefer
+     * passing {@link SchemaCodec}s so their schemas render structurally; a raw codec alternative
+     * falls back to {@link Schema.Opaque}. Alternatives that are themselves AnyOf splice flat.
+     */
+    @SafeVarargs
+    public static <A> SchemaCodec<A> alternatives(Alt<? extends A>... alternatives) {
+        if (alternatives.length == 0) {
+            throw new IllegalArgumentException("alternatives() requires at least one alternative");
+        }
+        @SuppressWarnings("unchecked")
+        Codec<? extends A>[] codecs = new Codec[alternatives.length];
+        for (int i = 0; i < alternatives.length; i++) {
+            codecs[i] = alternatives[i].codec();
+        }
+        Codec<A> codec = new AlternativeCodec<>(codecs);
+        return SchemaCodec.lazy(codec, () -> {
+            List<Schema.AnyOf.Option> options = new java.util.ArrayList<>(alternatives.length);
+            for (Alt<? extends A> alt : alternatives) {
+                options.add(Schema.option(alt.label(), resolve(alt.codec())));
+            }
+            return Schema.anyOf(options);
+        });
+    }
+
+    /** {@link #alternatives(Alt[])} stated as interleaved {@code (label, codec)} pairs. */
+    public static <A> SchemaCodec<A> alternatives(String l1, Codec<? extends A> c1,
+                                                  String l2, Codec<? extends A> c2) {
+        return alternatives(alt(l1, c1), alt(l2, c2));
+    }
+
+    /** {@link #alternatives(Alt[])} stated as interleaved {@code (label, codec)} pairs. */
+    public static <A> SchemaCodec<A> alternatives(String l1, Codec<? extends A> c1,
+                                                  String l2, Codec<? extends A> c2,
+                                                  String l3, Codec<? extends A> c3) {
+        return alternatives(alt(l1, c1), alt(l2, c2), alt(l3, c3));
+    }
+
+    /** {@link #alternatives(Alt[])} stated as interleaved {@code (label, codec)} pairs. */
+    public static <A> SchemaCodec<A> alternatives(String l1, Codec<? extends A> c1,
+                                                  String l2, Codec<? extends A> c2,
+                                                  String l3, Codec<? extends A> c3,
+                                                  String l4, Codec<? extends A> c4) {
+        return alternatives(alt(l1, c1), alt(l2, c2), alt(l3, c3), alt(l4, c4));
+    }
+
+    /** {@link #alternatives(Alt[])} stated as interleaved {@code (label, codec)} pairs. */
+    public static <A> SchemaCodec<A> alternatives(String l1, Codec<? extends A> c1,
+                                                  String l2, Codec<? extends A> c2,
+                                                  String l3, Codec<? extends A> c3,
+                                                  String l4, Codec<? extends A> c4,
+                                                  String l5, Codec<? extends A> c5) {
+        return alternatives(alt(l1, c1), alt(l2, c2), alt(l3, c3), alt(l4, c4), alt(l5, c5));
     }
 
     public static <L, R> SchemaCodec<Either<L, R>> either(SchemaCodec<L> left, SchemaCodec<R> right) {
