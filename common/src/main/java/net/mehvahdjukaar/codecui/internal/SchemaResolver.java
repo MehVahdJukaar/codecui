@@ -288,34 +288,11 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         // Tier 0b: lazy RecordCodecBuilder.build tag — rebuild the Schema.Record fresh from
         // the accumulated field entries. Cached only in the per-resolve cache (not SchemaTags),
         // so a companion registered after RCB.build() still affects the next resolve.
-        java.util.List<net.mehvahdjukaar.codecui.internal.RecordFieldTags.Entry> built =
-                net.mehvahdjukaar.codecui.internal.RecordFieldTags.getBuilt(codec);
+        java.util.List<RecordFieldTags.Entry> built = RecordFieldTags.getBuilt(codec);
         if (built != null && !built.isEmpty()) {
-            java.util.List<Schema.Field<?, ?>> fields = new java.util.ArrayList<>(built.size());
-            for (var e : built) {
-                Schema<?> fieldSchema;
-                boolean optional;
-                Object defaultValue = null;
-                if (e.mapCodec() != null) {
-                    Schema<?> mapSchema = resolveMapCodec((MapCodec) e.mapCodec(), cache);
-                    if (mapSchema instanceof Schema.Record<?> rec && rec.fields().size() == 1) {
-                        Schema.Field<?, ?> inner = rec.fields().get(0);
-                        fieldSchema = inner.schema();
-                        optional = inner.optional();
-                        defaultValue = inner.defaultValue();
-                    } else {
-                        fieldSchema = mapSchema;
-                        optional = false;
-                    }
-                } else {
-                    fieldSchema = resolveCodec((Codec) e.elementCodec(), cache);
-                    optional = false;
-                }
-                fields.add(new Schema.Field(e.name(), fieldSchema, optional, defaultValue));
-            }
-            Schema rec = new Schema.Record(Object.class, java.util.List.copyOf(fields));
+            Schema<?> rec = schemaFromRecordEntries(built, cache);
             cache.put(codec, rec);
-            return rec;
+            return (Schema<A>) rec;
         }
 
         // Tier 0c: eager side-channel tag (manual companion registrations via SchemaCodecs.registerCompanion).
@@ -341,8 +318,9 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         if (result == null) result = (Schema<A>) tierTwoMapStructural(codec, cache);
         if (result == null) result = (Schema<A>) tierThreeReflective(codec, cache);
         // Tier 3.5: transform-free unwrap. fieldOf first (rebuilds the named single-field record),
-        // then the generic captured-inner unwrap for shape-preserving MapCodec wrappers.
+        // then RCB built-output recovery (NeoForge), then generic captured-inner unwrap.
         if (result == null) result = (Schema<A>) unwrapFieldOf(codec, cache);
+        if (result == null) result = (Schema<A>) unwrapRecordCodec(codec, cache);
         if (result == null) result = (Schema<A>) unwrapCapturedInner(codec, cache);
         if (result == null) result = (Schema<A>) new Schema.Opaque<>(codec.codec(), null);
 
@@ -644,6 +622,44 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
     // built on the same private-field reflection the structural tiers already use — is what keeps
     // those leaves editable. Conservative and companion-overridable, exactly like tier 3.
 
+    /** {@code RecordCodecBuilder.build} output on NeoForge — walk the captured decoder tree. */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private @Nullable Schema<?> unwrapRecordCodec(MapCodec<?> codec, IdentityHashMap<Object, Schema<?>> cache) {
+        java.util.List<RecordFieldTags.Entry> extracted = RecordCodecUnwrapper.extractFields(codec);
+        if (extracted == null || extracted.isEmpty()) return null;
+        CodecUI.LOGGER.debug("[codec_ui] tier-3.5 RCB unwrap for {} ({} fields)",
+                codec.getClass().getName(), extracted.size());
+        return schemaFromRecordEntries(extracted, cache);
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private Schema<?> schemaFromRecordEntries(java.util.List<RecordFieldTags.Entry> entries,
+                                              IdentityHashMap<Object, Schema<?>> cache) {
+        java.util.List<Schema.Field<?, ?>> fields = new java.util.ArrayList<>(entries.size());
+        for (var e : entries) {
+            Schema<?> fieldSchema;
+            boolean optional;
+            Object defaultValue = null;
+            if (e.mapCodec() != null) {
+                Schema<?> mapSchema = resolveMapCodec((MapCodec) e.mapCodec(), cache);
+                if (mapSchema instanceof Schema.Record<?> rec && rec.fields().size() == 1) {
+                    Schema.Field<?, ?> inner = rec.fields().get(0);
+                    fieldSchema = inner.schema();
+                    optional = inner.optional();
+                    defaultValue = inner.defaultValue();
+                } else {
+                    fieldSchema = mapSchema;
+                    optional = false;
+                }
+            } else {
+                fieldSchema = resolveCodec((Codec) e.elementCodec(), cache);
+                optional = false;
+            }
+            fields.add(new Schema.Field(e.name(), fieldSchema, optional, defaultValue));
+        }
+        return new Schema.Record(Object.class, java.util.List.copyOf(fields));
+    }
+
     /** Required {@code Codec.fieldOf(name)} → {@code MapCodec.of(FieldEncoder, FieldDecoder, …)}:
      *  recover the field name + element codec and rebuild the single-field record (mirrors tier 0a). */
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -652,7 +668,9 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         if (fieldDec == null) return null;
         Object nameObj = readField(fieldDec, "name");
         Object elem = readField(fieldDec, "elementCodec");
-        if (!(nameObj instanceof String name) || !(elem instanceof Codec<?> inner)) return null;
+        if (!(nameObj instanceof String name)) return null;
+        Codec<?> inner = RecordCodecUnwrapper.decoderAsCodec(elem);
+        if (inner == null) return null;
         Schema<?> innerSchema = resolveCodec(inner, cache);
         Schema.Field field = new Schema.Field(name, innerSchema, false, null);
         return new Schema.Record(Object.class, java.util.List.of(field));

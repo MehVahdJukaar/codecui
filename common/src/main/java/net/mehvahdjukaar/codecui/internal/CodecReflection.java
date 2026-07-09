@@ -1,0 +1,284 @@
+package net.mehvahdjukaar.codecui.internal;
+
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
+import com.mojang.serialization.MapDecoder;
+import com.mojang.serialization.codecs.OptionalFieldCodec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import org.jetbrains.annotations.Nullable;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+
+/**
+ * Reflective introspection of DFU codec instances — tier-3 field scans, tier-3.5 wrapper/RCB
+ * recovery for NeoForge where construction mixins cannot run on the parent-layer DFU classes.
+ */
+final class CodecReflection {
+
+    private CodecReflection() {}
+
+    /** A codec-valued instance field discovered by {@link #scanInnerCodecs}. */
+    record ScannedInner(Object value, String fieldName) {}
+
+    /** Name + element codec recovered from a {@code fieldOf} {@link MapCodec}. */
+    record FieldOfEntry(String name, Codec<?> elementCodec) {}
+
+    // ---- Tier 3: scan instance fields for Codec / MapCodec values ----
+
+    static List<ScannedInner> scanInnerCodecs(Object codec) {
+        ArrayList<ScannedInner> inners = new ArrayList<>();
+        try {
+            for (Class<?> cls = codec.getClass(); cls != null && cls != Object.class; cls = cls.getSuperclass()) {
+                for (Field f : cls.getDeclaredFields()) {
+                    if (Modifier.isStatic(f.getModifiers())) continue;
+                    Class<?> t = f.getType();
+                    boolean single = Codec.class.isAssignableFrom(t) || MapCodec.class.isAssignableFrom(t);
+                    boolean array = t.isArray() && Codec.class.isAssignableFrom(t.getComponentType());
+                    if (!single && !array) continue;
+                    Object value = getFieldValue(f, codec);
+                    if (value == null || value == codec) continue;
+                    String name = f.getName().toLowerCase(Locale.ROOT);
+                    if (array) {
+                        for (Object o : (Object[]) value) {
+                            if (o != null && o != codec) inners.add(new ScannedInner(o, name));
+                        }
+                    } else {
+                        inners.add(new ScannedInner(value, name));
+                    }
+                }
+            }
+        } catch (Throwable ignored) {
+            return List.of();
+        }
+        return inners;
+    }
+
+    // ---- Tier 3.5: fieldOf unwrap ----
+
+    static @Nullable FieldOfEntry unwrapFieldOf(MapCodec<?> codec) {
+        Object fieldDec = findFieldValueByClassName(codec, "FieldDecoder");
+        if (fieldDec == null) return null;
+        Object nameObj = readField(fieldDec, "name");
+        Object elem = readField(fieldDec, "elementCodec");
+        if (!(nameObj instanceof String name)) return null;
+        Codec<?> inner = decoderAsCodec(elem);
+        return inner == null ? null : new FieldOfEntry(name, inner);
+    }
+
+    // ---- Tier 3.5: shape-preserving wrapper unwrap (xmap / validate / orElse / …) ----
+
+    static @Nullable Object singleCapturedInner(Object codec) {
+        Set<Object> inners = Collections.newSetFromMap(new IdentityHashMap<>());
+        Set<Object> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        collectCapturedInners(codec, codec, inners, visited, 0);
+        return inners.size() == 1 ? inners.iterator().next() : null;
+    }
+
+    // ---- Tier 3.5: RecordCodecBuilder.build output ----
+
+    static @Nullable List<RecordFieldTags.Entry> extractRecordFields(MapCodec<?> codec) {
+        if (!looksLikeRecordCodec(codec)) return null;
+
+        RecordCodecBuilder<?, ?> builder = findCapturedBuilder(codec);
+        if (builder == null) return null;
+
+        Object decoder = readField(builder, "decoder");
+        if (decoder == null) return null;
+
+        ArrayList<RecordFieldTags.Entry> fields = new ArrayList<>();
+        Set<Object> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        collectRecordDecoderFields(decoder, fields, visited, 0);
+        return fields.isEmpty() ? null : List.copyOf(fields);
+    }
+
+    // ---- Shared primitives ----
+
+    static @Nullable Codec<?> decoderAsCodec(@Nullable Object decoder) {
+        return decoder instanceof Codec<?> c ? c : null;
+    }
+
+    static @Nullable Object readField(Object obj, String name) {
+        for (Class<?> cls = obj.getClass(); cls != null && cls != Object.class; cls = cls.getSuperclass()) {
+            try {
+                return getFieldValue(cls.getDeclaredField(name), obj);
+            } catch (NoSuchFieldException ignored) {
+            } catch (Throwable t) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    static @Nullable Object findFieldValueByClassName(Object obj, String simpleNameSuffix) {
+        for (Class<?> cls = obj.getClass(); cls != null && cls != Object.class; cls = cls.getSuperclass()) {
+            for (Field f : cls.getDeclaredFields()) {
+                if (Modifier.isStatic(f.getModifiers())) continue;
+                Object v = getFieldValue(f, obj);
+                if (v != null && v.getClass().getSimpleName().endsWith(simpleNameSuffix)) return v;
+            }
+        }
+        return null;
+    }
+
+    private static @Nullable Object getFieldValue(Field f, Object obj) {
+        try {
+            f.setAccessible(true);
+            return f.get(obj);
+        } catch (Throwable inaccessible) {
+            return null;
+        }
+    }
+
+    private static void collectCapturedInners(Object root, Object current, Set<Object> inners,
+                                              Set<Object> visited, int depth) {
+        if (current == null || depth > 6 || !visited.add(current)) return;
+        for (Class<?> cls = current.getClass(); cls != null && cls != Object.class; cls = cls.getSuperclass()) {
+            for (Field f : cls.getDeclaredFields()) {
+                if (Modifier.isStatic(f.getModifiers())) continue;
+                Class<?> t = f.getType();
+                boolean wrapperTyped = com.mojang.serialization.Encoder.class.isAssignableFrom(t)
+                        || com.mojang.serialization.Decoder.class.isAssignableFrom(t)
+                        || com.mojang.serialization.MapEncoder.class.isAssignableFrom(t)
+                        || com.mojang.serialization.MapDecoder.class.isAssignableFrom(t);
+                if (!wrapperTyped) continue;
+                Object v = getFieldValue(f, current);
+                if (v == null || v == root || v == current) continue;
+                if (v instanceof Codec<?> || v instanceof MapCodec<?>) {
+                    inners.add(v);
+                } else {
+                    collectCapturedInners(root, v, inners, visited, depth + 1);
+                }
+            }
+        }
+    }
+
+    // ---- RCB decoder-tree walk ----
+
+    private static boolean looksLikeRecordCodec(MapCodec<?> codec) {
+        String cn = codec.getClass().getName();
+        if (cn.contains("RecordCodecBuilder")) return true;
+        return codec.toString().startsWith("RecordCodec[");
+    }
+
+    private static @Nullable RecordCodecBuilder<?, ?> findCapturedBuilder(MapCodec<?> codec) {
+        for (Class<?> cls = codec.getClass(); cls != null && cls != Object.class; cls = cls.getSuperclass()) {
+            for (Field f : cls.getDeclaredFields()) {
+                if (!RecordCodecBuilder.class.isAssignableFrom(f.getType())) continue;
+                Object v = getFieldValue(f, codec);
+                if (v instanceof RecordCodecBuilder<?, ?> rcb) return rcb;
+            }
+        }
+        return null;
+    }
+
+    private static void collectRecordDecoderFields(Object node, List<RecordFieldTags.Entry> out,
+                                                   Set<Object> visited, int depth) {
+        if (node == null || depth > 12 || !visited.add(node)) return;
+
+        RecordFieldTags.Entry direct = entryFromDecoderNode(node);
+        if (direct != null) {
+            if (out.stream().noneMatch(e -> e.name().equals(direct.name()))) {
+                out.add(direct);
+            }
+            return;
+        }
+
+        if (node instanceof MapDecoder<?> md && md.toString().endsWith("[mapped]")) {
+            Object inner = unwrapMappedDecoder(md);
+            if (inner != null) collectRecordDecoderFields(inner, out, visited, depth + 1);
+            return;
+        }
+
+        for (Class<?> cls = node.getClass(); cls != null && cls != Object.class; cls = cls.getSuperclass()) {
+            for (Field f : cls.getDeclaredFields()) {
+                if (Modifier.isStatic(f.getModifiers())) continue;
+                Object v = getFieldValue(f, node);
+                if (v == null || v == node) continue;
+                Class<?> t = f.getType();
+
+                if (RecordCodecBuilder.class.isAssignableFrom(t)) {
+                    RecordCodecBuilder<?, ?> rcb = (RecordCodecBuilder<?, ?>) v;
+                    if (!isApplicativeFunction(rcb)) {
+                        collectRecordDecoderFields(readField(rcb, "decoder"), out, visited, depth + 1);
+                    }
+                } else if (MapDecoder.class.isAssignableFrom(t) || MapCodec.class.isAssignableFrom(t)) {
+                    collectRecordDecoderFields(v, out, visited, depth + 1);
+                }
+            }
+        }
+    }
+
+    private static @Nullable RecordFieldTags.Entry entryFromDecoderNode(Object node) {
+        if (node instanceof OptionalFieldCodec<?> opt) {
+            return entryFromOptional(opt);
+        }
+        if (node instanceof MapCodec<?> mc) {
+            if (mc instanceof OptionalFieldCodec<?> opt) {
+                RecordFieldTags.Entry fromOpt = entryFromOptional(opt);
+                if (fromOpt != null) return fromOpt;
+            }
+            Object fieldDec = findFieldDecoder(mc);
+            if (fieldDec != null) return entryFromFieldDecoder(fieldDec);
+
+            Object inner = singleCapturedInner(mc);
+            if (inner != null && inner != mc) return entryFromDecoderNode(inner);
+        }
+        if (isFieldDecoder(node)) return entryFromFieldDecoder(node);
+        return null;
+    }
+
+    private static @Nullable RecordFieldTags.Entry entryFromOptional(OptionalFieldCodec<?> opt) {
+        String name = (String) readField(opt, "name");
+        Codec<?> elem = (Codec<?>) readField(opt, "elementCodec");
+        if (name == null || elem == null) return null;
+        return new RecordFieldTags.Entry(name, null, opt);
+    }
+
+    private static @Nullable RecordFieldTags.Entry entryFromFieldDecoder(Object fieldDec) {
+        Object nameObj = readField(fieldDec, "name");
+        Object elem = readField(fieldDec, "elementCodec");
+        if (!(nameObj instanceof String name)) return null;
+        Codec<?> codec = decoderAsCodec(elem);
+        return codec == null ? null : new RecordFieldTags.Entry(name, codec, null);
+    }
+
+    private static boolean isFieldDecoder(Object obj) {
+        return obj != null && obj.getClass().getName().endsWith("FieldDecoder");
+    }
+
+    private static @Nullable Object findFieldDecoder(Object mapCodec) {
+        for (Class<?> cls = mapCodec.getClass(); cls != null && cls != Object.class; cls = cls.getSuperclass()) {
+            for (Field f : cls.getDeclaredFields()) {
+                if (Modifier.isStatic(f.getModifiers())) continue;
+                Object v = getFieldValue(f, mapCodec);
+                if (v != null && isFieldDecoder(v)) return v;
+            }
+        }
+        return null;
+    }
+
+    private static @Nullable Object unwrapMappedDecoder(MapDecoder<?> mapped) {
+        for (Class<?> cls = mapped.getClass(); cls != null && cls != Object.class; cls = cls.getSuperclass()) {
+            for (Field f : cls.getDeclaredFields()) {
+                if (!MapDecoder.class.isAssignableFrom(f.getType())) continue;
+                Object v = getFieldValue(f, mapped);
+                if (v != null && v != mapped) return v;
+            }
+        }
+        return null;
+    }
+
+    private static boolean isApplicativeFunction(RecordCodecBuilder<?, ?> rcb) {
+        Object decoder = readField(rcb, "decoder");
+        if (decoder == null) return true;
+        String s = decoder.toString().toLowerCase(Locale.ROOT);
+        return s.contains("unit") || s.contains("empty");
+    }
+}
