@@ -259,6 +259,8 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         if (result == null) result = (Schema<A>) tierOnePrimitive(codec);
         if (result == null) result = (Schema<A>) tierTwoStructural(codec, cache);
         if (result == null) result = (Schema<A>) tierThreeReflective(codec, cache);
+        // Tier 3.5: transform-free unwrap of DFU combinator wrappers (xmap/validate/orElse/…).
+        if (result == null) result = (Schema<A>) unwrapCapturedInner(codec, cache);
         if (result == null) result = (Schema<A>) new Schema.Opaque<>(codec, null);
 
         ref.bind(result);
@@ -338,6 +340,10 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         Schema<A> result = (Schema<A>) tierCustomHandlers(codec, true);
         if (result == null) result = (Schema<A>) tierTwoMapStructural(codec, cache);
         if (result == null) result = (Schema<A>) tierThreeReflective(codec, cache);
+        // Tier 3.5: transform-free unwrap. fieldOf first (rebuilds the named single-field record),
+        // then the generic captured-inner unwrap for shape-preserving MapCodec wrappers.
+        if (result == null) result = (Schema<A>) unwrapFieldOf(codec, cache);
+        if (result == null) result = (Schema<A>) unwrapCapturedInner(codec, cache);
         if (result == null) result = (Schema<A>) new Schema.Opaque<>(codec.codec(), null);
 
         ref.bind(result);
@@ -625,6 +631,102 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         if (inner instanceof Codec<?> c) return resolveCodec(c, cache);
         if (inner instanceof MapCodec<?> m) return resolveMapCodec(m, cache);
         return new Schema.Opaque<>(null, null);
+    }
+
+    // ---- Tier 3.5: transform-free unwrap of DFU combinator wrappers ----
+    //
+    // DFU's xmap/validate/orElse/comapFlatMap/… return a Codec.of(Encoder, Decoder) whose inner
+    // codec is captured *inside* the Encoder/Decoder anonymous classes, and required fieldOf(name)
+    // returns a MapCodec.of(FieldEncoder, FieldDecoder). Tier-3's Codec-typed field scan can't see
+    // through those wrappers, so without a tag they'd fall back to raw JSON. On Fabric the
+    // construction mixins tag these first (tiers 0a/0d) and none of this runs; on NeoForge the
+    // mixins can't apply (DFU isn't on the transforming classloader), so this reflective recovery —
+    // built on the same private-field reflection the structural tiers already use — is what keeps
+    // those leaves editable. Conservative and companion-overridable, exactly like tier 3.
+
+    /** Required {@code Codec.fieldOf(name)} → {@code MapCodec.of(FieldEncoder, FieldDecoder, …)}:
+     *  recover the field name + element codec and rebuild the single-field record (mirrors tier 0a). */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private @Nullable Schema<?> unwrapFieldOf(MapCodec<?> codec, IdentityHashMap<Object, Schema<?>> cache) {
+        Object fieldDec = findFieldValueByClassName(codec, "FieldDecoder");
+        if (fieldDec == null) return null;
+        Object nameObj = readField(fieldDec, "name");
+        Object elem = readField(fieldDec, "elementCodec");
+        if (!(nameObj instanceof String name) || !(elem instanceof Codec<?> inner)) return null;
+        Schema<?> innerSchema = resolveCodec(inner, cache);
+        Schema.Field field = new Schema.Field(name, innerSchema, false, null);
+        return new Schema.Record(Object.class, java.util.List.of(field));
+    }
+
+    /** Follow {@code Encoder}/{@code Decoder}/{@code MapEncoder}/{@code MapDecoder}-typed fields into
+     *  the anonymous classes DFU builds for xmap/map/comap/validate/… to recover the single inner
+     *  codec, then inherit its schema (shape-preserving-wrapper assumption, same as the mixin's
+     *  inheritInner). Fires only when exactly one distinct inner codec is reachable. */
+    private @Nullable Schema<?> unwrapCapturedInner(Object codec, IdentityHashMap<Object, Schema<?>> cache) {
+        java.util.Set<Object> inners = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        java.util.Set<Object> visited = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        collectCapturedInners(codec, codec, inners, visited, 0);
+        if (inners.size() != 1) return null;
+        return resolveAny(inners.iterator().next(), cache);
+    }
+
+    private void collectCapturedInners(Object root, Object current, java.util.Set<Object> inners,
+                                       java.util.Set<Object> visited, int depth) {
+        if (current == null || depth > 6 || !visited.add(current)) return;
+        for (Class<?> cls = current.getClass(); cls != null && cls != Object.class; cls = cls.getSuperclass()) {
+            for (java.lang.reflect.Field f : cls.getDeclaredFields()) {
+                if (java.lang.reflect.Modifier.isStatic(f.getModifiers())) continue;
+                Class<?> t = f.getType();
+                boolean wrapperTyped = com.mojang.serialization.Encoder.class.isAssignableFrom(t)
+                        || com.mojang.serialization.Decoder.class.isAssignableFrom(t)
+                        || com.mojang.serialization.MapEncoder.class.isAssignableFrom(t)
+                        || com.mojang.serialization.MapDecoder.class.isAssignableFrom(t);
+                if (!wrapperTyped) continue;
+                Object v;
+                try {
+                    f.setAccessible(true);
+                    v = f.get(current);
+                } catch (Throwable inaccessible) {
+                    continue;
+                }
+                if (v == null || v == root || v == current) continue;
+                if (v instanceof Codec<?> || v instanceof MapCodec<?>) {
+                    inners.add(v);                                          // an actual inner codec
+                } else {
+                    collectCapturedInners(root, v, inners, visited, depth + 1); // a wrapper — descend
+                }
+            }
+        }
+    }
+
+    private static @Nullable Object findFieldValueByClassName(Object obj, String simpleNameSuffix) {
+        for (Class<?> cls = obj.getClass(); cls != null && cls != Object.class; cls = cls.getSuperclass()) {
+            for (java.lang.reflect.Field f : cls.getDeclaredFields()) {
+                if (java.lang.reflect.Modifier.isStatic(f.getModifiers())) continue;
+                try {
+                    f.setAccessible(true);
+                    Object v = f.get(obj);
+                    if (v != null && v.getClass().getSimpleName().endsWith(simpleNameSuffix)) return v;
+                } catch (Throwable ignored) {
+                }
+            }
+        }
+        return null;
+    }
+
+    private static @Nullable Object readField(Object obj, String name) {
+        for (Class<?> cls = obj.getClass(); cls != null && cls != Object.class; cls = cls.getSuperclass()) {
+            try {
+                java.lang.reflect.Field f = cls.getDeclaredField(name);
+                f.setAccessible(true);
+                return f.get(obj);
+            } catch (NoSuchFieldException e) {
+                // walk up
+            } catch (Throwable t) {
+                return null;
+            }
+        }
+        return null;
     }
 
     /**

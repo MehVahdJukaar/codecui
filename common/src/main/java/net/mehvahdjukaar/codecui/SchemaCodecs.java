@@ -1,21 +1,38 @@
 package net.mehvahdjukaar.codecui;
 
 import com.mojang.datafixers.util.Either;
+import com.mojang.datafixers.util.Function5;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import net.mehvahdjukaar.codecui.internal.AlternativeCodec;
+import net.mehvahdjukaar.codecui.internal.AlternativeMapCodec;
+import net.mehvahdjukaar.codecui.internal.BestAlternativeCodec;
 import net.mehvahdjukaar.codecui.internal.DispatchRegistry;
+import net.mehvahdjukaar.codecui.internal.EitherLeftCodec;
+import net.mehvahdjukaar.codecui.internal.LenientCodecWithLog;
+import net.mehvahdjukaar.codecui.internal.LenientUnboundedMapCodec;
+import net.mehvahdjukaar.codecui.internal.PostProcessCodecs;
+import net.mehvahdjukaar.codecui.internal.ReferenceOrDirectCodec;
 import net.mehvahdjukaar.codecui.internal.SchemaResolver;
 import net.mehvahdjukaar.codecui.internal.SchemaTags;
+import net.minecraft.core.Holder;
+import net.minecraft.core.HolderSet;
 import net.minecraft.core.Registry;
+import net.minecraft.core.RegistryCodecs;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.BiPredicate;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 /**
@@ -257,6 +274,26 @@ public final class SchemaCodecs {
         });
     }
 
+    /**
+     * Unlabeled n-ary "try each" alternatives over raw codecs — a flat {@link Schema.AnyOf} with
+     * auto-derived option names. Use the {@code (label, codec)} overloads or {@link #alt} when you
+     * want to name the picker options.
+     */
+    @SafeVarargs
+    public static <A> SchemaCodec<A> alternatives(Codec<? extends A>... codecs) {
+        if (codecs.length == 0) {
+            throw new IllegalArgumentException("alternatives() requires at least one alternative");
+        }
+        Codec<A> codec = new AlternativeCodec<>(codecs);
+        return SchemaCodec.lazy(codec, () -> {
+            List<Schema.AnyOf.Option> options = new java.util.ArrayList<>(codecs.length);
+            for (Codec<? extends A> c : codecs) {
+                options.add(Schema.option(resolve(c)));
+            }
+            return Schema.anyOf(options);
+        });
+    }
+
     /** {@link #alternatives(Alt[])} stated as interleaved {@code (label, codec)} pairs. */
     public static <A> SchemaCodec<A> alternatives(String l1, Codec<? extends A> c1,
                                                   String l2, Codec<? extends A> c2) {
@@ -318,4 +355,116 @@ public final class SchemaCodecs {
         Schema<A> schema = new Schema.OneOf<>(typeField, variantSchemas);
         return SchemaCodec.of(codec, schema);
     }
+
+    // ---- generic combinators (reusable across mods) ----
+
+    /**
+     * A "reference OR inline" codec (like {@code RegistryFileCodec} for simple map registries):
+     * a string decodes through {@code reference}, anything else through {@code direct}. Renders
+     * as a labeled reference/inline picker.
+     */
+    public static <E> SchemaCodec<E> referenceOrDirect(Codec<? extends E> reference, Codec<? extends E> direct) {
+        return referenceOrDirect(reference, direct, false);
+    }
+
+    public static <E> SchemaCodec<E> referenceOrDirect(Codec<? extends E> reference, Codec<? extends E> direct, boolean bothStrings) {
+        Codec<E> raw = new ReferenceOrDirectCodec<>(reference, direct, bothStrings);
+        return SchemaCodec.lazy(raw, () -> Schema.anyOf(
+                Schema.option("reference", resolve(reference)),
+                Schema.option("inline", resolve(direct))));
+    }
+
+    /** Try both alternatives and keep the "best" one per {@code chooseFirst} when both parse. */
+    public static <A, B extends A, C extends A> SchemaCodec<A> bestAlternative(
+            Codec<B> first, Codec<C> second, BiPredicate<B, C> chooseFirst) {
+        Codec<A> raw = new BestAlternativeCodec<>(first, second, chooseFirst);
+        return SchemaCodec.lazy(raw, () -> Schema.anyOf(
+                Schema.option(resolve(first)),
+                Schema.option(resolve(second))));
+    }
+
+    /** Decodes {@code A} and wraps it as {@link Either#left}; its schema IS the left branch's. */
+    public static <A, B> SchemaCodec<Either<A, B>> eitherLeft(Codec<A> leftCodec) {
+        Codec<Either<A, B>> raw = new EitherLeftCodec<>(leftCodec);
+        return SchemaCodec.lazy(raw, () -> castSchema(resolve(leftCodec)));
+    }
+
+    /** A single element OR a list of them — rendered as a "single / list" picker. */
+    public static <A> SchemaCodec<List<A>> singleOrList(Codec<A> elementCodec) {
+        Codec<List<A>> raw = Codec.withAlternative(elementCodec.listOf(), elementCodec, List::of);
+        return SchemaCodec.lazy(raw, () -> singleOrListSchema(elementCodec));
+    }
+
+    /** As {@link #singleOrList(Codec)} but collapsing to a single {@code A} via {@code listToSingle}. */
+    public static <A> SchemaCodec<A> singleOrList(Codec<A> elementCodec, Function<List<A>, A> listToSingle) {
+        Codec<A> raw = Codec.withAlternative(elementCodec, elementCodec.listOf(), listToSingle);
+        return SchemaCodec.lazy(raw, () -> castSchema(singleOrListSchema(elementCodec)));
+    }
+
+    private static <A> Schema<List<A>> singleOrListSchema(Codec<A> elementCodec) {
+        Schema<A> element = resolve(elementCodec);
+        return Schema.anyOf(
+                Schema.option("single", element),
+                Schema.option("list", new Schema.ListOf<>(element, 0, Integer.MAX_VALUE)));
+    }
+
+    /** An unbounded {@code Map} that logs and skips entries which fail to decode, instead of failing the whole map. */
+    public static <K, V> SchemaCodec<Map<K, V>> lenientUnboundedMap(Codec<K> keyCodec, Codec<V> valueCodec) {
+        Codec<Map<K, V>> raw = new LenientUnboundedMapCodec<>(keyCodec, valueCodec);
+        return SchemaCodec.lazy(raw, () -> new Schema.MapOf<>(resolve(keyCodec), resolve(valueCodec)));
+    }
+
+    /** An optional field that logs and skips (rather than failing) when its value can't decode. */
+    public static <A> MapCodec<A> lenientWithLog(Codec<A> elementCodec, String name, A defaultValue) {
+        return LenientCodecWithLog.of(elementCodec, name, defaultValue);
+    }
+
+    public static <A> MapCodec<Optional<A>> lenientWithLog(Codec<A> elementCodec, String name) {
+        return LenientCodecWithLog.of(elementCodec, name);
+    }
+
+    /** An optional field readable under either {@code primaryName} or {@code alias}. */
+    public static <B> MapCodec<Optional<B>> optionalAlias(Codec<B> codec, String primaryName, String alias) {
+        return AlternativeMapCodec.optionalAlias(codec, primaryName, alias);
+    }
+
+    /** A membership {@link Predicate} over a single-or-list of elements. */
+    public static <A> Codec<Predicate<A>> predicate(Codec<A> elementCodec) {
+        return singleOrList(elementCodec).xmap(
+                list -> a -> {
+                    for (var e : list) {
+                        if (e.equals(a)) return true;
+                    }
+                    return false;
+                },
+                predicate -> List.of());
+    }
+
+    /** Decode a base object plus up to four extra merged fields; the editor surface is the base's. */
+    public static <A, B, C, D, E> Codec<A> postProcess(Codec<A> base,
+                                                       MapCodec<B> c1, MapCodec<C> c2,
+                                                       MapCodec<D> c3, MapCodec<E> c4,
+                                                       Function5<A, B, C, D, E, A> f) {
+        Codec<A> raw = PostProcessCodecs.of(base, c1, c2, c3, c4, f);
+        return SchemaCodec.lazy(raw, () -> resolve(base));
+    }
+
+    // ---- Minecraft item helpers (lazy so registry access is deferred past class-load) ----
+
+    /** An {@link ItemStack} written either as a full stack object or as a bare item id. */
+    public static final Codec<ItemStack> ITEM_OR_STACK = Codec.lazyInitialized(() ->
+            Codec.withAlternative(ItemStack.SINGLE_ITEM_CODEC, BuiltInRegistries.ITEM.byNameCodec(),
+                    Item::getDefaultInstance));
+
+    private static final Codec<List<ItemStack>> ITEMSTACK_OR_ITEMSTACK_LIST = singleOrList(ITEM_OR_STACK);
+
+    private static final Codec<Supplier<List<ItemStack>>> ITEMSTACK_HOLDER_SET = RegistryCodecs.homogeneousList(Registries.ITEM)
+            .xmap(l -> () -> l.stream().map(Holder::value).map(ItemStack::new).toList(),
+                    s -> HolderSet.direct(s.get().stream().map(ItemStack::getItemHolder).toList()));
+
+    /** A single item/stack, a list of them, or an item tag/holder-set — all as a {@code Supplier<List<ItemStack>>}. */
+    public static final Codec<Supplier<List<ItemStack>>> ITEMSTACK_OR_LIST_OR_HOLDER_SET =
+            Codec.withAlternative(
+                    ITEMSTACK_OR_ITEMSTACK_LIST.xmap(l -> () -> l, Supplier::get),
+                    ITEMSTACK_HOLDER_SET);
 }
