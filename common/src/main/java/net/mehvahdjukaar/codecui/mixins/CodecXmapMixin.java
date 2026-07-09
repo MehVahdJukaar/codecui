@@ -28,80 +28,80 @@ import org.spongepowered.asm.mixin.injection.At;
 public interface CodecXmapMixin {
 
     @ModifyReturnValue(method = "xmap", at = @At("RETURN"))
-    private <S> Codec<S> polytone$tagXmap(Codec<S> wrapped) {
-        polytone$inheritInner(wrapped);
+    private <S> Codec<S> codecui$tagXmap(Codec<S> wrapped) {
+        codecui$inheritInner(wrapped);
         return wrapped;
     }
 
     @ModifyReturnValue(method = "flatXmap", at = @At("RETURN"))
-    private <S> Codec<S> polytone$tagFlatXmap(Codec<S> wrapped) {
-        polytone$inheritInner(wrapped);
+    private <S> Codec<S> codecui$tagFlatXmap(Codec<S> wrapped) {
+        codecui$inheritInner(wrapped);
         return wrapped;
     }
 
     @ModifyReturnValue(method = "comapFlatMap", at = @At("RETURN"))
-    private <S> Codec<S> polytone$tagComapFlatMap(Codec<S> wrapped) {
-        polytone$inheritInner(wrapped);
+    private <S> Codec<S> codecui$tagComapFlatMap(Codec<S> wrapped) {
+        codecui$inheritInner(wrapped);
         return wrapped;
     }
 
     @ModifyReturnValue(method = "flatComapMap", at = @At("RETURN"))
-    private <S> Codec<S> polytone$tagFlatComapMap(Codec<S> wrapped) {
-        polytone$inheritInner(wrapped);
+    private <S> Codec<S> codecui$tagFlatComapMap(Codec<S> wrapped) {
+        codecui$inheritInner(wrapped);
         return wrapped;
     }
 
     // Codec<A> validate(...) -> Codec<A>. Wrapper preserves A's schema.
     @ModifyReturnValue(method = "validate", at = @At("RETURN"))
-    private Codec<?> polytone$tagValidate(Codec<?> wrapped) {
-        polytone$inheritInner(wrapped);
+    private Codec<?> codecui$tagValidate(Codec<?> wrapped) {
+        codecui$inheritInner(wrapped);
         return wrapped;
     }
 
     @ModifyReturnValue(method = "mapResult", at = @At("RETURN"))
-    private Codec<?> polytone$tagMapResult(Codec<?> wrapped) {
-        polytone$inheritInner(wrapped);
+    private Codec<?> codecui$tagMapResult(Codec<?> wrapped) {
+        codecui$inheritInner(wrapped);
         return wrapped;
     }
 
     // orElse(A) -> Codec<A>. Schema unchanged.
     @ModifyReturnValue(method = "orElse(Ljava/lang/Object;)Lcom/mojang/serialization/Codec;",
             at = @At("RETURN"))
-    private Codec<?> polytone$tagOrElseValue(Codec<?> wrapped) {
-        polytone$inheritInner(wrapped);
+    private Codec<?> codecui$tagOrElseValue(Codec<?> wrapped) {
+        codecui$inheritInner(wrapped);
         return wrapped;
     }
 
     @ModifyReturnValue(method = "orElseGet(Ljava/util/function/Supplier;)Lcom/mojang/serialization/Codec;",
             at = @At("RETURN"))
-    private Codec<?> polytone$tagOrElseGetSupplier(Codec<?> wrapped) {
-        polytone$inheritInner(wrapped);
+    private Codec<?> codecui$tagOrElseGetSupplier(Codec<?> wrapped) {
+        codecui$inheritInner(wrapped);
         return wrapped;
     }
 
     @ModifyReturnValue(method = "promotePartial(Ljava/util/function/Consumer;)Lcom/mojang/serialization/Codec;",
             at = @At("RETURN"))
-    private Codec<?> polytone$tagPromotePartial(Codec<?> wrapped) {
-        polytone$inheritInner(wrapped);
+    private Codec<?> codecui$tagPromotePartial(Codec<?> wrapped) {
+        codecui$inheritInner(wrapped);
         return wrapped;
     }
 
     @ModifyReturnValue(method = "withLifecycle(Lcom/mojang/serialization/Lifecycle;)Lcom/mojang/serialization/Codec;",
             at = @At("RETURN"))
-    private Codec<?> polytone$tagWithLifecycle(Codec<?> wrapped) {
-        polytone$inheritInner(wrapped);
+    private Codec<?> codecui$tagWithLifecycle(Codec<?> wrapped) {
+        codecui$inheritInner(wrapped);
         return wrapped;
     }
 
     @ModifyReturnValue(method = "stable()Lcom/mojang/serialization/Codec;", at = @At("RETURN"))
-    private Codec<?> polytone$tagStable(Codec<?> wrapped) {
-        polytone$inheritInner(wrapped);
+    private Codec<?> codecui$tagStable(Codec<?> wrapped) {
+        codecui$inheritInner(wrapped);
         return wrapped;
     }
 
     @ModifyReturnValue(method = "deprecated(I)Lcom/mojang/serialization/Codec;", at = @At("RETURN"))
-    private Codec<?> polytone$tagDeprecated(Codec<?> wrapped) {
-        polytone$inheritInner(wrapped);
+    private Codec<?> codecui$tagDeprecated(Codec<?> wrapped) {
+        codecui$inheritInner(wrapped);
         return wrapped;
     }
 
@@ -111,40 +111,40 @@ public interface CodecXmapMixin {
     // 2-arg of(getter, MapCodec) form) can unwrap it and inline the inner field type.
     @ModifyReturnValue(method = "fieldOf(Ljava/lang/String;)Lcom/mojang/serialization/MapCodec;",
             at = @At("RETURN"))
-    private MapCodec<?> polytone$tagFieldOf(MapCodec<?> wrapped, @Local(argsOnly = true) String name) {
-        polytone$tagSingleField(wrapped, name, false, null);
+    private MapCodec<?> codecui$tagFieldOf(MapCodec<?> wrapped, @Local(argsOnly = true) String name) {
+        codecui$tagSingleField(wrapped, name, false, null);
         return wrapped;
     }
 
     @ModifyReturnValue(
             method = "optionalFieldOf(Ljava/lang/String;Ljava/lang/Object;)Lcom/mojang/serialization/MapCodec;",
             at = @At("RETURN"))
-    private MapCodec<?> polytone$tagOptionalFieldOfWithDefault(
+    private MapCodec<?> codecui$tagOptionalFieldOfWithDefault(
             MapCodec<?> wrapped, @Local(argsOnly = true) String name, @Local(argsOnly = true) Object defaultValue) {
-        polytone$tagSingleField(wrapped, name, true, defaultValue);
+        codecui$tagSingleField(wrapped, name, true, defaultValue);
         return wrapped;
     }
 
     @ModifyReturnValue(method = "optionalFieldOf(Ljava/lang/String;)Lcom/mojang/serialization/MapCodec;",
             at = @At("RETURN"))
-    private MapCodec<?> polytone$tagOptionalFieldOf(MapCodec<?> wrapped, @Local(argsOnly = true) String name) {
-        polytone$tagSingleField(wrapped, name, true, null);
+    private MapCodec<?> codecui$tagOptionalFieldOf(MapCodec<?> wrapped, @Local(argsOnly = true) String name) {
+        codecui$tagSingleField(wrapped, name, true, null);
         return wrapped;
     }
 
     @ModifyReturnValue(method = "lenientOptionalFieldOf(Ljava/lang/String;)Lcom/mojang/serialization/MapCodec;",
             at = @At("RETURN"))
-    private MapCodec<?> polytone$tagLenientOptionalFieldOf(MapCodec<?> wrapped, @Local(argsOnly = true) String name) {
-        polytone$tagSingleField(wrapped, name, true, null);
+    private MapCodec<?> codecui$tagLenientOptionalFieldOf(MapCodec<?> wrapped, @Local(argsOnly = true) String name) {
+        codecui$tagSingleField(wrapped, name, true, null);
         return wrapped;
     }
 
     @ModifyReturnValue(
             method = "lenientOptionalFieldOf(Ljava/lang/String;Ljava/lang/Object;)Lcom/mojang/serialization/MapCodec;",
             at = @At("RETURN"))
-    private MapCodec<?> polytone$tagLenientOptionalFieldOfWithDefault(
+    private MapCodec<?> codecui$tagLenientOptionalFieldOfWithDefault(
             MapCodec<?> wrapped, @Local(argsOnly = true) String name, @Local(argsOnly = true) Object defaultValue) {
-        polytone$tagSingleField(wrapped, name, true, defaultValue);
+        codecui$tagSingleField(wrapped, name, true, defaultValue);
         return wrapped;
     }
 
@@ -152,28 +152,28 @@ public interface CodecXmapMixin {
     // xmap-inheritance path would otherwise erase back to full-range primitives ----
 
     @ModifyReturnValue(method = "intRange", at = @At("RETURN"))
-    private static Codec<Integer> polytone$tagIntRange(Codec<Integer> wrapped,
+    private static Codec<Integer> codecui$tagIntRange(Codec<Integer> wrapped,
             @Local(argsOnly = true, ordinal = 0) int min, @Local(argsOnly = true, ordinal = 1) int max) {
         SchemaTags.tag(wrapped, new Schema.IntRange(min, max));
         return wrapped;
     }
 
     @ModifyReturnValue(method = "floatRange", at = @At("RETURN"))
-    private static Codec<Float> polytone$tagFloatRange(Codec<Float> wrapped,
+    private static Codec<Float> codecui$tagFloatRange(Codec<Float> wrapped,
             @Local(argsOnly = true, ordinal = 0) float min, @Local(argsOnly = true, ordinal = 1) float max) {
         SchemaTags.tag(wrapped, new Schema.FloatRange(min, max));
         return wrapped;
     }
 
     @ModifyReturnValue(method = "doubleRange", at = @At("RETURN"))
-    private static Codec<Double> polytone$tagDoubleRange(Codec<Double> wrapped,
+    private static Codec<Double> codecui$tagDoubleRange(Codec<Double> wrapped,
             @Local(argsOnly = true, ordinal = 0) double min, @Local(argsOnly = true, ordinal = 1) double max) {
         SchemaTags.tag(wrapped, new Schema.DoubleRange(min, max));
         return wrapped;
     }
 
     @ModifyReturnValue(method = "string(II)Lcom/mojang/serialization/Codec;", at = @At("RETURN"))
-    private static Codec<String> polytone$tagBoundedString(Codec<String> wrapped,
+    private static Codec<String> codecui$tagBoundedString(Codec<String> wrapped,
             @Local(argsOnly = true, ordinal = 0) int minSize, @Local(argsOnly = true, ordinal = 1) int maxSize) {
         SchemaTags.tag(wrapped, new Schema.Str(minSize, maxSize, null));
         return wrapped;
@@ -181,7 +181,7 @@ public interface CodecXmapMixin {
 
     @Unique
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private void polytone$tagSingleField(MapCodec<?> wrapped, String name, boolean optional, Object defaultValue) {
+    private void codecui$tagSingleField(MapCodec<?> wrapped, String name, boolean optional, Object defaultValue) {
         if (wrapped == null) return;
         try {
             // Store a LAZY tag: just (name, innerCodec). The resolver computes the inner
@@ -202,7 +202,7 @@ public interface CodecXmapMixin {
      */
     @Unique
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private void polytone$inheritInner(Codec<?> wrapped) {
+    private void codecui$inheritInner(Codec<?> wrapped) {
         if (wrapped == null || wrapped == (Object) this) return;
         try {
             // LAZY: just record (wrapped -> inner). Resolver resolves inner fresh at lookup time.

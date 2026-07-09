@@ -548,41 +548,15 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
     @SuppressWarnings({"unchecked", "rawtypes"})
     private @Nullable Schema<?> tierThreeReflective(Object codec,
                                                                               IdentityHashMap<Object, Schema<?>> cache) {
-        java.util.List<Object> inners = new java.util.ArrayList<>();
-        java.util.List<String> names = new java.util.ArrayList<>();
-        try {
-            for (Class<?> cls = codec.getClass(); cls != null && cls != Object.class; cls = cls.getSuperclass()) {
-                for (java.lang.reflect.Field f : cls.getDeclaredFields()) {
-                    if (java.lang.reflect.Modifier.isStatic(f.getModifiers())) continue;
-                    Class<?> t = f.getType();
-                    boolean single = Codec.class.isAssignableFrom(t) || MapCodec.class.isAssignableFrom(t);
-                    boolean array = t.isArray() && Codec.class.isAssignableFrom(t.getComponentType());
-                    if (!single && !array) continue;
-                    Object value;
-                    try {
-                        f.setAccessible(true);
-                        value = f.get(codec);
-                    } catch (Throwable inaccessible) {
-                        continue;
-                    }
-                    if (value == null || value == codec) continue;
-                    if (array) {
-                        for (Object o : (Object[]) value) {
-                            if (o != null && o != codec) {
-                                inners.add(o);
-                                names.add(f.getName().toLowerCase(java.util.Locale.ROOT));
-                            }
-                        }
-                    } else {
-                        inners.add(value);
-                        names.add(f.getName().toLowerCase(java.util.Locale.ROOT));
-                    }
-                }
-            }
-        } catch (Throwable ignored) {
-            return null;
+        java.util.List<CodecReflection.ScannedInner> scanned = CodecReflection.scanInnerCodecs(codec);
+        if (scanned.isEmpty()) return null;
+
+        java.util.List<Object> inners = new java.util.ArrayList<>(scanned.size());
+        java.util.List<String> names = new java.util.ArrayList<>(scanned.size());
+        for (CodecReflection.ScannedInner s : scanned) {
+            inners.add(s.value());
+            names.add(s.fieldName());
         }
-        if (inners.isEmpty()) return null;
 
         CodecUI.LOGGER.debug("[codec_ui] tier-3 reflective guess for {} ({} inner codecs: {})",
                 codec.getClass().getName(), inners.size(), names);
@@ -597,7 +571,6 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
             if (aKey && bVal) return new Schema.MapOf(resolveAny(inners.get(0), cache), resolveAny(inners.get(1), cache));
             if (bKey && aVal) return new Schema.MapOf(resolveAny(inners.get(1), cache), resolveAny(inners.get(0), cache));
         }
-        // "Try each in order" alternatives — one flat picker, auto "#N kind" labels.
         java.util.List<Schema.AnyOf.Option> options = new java.util.ArrayList<>(inners.size());
         for (Object inner : inners) {
             options.add(Schema.option(resolveAny(inner, cache)));
@@ -625,7 +598,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
     /** {@code RecordCodecBuilder.build} output on NeoForge — walk the captured decoder tree. */
     @SuppressWarnings({"unchecked", "rawtypes"})
     private @Nullable Schema<?> unwrapRecordCodec(MapCodec<?> codec, IdentityHashMap<Object, Schema<?>> cache) {
-        java.util.List<RecordFieldTags.Entry> extracted = RecordCodecUnwrapper.extractFields(codec);
+        java.util.List<RecordFieldTags.Entry> extracted = CodecReflection.extractRecordFields(codec);
         if (extracted == null || extracted.isEmpty()) return null;
         CodecUI.LOGGER.debug("[codec_ui] tier-3.5 RCB unwrap for {} ({} fields)",
                 codec.getClass().getName(), extracted.size());
@@ -664,16 +637,11 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
      *  recover the field name + element codec and rebuild the single-field record (mirrors tier 0a). */
     @SuppressWarnings({"unchecked", "rawtypes"})
     private @Nullable Schema<?> unwrapFieldOf(MapCodec<?> codec, IdentityHashMap<Object, Schema<?>> cache) {
-        Object fieldDec = findFieldValueByClassName(codec, "FieldDecoder");
-        if (fieldDec == null) return null;
-        Object nameObj = readField(fieldDec, "name");
-        Object elem = readField(fieldDec, "elementCodec");
-        if (!(nameObj instanceof String name)) return null;
-        Codec<?> inner = RecordCodecUnwrapper.decoderAsCodec(elem);
-        if (inner == null) return null;
-        Schema<?> innerSchema = resolveCodec(inner, cache);
-        Schema.Field field = new Schema.Field(name, innerSchema, false, null);
-        return new Schema.Record(Object.class, java.util.List.of(field));
+        CodecReflection.FieldOfEntry field = CodecReflection.unwrapFieldOf(codec);
+        if (field == null) return null;
+        Schema<?> innerSchema = resolveCodec(field.elementCodec(), cache);
+        Schema.Field f = new Schema.Field(field.name(), innerSchema, false, null);
+        return new Schema.Record(Object.class, java.util.List.of(f));
     }
 
     /** Follow {@code Encoder}/{@code Decoder}/{@code MapEncoder}/{@code MapDecoder}-typed fields into
@@ -681,70 +649,8 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
      *  codec, then inherit its schema (shape-preserving-wrapper assumption, same as the mixin's
      *  inheritInner). Fires only when exactly one distinct inner codec is reachable. */
     private @Nullable Schema<?> unwrapCapturedInner(Object codec, IdentityHashMap<Object, Schema<?>> cache) {
-        java.util.Set<Object> inners = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
-        java.util.Set<Object> visited = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
-        collectCapturedInners(codec, codec, inners, visited, 0);
-        if (inners.size() != 1) return null;
-        return resolveAny(inners.iterator().next(), cache);
-    }
-
-    private void collectCapturedInners(Object root, Object current, java.util.Set<Object> inners,
-                                       java.util.Set<Object> visited, int depth) {
-        if (current == null || depth > 6 || !visited.add(current)) return;
-        for (Class<?> cls = current.getClass(); cls != null && cls != Object.class; cls = cls.getSuperclass()) {
-            for (java.lang.reflect.Field f : cls.getDeclaredFields()) {
-                if (java.lang.reflect.Modifier.isStatic(f.getModifiers())) continue;
-                Class<?> t = f.getType();
-                boolean wrapperTyped = com.mojang.serialization.Encoder.class.isAssignableFrom(t)
-                        || com.mojang.serialization.Decoder.class.isAssignableFrom(t)
-                        || com.mojang.serialization.MapEncoder.class.isAssignableFrom(t)
-                        || com.mojang.serialization.MapDecoder.class.isAssignableFrom(t);
-                if (!wrapperTyped) continue;
-                Object v;
-                try {
-                    f.setAccessible(true);
-                    v = f.get(current);
-                } catch (Throwable inaccessible) {
-                    continue;
-                }
-                if (v == null || v == root || v == current) continue;
-                if (v instanceof Codec<?> || v instanceof MapCodec<?>) {
-                    inners.add(v);                                          // an actual inner codec
-                } else {
-                    collectCapturedInners(root, v, inners, visited, depth + 1); // a wrapper — descend
-                }
-            }
-        }
-    }
-
-    private static @Nullable Object findFieldValueByClassName(Object obj, String simpleNameSuffix) {
-        for (Class<?> cls = obj.getClass(); cls != null && cls != Object.class; cls = cls.getSuperclass()) {
-            for (java.lang.reflect.Field f : cls.getDeclaredFields()) {
-                if (java.lang.reflect.Modifier.isStatic(f.getModifiers())) continue;
-                try {
-                    f.setAccessible(true);
-                    Object v = f.get(obj);
-                    if (v != null && v.getClass().getSimpleName().endsWith(simpleNameSuffix)) return v;
-                } catch (Throwable ignored) {
-                }
-            }
-        }
-        return null;
-    }
-
-    private static @Nullable Object readField(Object obj, String name) {
-        for (Class<?> cls = obj.getClass(); cls != null && cls != Object.class; cls = cls.getSuperclass()) {
-            try {
-                java.lang.reflect.Field f = cls.getDeclaredField(name);
-                f.setAccessible(true);
-                return f.get(obj);
-            } catch (NoSuchFieldException e) {
-                // walk up
-            } catch (Throwable t) {
-                return null;
-            }
-        }
-        return null;
+        Object inner = CodecReflection.singleCapturedInner(codec);
+        return inner == null ? null : resolveAny(inner, cache);
     }
 
     /**

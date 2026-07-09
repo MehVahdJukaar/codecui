@@ -16,26 +16,26 @@ import org.spongepowered.asm.mixin.injection.At;
 public abstract class MapCodecXmapMixin {
 
     @ModifyReturnValue(method = "xmap", at = @At("RETURN"))
-    private MapCodec<?> polytone$tagXmap(MapCodec<?> wrapped) {
-        polytone$inheritInner(wrapped);
+    private MapCodec<?> codecui$tagXmap(MapCodec<?> wrapped) {
+        codecui$inheritInner(wrapped);
         return wrapped;
     }
 
     @ModifyReturnValue(method = "flatXmap", at = @At("RETURN"))
-    private MapCodec<?> polytone$tagFlatXmap(MapCodec<?> wrapped) {
-        polytone$inheritInner(wrapped);
+    private MapCodec<?> codecui$tagFlatXmap(MapCodec<?> wrapped) {
+        codecui$inheritInner(wrapped);
         return wrapped;
     }
 
     @ModifyReturnValue(method = "validate", at = @At("RETURN"))
-    private MapCodec<?> polytone$tagValidate(MapCodec<?> wrapped) {
-        polytone$inheritInner(wrapped);
+    private MapCodec<?> codecui$tagValidate(MapCodec<?> wrapped) {
+        codecui$inheritInner(wrapped);
         return wrapped;
     }
 
     @Unique
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private void polytone$inheritInner(MapCodec<?> wrapped) {
+    private void codecui$inheritInner(MapCodec<?> wrapped) {
         if (wrapped == null || wrapped == (Object) this) return;
         try {
             net.mehvahdjukaar.codecui.internal.XmapTags.putMap(

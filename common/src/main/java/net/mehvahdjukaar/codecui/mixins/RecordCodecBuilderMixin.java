@@ -39,7 +39,7 @@ public abstract class RecordCodecBuilderMixin {
     @ModifyReturnValue(
             method = "of(Ljava/util/function/Function;Ljava/lang/String;Lcom/mojang/serialization/Codec;)Lcom/mojang/serialization/codecs/RecordCodecBuilder;",
             at = @At("RETURN"))
-    private static RecordCodecBuilder<?, ?> polytone$tagOfNamed(
+    private static RecordCodecBuilder<?, ?> codecui$tagOfNamed(
             RecordCodecBuilder<?, ?> result,
             @Local(argsOnly = true) String name,
             @Local(argsOnly = true) Codec<?> fieldCodec) {
@@ -50,7 +50,7 @@ public abstract class RecordCodecBuilderMixin {
     @ModifyReturnValue(
             method = "of(Ljava/util/function/Function;Lcom/mojang/serialization/MapCodec;)Lcom/mojang/serialization/codecs/RecordCodecBuilder;",
             at = @At("RETURN"))
-    private static RecordCodecBuilder<?, ?> polytone$tagOfMap(
+    private static RecordCodecBuilder<?, ?> codecui$tagOfMap(
             RecordCodecBuilder<?, ?> result,
             @Local(argsOnly = true) MapCodec<?> mapCodec) {
         RecordFieldTags.singleMap(result, mapCodec);
@@ -64,7 +64,7 @@ public abstract class RecordCodecBuilderMixin {
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
     @ModifyReturnValue(method = "build", at = @At("RETURN"))
-    private static MapCodec<?> polytone$tagBuild(
+    private static MapCodec<?> codecui$tagBuild(
             MapCodec<?> result,
             @Local(argsOnly = true) App<?, ?> builderBox) {
         try {

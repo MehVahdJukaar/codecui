@@ -1,8 +1,6 @@
 package net.mehvahdjukaar.codecui.internal;
 
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.MapCodec;
-import com.mojang.serialization.MapDecoder;
+import com.mojang.serialization.*;
 import com.mojang.serialization.codecs.OptionalFieldCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import org.jetbrains.annotations.Nullable;
@@ -21,8 +19,6 @@ import java.util.Set;
  * recovery for NeoForge where construction mixins cannot run on the parent-layer DFU classes.
  */
 final class CodecReflection {
-
-    private CodecReflection() {}
 
     /** A codec-valued instance field discovered by {@link #scanInnerCodecs}. */
     record ScannedInner(Object value, String fieldName) {}
@@ -143,10 +139,10 @@ final class CodecReflection {
             for (Field f : cls.getDeclaredFields()) {
                 if (Modifier.isStatic(f.getModifiers())) continue;
                 Class<?> t = f.getType();
-                boolean wrapperTyped = com.mojang.serialization.Encoder.class.isAssignableFrom(t)
-                        || com.mojang.serialization.Decoder.class.isAssignableFrom(t)
-                        || com.mojang.serialization.MapEncoder.class.isAssignableFrom(t)
-                        || com.mojang.serialization.MapDecoder.class.isAssignableFrom(t);
+                boolean wrapperTyped = Encoder.class.isAssignableFrom(t)
+                        || Decoder.class.isAssignableFrom(t)
+                        || MapEncoder.class.isAssignableFrom(t)
+                        || MapDecoder.class.isAssignableFrom(t);
                 if (!wrapperTyped) continue;
                 Object v = getFieldValue(f, current);
                 if (v == null || v == root || v == current) continue;
@@ -258,7 +254,7 @@ final class CodecReflection {
             for (Field f : cls.getDeclaredFields()) {
                 if (Modifier.isStatic(f.getModifiers())) continue;
                 Object v = getFieldValue(f, mapCodec);
-                if (v != null && isFieldDecoder(v)) return v;
+                if (isFieldDecoder(v)) return v;
             }
         }
         return null;

@@ -26,7 +26,7 @@ public abstract class StringRepresentableCodecMixin {
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     @Inject(method = "<init>", at = @At("TAIL"))
-    private void polytone$tagEnum(StringRepresentable[] values, Function<String, ?> nameLookup,
+    private void codecui$tagEnum(StringRepresentable[] values, Function<String, ?> nameLookup,
                                   ToIntFunction<?> indexLookup, CallbackInfo ci) {
         try {
             Codec self = (Codec) (Object) this;

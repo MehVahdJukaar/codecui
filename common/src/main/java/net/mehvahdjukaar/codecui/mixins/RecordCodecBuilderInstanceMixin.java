@@ -21,34 +21,34 @@ public abstract class RecordCodecBuilderInstanceMixin {
 
     @SuppressWarnings("rawtypes")
     @ModifyReturnValue(method = "ap2", at = @At("RETURN"))
-    private App<?, ?> polytone$tagAp2(App<?, ?> result,
+    private App<?, ?> codecui$tagAp2(App<?, ?> result,
                                        @Local(argsOnly = true, ordinal = 0) App func,
                                        @Local(argsOnly = true, ordinal = 1) App a,
                                        @Local(argsOnly = true, ordinal = 2) App b) {
-        polytone$concat(result, func, a, b);
+        codecui$concat(result, func, a, b);
         return result;
     }
 
     @SuppressWarnings("rawtypes")
     @ModifyReturnValue(method = "ap3", at = @At("RETURN"))
-    private App<?, ?> polytone$tagAp3(App<?, ?> result,
+    private App<?, ?> codecui$tagAp3(App<?, ?> result,
                                        @Local(argsOnly = true, ordinal = 0) App func,
                                        @Local(argsOnly = true, ordinal = 1) App t1,
                                        @Local(argsOnly = true, ordinal = 2) App t2,
                                        @Local(argsOnly = true, ordinal = 3) App t3) {
-        polytone$concat(result, func, t1, t2, t3);
+        codecui$concat(result, func, t1, t2, t3);
         return result;
     }
 
     @SuppressWarnings("rawtypes")
     @ModifyReturnValue(method = "ap4", at = @At("RETURN"))
-    private App<?, ?> polytone$tagAp4(App<?, ?> result,
+    private App<?, ?> codecui$tagAp4(App<?, ?> result,
                                        @Local(argsOnly = true, ordinal = 0) App func,
                                        @Local(argsOnly = true, ordinal = 1) App t1,
                                        @Local(argsOnly = true, ordinal = 2) App t2,
                                        @Local(argsOnly = true, ordinal = 3) App t3,
                                        @Local(argsOnly = true, ordinal = 4) App t4) {
-        polytone$concat(result, func, t1, t2, t3, t4);
+        codecui$concat(result, func, t1, t2, t3, t4);
         return result;
     }
 
@@ -61,7 +61,7 @@ public abstract class RecordCodecBuilderInstanceMixin {
      */
     @SuppressWarnings("rawtypes")
     @ModifyReturnValue(method = "map", at = @At("RETURN"))
-    private App<?, ?> polytone$tagMap(App<?, ?> result, @Local(argsOnly = true) App ts) {
+    private App<?, ?> codecui$tagMap(App<?, ?> result, @Local(argsOnly = true) App ts) {
         try {
             if (result instanceof RecordCodecBuilder<?, ?> out && ts instanceof RecordCodecBuilder<?, ?> in) {
                 RecordFieldTags.copy(in, out);
@@ -80,7 +80,7 @@ public abstract class RecordCodecBuilderInstanceMixin {
      */
     @SuppressWarnings({"rawtypes", "unchecked"})
     @ModifyReturnValue(method = "lift1", at = @At("RETURN"))
-    private java.util.function.Function polytone$tagLift1(java.util.function.Function original,
+    private java.util.function.Function codecui$tagLift1(java.util.function.Function original,
                                                           @Local(argsOnly = true) App func) {
         return arg -> {
             Object result = original.apply(arg);
@@ -99,7 +99,7 @@ public abstract class RecordCodecBuilderInstanceMixin {
 
     @Unique
     @SuppressWarnings("rawtypes")
-    private static void polytone$concat(App<?, ?> result, App... inputs) {
+    private static void codecui$concat(App<?, ?> result, App... inputs) {
         try {
             if (!(result instanceof RecordCodecBuilder<?, ?> resultBuilder)) return;
             RecordCodecBuilder<?, ?>[] in = new RecordCodecBuilder[inputs.length];
