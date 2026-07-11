@@ -615,22 +615,41 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
             Object defaultValue = null;
             if (e.mapCodec() != null) {
                 Schema<?> mapSchema = resolveMapCodec((MapCodec) e.mapCodec(), cache);
-                if (mapSchema instanceof Schema.Record<?> rec && rec.fields().size() == 1) {
-                    Schema.Field<?, ?> inner = rec.fields().get(0);
-                    fieldSchema = inner.schema();
-                    optional = inner.optional();
-                    defaultValue = inner.defaultValue();
-                } else {
-                    fieldSchema = mapSchema;
-                    optional = false;
+                // A raw MapCodec included in a group — of(getter, MapCodec) — flattens its keys
+                // straight into the parent record (DFU never nests it). Only fieldOf("x") wraps a
+                // value into a single-key map. So a single-field Record is the fieldOf form
+                // (unwrap to one named field), while a multi-field Record is a grouped sub-codec
+                // like ClimateSettings / MobSpawnSettings whose fields must be SPREAD into the
+                // parent — nesting them under the sub-codec's first key produced malformed JSON
+                // (e.g. spawners/spawn_costs buried inside a phantom creature_spawn_probability).
+                if (mapSchema instanceof Schema.Record<?> rec) {
+                    if (rec.fields().size() == 1) {
+                        Schema.Field<?, ?> inner = rec.fields().get(0);
+                        addField(fields, new Schema.Field(e.name(), inner.schema(), inner.optional(), inner.defaultValue()));
+                    } else {
+                        for (Schema.Field<?, ?> f : rec.fields()) addField(fields, f);
+                    }
+                    continue;
                 }
+                fieldSchema = mapSchema;
+                optional = false;
             } else {
                 fieldSchema = resolveCodec((Codec) e.elementCodec(), cache);
                 optional = false;
             }
-            fields.add(new Schema.Field(e.name(), fieldSchema, optional, defaultValue));
+            addField(fields, new Schema.Field(e.name(), fieldSchema, optional, defaultValue));
         }
         return new Schema.Record(Object.class, java.util.List.copyOf(fields));
+    }
+
+    /** Appends a field unless one with the same name is already present (mirrors the NeoForge
+     *  decoder-tree walk's name dedup). Guards against a spread sub-record colliding with a
+     *  sibling field of the same key. */
+    private static void addField(java.util.List<Schema.Field<?, ?>> fields, Schema.Field<?, ?> field) {
+        for (Schema.Field<?, ?> existing : fields) {
+            if (existing.name().equals(field.name())) return;
+        }
+        fields.add(field);
     }
 
     /** Required {@code Codec.fieldOf(name)} → {@code MapCodec.of(FieldEncoder, FieldDecoder, …)}:
