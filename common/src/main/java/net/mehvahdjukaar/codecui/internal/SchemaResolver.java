@@ -892,24 +892,24 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         if (rid == null) return variants;
 
         try {
-            var holderOpt = net.minecraft.core.registries.BuiltInRegistries.REGISTRY.get(rid.registry().identifier());
-            if (holderOpt.isEmpty()) {
+            net.minecraft.core.Registry<?> registry = (net.minecraft.core.Registry<?>)
+                    net.minecraft.core.registries.BuiltInRegistries.REGISTRY.get(rid.registry().location());
+            if (registry == null) {
                 CodecUI.LOGGER.warn("[codec_ui]   registry {} not found in BuiltInRegistries", rid.registry());
                 return variants;
             }
-            net.minecraft.core.Registry<?> registry = (net.minecraft.core.Registry<?>) holderOpt.get().value();
             // For small registries (rule tests, height providers, ...) the registry VALUES are
             // the dispatch keys themselves — feed each through the decoder for a real variant
             // body. Large registries (Block, Item, ...) stay name-only with opaque bodies.
             boolean resolveBodies = registry.size() <= 128 && KEY_DISPATCH_DECODER != null;
             Object decoderFn = resolveBodies ? KEY_DISPATCH_DECODER.get(dispatch) : null;
-            java.util.List<net.minecraft.resources.Identifier> ids = new java.util.ArrayList<>(registry.keySet());
-            ids.sort(java.util.Comparator.comparing(net.minecraft.resources.Identifier::toString));
+            java.util.List<net.minecraft.resources.ResourceLocation> ids = new java.util.ArrayList<>(registry.keySet());
+            ids.sort(java.util.Comparator.comparing(net.minecraft.resources.ResourceLocation::toString));
             int bodies = 0;
-            for (net.minecraft.resources.Identifier id : ids) {
+            for (net.minecraft.resources.ResourceLocation id : ids) {
                 Schema<?> body = new Schema.Opaque<>(null, null);
                 if (decoderFn instanceof Function<?, ?> fn) {
-                    Object value = registry.getValue(id);
+                    Object value = registry.get(id);
                     MapCodec<?> variantCodec = value == null ? null : applyDecoder((Function) fn, value);
                     if (variantCodec != null) {
                         body = resolveMapCodec(variantCodec, cache);
@@ -919,7 +919,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
                 variants.put(id.toString(), body);
             }
             CodecUI.LOGGER.debug("[codec_ui]   registry-backed dispatch: populated {} variants ({} with real bodies) from {}",
-                    variants.size(), bodies, rid.registry().identifier());
+                    variants.size(), bodies, rid.registry().location());
         } catch (Throwable t) {
             CodecUI.LOGGER.warn("[codec_ui]   Failed to enumerate registry {}: {}", rid.registry(), t.toString());
         }

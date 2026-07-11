@@ -5,7 +5,7 @@ import net.mehvahdjukaar.codecui.SchemaCodecs;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.ExtraCodecs;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -67,9 +67,9 @@ public final class CuratedSchemas {
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static void register() {
-        // Identifier.CODEC is STRING.comapFlatMap -> inference yields plain text; an id
+        // ResourceLocation.CODEC is STRING.comapFlatMap -> inference yields plain text; an id
         // widget (with the registry-less picker) is the nicer surface.
-        SchemaCodecs.registerCompanion(Identifier.CODEC, new Schema.ResourceId(null));
+        SchemaCodecs.registerCompanion(ResourceLocation.CODEC, new Schema.ResourceId(null));
 
         // UUIDUtil.CODEC is INT_STREAM.comapFlatMap -> opaque (INT_STREAM has no widget).
         // On disk it is a fixed quadruple of ints.
@@ -89,18 +89,14 @@ public final class CuratedSchemas {
 
         // JOML vector codecs are FLOAT/INT.listOf().comapFlatMap with an arity check hidden
         // in the lambda; inference sees an unbounded list, curation restores the fixed size.
-        SchemaCodecs.registerCompanion(ExtraCodecs.VECTOR2F, (Schema) new Schema.ListOf<>(floatAll, 2, 2));
+        // Note: ExtraCodecs.VECTOR2F / VECTOR3I do not exist on 1.21.1 (added in 1.21.11).
         SchemaCodecs.registerCompanion(ExtraCodecs.VECTOR3F, (Schema) new Schema.ListOf<>(floatAll, 3, 3));
         SchemaCodecs.registerCompanion(ExtraCodecs.VECTOR4F, (Schema) new Schema.ListOf<>(floatAll, 4, 4));
-        SchemaCodecs.registerCompanion(ExtraCodecs.VECTOR3I, (Schema) new Schema.ListOf<>(intAll, 3, 3));
 
         // Color codecs: inference at best yields AnyOf(integer, text); a color picker is the
-        // point of this whole exercise. INT-primary variants emit packed ints, STRING_*
-        // variants emit "#RRGGBB"/"#AARRGGBB" strings (hexString flag).
-        SchemaCodecs.registerCompanion(ExtraCodecs.RGB_COLOR_CODEC, new Schema.Color(false, false));
+        // point of this whole exercise. On 1.21.1 only ARGB_COLOR_CODEC exists (int-primary);
+        // RGB_COLOR_CODEC and the STRING_* hex-string color codecs were added in 1.21.11.
         SchemaCodecs.registerCompanion(ExtraCodecs.ARGB_COLOR_CODEC, new Schema.Color(true, false));
-        SchemaCodecs.registerCompanion(ExtraCodecs.STRING_RGB_COLOR, new Schema.Color(false, true));
-        SchemaCodecs.registerCompanion(ExtraCodecs.STRING_ARGB_COLOR, new Schema.Color(true, true));
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})

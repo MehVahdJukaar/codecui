@@ -4,7 +4,7 @@ import net.mehvahdjukaar.codecui.CodecUI;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.valueproviders.FloatProviderType;
 import net.minecraft.util.valueproviders.IntProviderType;
 import net.minecraft.world.level.levelgen.heightproviders.HeightProviderType;
@@ -69,7 +69,7 @@ public final class VanillaDispatches {
             return snapshot;
         };
         Function<K, String> nameOf = v -> {
-            Identifier id = ((Registry) registry).getKey(v);
+            ResourceLocation id = ((Registry) registry).getKey(v);
             return id != null ? id.toString() : String.valueOf(v);
         };
         DispatchRegistry.register((Class<K>) rawKeyType, keysSupplier, codecOf, nameOf);

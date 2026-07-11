@@ -9,6 +9,6 @@ import net.neoforged.fml.loading.FMLEnvironment;
 public class CodecUINeoForge {
 
     public CodecUINeoForge(IEventBus modBus) {
-        CodecUI.init(!FMLEnvironment.isProduction(), true);
+        CodecUI.init(!FMLEnvironment.production, true);
     }
 }
