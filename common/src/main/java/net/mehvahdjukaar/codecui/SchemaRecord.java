@@ -40,6 +40,54 @@ public final class SchemaRecord {
         return group.build();
     }
 
+    // ---- Freestanding field factories (mirror Instance.field/optional, minus the instance).
+    //      A is inferred from the getter's Function<A, F>, exactly like DFU's forGetter. ----
+
+    public static <A, F> FieldRef<A, F> field(String name, SchemaCodec<F> codec, Function<A, F> getter) {
+        return new FieldRef<>(name, codec, false, null, getter);
+    }
+
+    public static <A, F> FieldRef<A, F> field(String name, Codec<F> codec, Function<A, F> getter) {
+        return field(name, SchemaCodec.wrap(codec), getter);
+    }
+
+    /**
+     * Field backed by an already-built {@link MapCodec} — e.g. a lenient wrapper that embeds
+     * its own key and default and recovers from malformed input. The map codec is used
+     * verbatim, so decode/encode semantics (including lenient fallback) are preserved exactly;
+     * {@code elementSchema} only supplies the schema the editor renders for the value. Treated
+     * as optional in the UI, since such wrappers always carry a fallback.
+     */
+    public static <A, F> FieldRef<A, F> field(String name, MapCodec<F> mapCodec, SchemaCodec<F> elementSchema,
+                                              Function<A, F> getter) {
+        return new FieldRef<>(name, null, true, null, getter, mapCodec, elementSchema);
+    }
+
+    public static <A, F> FieldRef<A, F> field(String name, MapCodec<F> mapCodec, Codec<F> elementSchema,
+                                              Function<A, F> getter) {
+        return field(name, mapCodec, SchemaCodec.wrap(elementSchema), getter);
+    }
+
+    public static <A, F> FieldRef<A, F> optional(String name, SchemaCodec<F> codec, F defaultValue, Function<A, F> getter) {
+        return new FieldRef<>(name, codec, true, defaultValue, getter);
+    }
+
+    public static <A, F> FieldRef<A, F> optional(String name, Codec<F> codec, F defaultValue, Function<A, F> getter) {
+        return optional(name, SchemaCodec.wrap(codec), defaultValue, getter);
+    }
+
+    /** Optional field with NO default — round-trips as {@code Optional<F>}, mirroring
+     *  {@code codec.optionalFieldOf(name).forGetter(...)}. */
+    public static <A, F> FieldRef<A, java.util.Optional<F>> optional(String name, SchemaCodec<F> codec,
+                                                                     Function<A, java.util.Optional<F>> getter) {
+        return new FieldRef<>(name, null, true, null, getter, codec.optionalFieldOf(name), codec);
+    }
+
+    public static <A, F> FieldRef<A, java.util.Optional<F>> optional(String name, Codec<F> codec,
+                                                                     Function<A, java.util.Optional<F>> getter) {
+        return optional(name, SchemaCodec.wrap(codec), getter);
+    }
+
     /** Per-record builder context; exposes field/optional and group(...) factories. */
     public static final class Instance<A> {
         private final Class<A> type;
@@ -49,11 +97,11 @@ public final class SchemaRecord {
         }
 
         public <F> FieldRef<A, F> field(String name, SchemaCodec<F> codec, Function<A, F> getter) {
-            return new FieldRef<>(name, codec, false, null, getter);
+            return SchemaRecord.field(name, codec, getter);
         }
 
         public <F> FieldRef<A, F> field(String name, Codec<F> codec, Function<A, F> getter) {
-            return field(name, SchemaCodec.wrap(codec), getter);
+            return SchemaRecord.field(name, codec, getter);
         }
 
         /**
@@ -65,32 +113,32 @@ public final class SchemaRecord {
          */
         public <F> FieldRef<A, F> field(String name, MapCodec<F> mapCodec, SchemaCodec<F> elementSchema,
                                         Function<A, F> getter) {
-            return new FieldRef<>(name, null, true, null, getter, mapCodec, elementSchema);
+            return SchemaRecord.field(name, mapCodec, elementSchema, getter);
         }
 
         public <F> FieldRef<A, F> field(String name, MapCodec<F> mapCodec, Codec<F> elementSchema,
                                         Function<A, F> getter) {
-            return field(name, mapCodec, SchemaCodec.wrap(elementSchema), getter);
+            return SchemaRecord.field(name, mapCodec, elementSchema, getter);
         }
 
         public <F> FieldRef<A, F> optional(String name, SchemaCodec<F> codec, F defaultValue, Function<A, F> getter) {
-            return new FieldRef<>(name, codec, true, defaultValue, getter);
+            return SchemaRecord.optional(name, codec, defaultValue, getter);
         }
 
         public <F> FieldRef<A, F> optional(String name, Codec<F> codec, F defaultValue, Function<A, F> getter) {
-            return optional(name, SchemaCodec.wrap(codec), defaultValue, getter);
+            return SchemaRecord.optional(name, codec, defaultValue, getter);
         }
 
         /** Optional field with NO default — round-trips as {@code Optional<F>}, mirroring
          *  {@code codec.optionalFieldOf(name).forGetter(...)}. */
         public <F> FieldRef<A, java.util.Optional<F>> optional(String name, SchemaCodec<F> codec,
                                                                Function<A, java.util.Optional<F>> getter) {
-            return new FieldRef<>(name, null, true, null, getter, codec.optionalFieldOf(name), codec);
+            return SchemaRecord.optional(name, codec, getter);
         }
 
         public <F> FieldRef<A, java.util.Optional<F>> optional(String name, Codec<F> codec,
                                                                Function<A, java.util.Optional<F>> getter) {
-            return optional(name, SchemaCodec.wrap(codec), getter);
+            return SchemaRecord.optional(name, codec, getter);
         }
 
         public <F1> Group1<A, F1> group(FieldRef<A, F1> f1) {
@@ -332,6 +380,11 @@ public final class SchemaRecord {
             return this;
         }
 
+        /** Append one more field, widening to the next arity. */
+        public <F3> Group3<A, F1, F2, F3> and(FieldRef<A, F3> f) {
+            return new Group3<>(instance, f1, f2, f);
+        }
+
         @Override
         public SchemaCodec<A> build() {
             MapCodec<F1> mc1 = mapCodecFor(f1);
@@ -365,6 +418,11 @@ public final class SchemaRecord {
             checkInstance(this.instance, i);
             this.ctor = ctor;
             return this;
+        }
+
+        /** Append one more field, widening to the next arity. */
+        public <F4> Group4<A, F1, F2, F3, F4> and(FieldRef<A, F4> f) {
+            return new Group4<>(instance, f1, f2, f3, f);
         }
 
         @Override
@@ -405,6 +463,11 @@ public final class SchemaRecord {
             checkInstance(this.instance, i);
             this.ctor = ctor;
             return this;
+        }
+
+        /** Append one more field, widening to the next arity. */
+        public <F5> Group5<A, F1, F2, F3, F4, F5> and(FieldRef<A, F5> f) {
+            return new Group5<>(instance, f1, f2, f3, f4, f);
         }
 
         @Override
@@ -449,6 +512,11 @@ public final class SchemaRecord {
             checkInstance(this.instance, i);
             this.ctor = ctor;
             return this;
+        }
+
+        /** Append one more field, widening to the next arity. */
+        public <F6> Group6<A, F1, F2, F3, F4, F5, F6> and(FieldRef<A, F6> f) {
+            return new Group6<>(instance, f1, f2, f3, f4, f5, f);
         }
 
         @Override
@@ -497,6 +565,11 @@ public final class SchemaRecord {
             checkInstance(this.instance, i);
             this.ctor = ctor;
             return this;
+        }
+
+        /** Append one more field, widening to the next arity. */
+        public <F7> Group7<A, F1, F2, F3, F4, F5, F6, F7> and(FieldRef<A, F7> f) {
+            return new Group7<>(instance, f1, f2, f3, f4, f5, f6, f);
         }
 
         @Override
@@ -550,6 +623,11 @@ public final class SchemaRecord {
             checkInstance(this.instance, i);
             this.ctor = ctor;
             return this;
+        }
+
+        /** Append one more field, widening to the next arity. */
+        public <F8> Group8<A, F1, F2, F3, F4, F5, F6, F7, F8> and(FieldRef<A, F8> f) {
+            return new Group8<>(instance, f1, f2, f3, f4, f5, f6, f7, f);
         }
 
         @Override
@@ -608,6 +686,11 @@ public final class SchemaRecord {
             checkInstance(this.instance, i);
             this.ctor = ctor;
             return this;
+        }
+
+        /** Append one more field, widening to the next arity. */
+        public <F9> Group9<A, F1, F2, F3, F4, F5, F6, F7, F8, F9> and(FieldRef<A, F9> f) {
+            return new Group9<>(instance, f1, f2, f3, f4, f5, f6, f7, f8, f);
         }
 
         @Override
@@ -673,6 +756,11 @@ public final class SchemaRecord {
             return this;
         }
 
+        /** Append one more field, widening to the next arity. */
+        public <F10> Group10<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10> and(FieldRef<A, F10> f) {
+            return new Group10<>(instance, f1, f2, f3, f4, f5, f6, f7, f8, f9, f);
+        }
+
         @Override
         public SchemaCodec<A> build() {
             MapCodec<F1> mc1 = mapCodecFor(f1);
@@ -725,6 +813,11 @@ public final class SchemaRecord {
             return this;
         }
 
+        /** Append one more field, widening to the next arity. */
+        public <F11> Group11<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11> and(FieldRef<A, F11> f) {
+            return new Group11<>(instance, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f);
+        }
+
         @Override
         public SchemaCodec<A> build() {
             Codec<A> codec = RecordCodecBuilder.<A>create(i -> i.group(
@@ -766,6 +859,11 @@ public final class SchemaRecord {
             checkInstance(this.instance, i);
             this.ctor = ctor;
             return this;
+        }
+
+        /** Append one more field, widening to the next arity. */
+        public <F12> Group12<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12> and(FieldRef<A, F12> f) {
+            return new Group12<>(instance, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f);
         }
 
         @Override
@@ -813,6 +911,11 @@ public final class SchemaRecord {
             return this;
         }
 
+        /** Append one more field, widening to the next arity. */
+        public <F13> Group13<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13> and(FieldRef<A, F13> f) {
+            return new Group13<>(instance, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f);
+        }
+
         @Override
         public SchemaCodec<A> build() {
             Codec<A> codec = RecordCodecBuilder.<A>create(i -> i.group(
@@ -858,6 +961,11 @@ public final class SchemaRecord {
             checkInstance(this.instance, i);
             this.ctor = ctor;
             return this;
+        }
+
+        /** Append one more field, widening to the next arity. */
+        public <F14> Group14<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14> and(FieldRef<A, F14> f) {
+            return new Group14<>(instance, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f);
         }
 
         @Override
@@ -908,6 +1016,11 @@ public final class SchemaRecord {
             return this;
         }
 
+        /** Append one more field, widening to the next arity. */
+        public <F15> Group15<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15> and(FieldRef<A, F15> f) {
+            return new Group15<>(instance, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f);
+        }
+
         @Override
         public SchemaCodec<A> build() {
             Codec<A> codec = RecordCodecBuilder.<A>create(i -> i.group(
@@ -955,6 +1068,11 @@ public final class SchemaRecord {
             checkInstance(this.instance, i);
             this.ctor = ctor;
             return this;
+        }
+
+        /** Append one more field, widening to the next arity. */
+        public <F16> Group16<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16> and(FieldRef<A, F16> f) {
+            return new Group16<>(instance, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f);
         }
 
         @Override
@@ -1009,6 +1127,11 @@ public final class SchemaRecord {
             return this;
         }
 
+        /** Append one more field, widening to the next arity. */
+        public <F17> Group17<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17> and(FieldRef<A, F17> f) {
+            return new Group17<>(instance, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f);
+        }
+
         @Override
         public SchemaCodec<A> build() {
             Codec<A> codec = RecordCodecBuilder.<A>create(i -> i.group(
@@ -1061,6 +1184,11 @@ public final class SchemaRecord {
             checkInstance(this.instance, i);
             this.ctor = ctor;
             return this;
+        }
+
+        /** Append one more field, widening to the next arity. */
+        public <F18> Group18<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18> and(FieldRef<A, F18> f) {
+            return new Group18<>(instance, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f);
         }
 
         @Override
@@ -1118,6 +1246,11 @@ public final class SchemaRecord {
             return this;
         }
 
+        /** Append one more field, widening to the next arity. */
+        public <F19> Group19<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19> and(FieldRef<A, F19> f) {
+            return new Group19<>(instance, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f);
+        }
+
         @Override
         public SchemaCodec<A> build() {
             Codec<A> codec = RecordCodecBuilder.<A>create(i -> BiggerCodecs.group(i,
@@ -1173,6 +1306,11 @@ public final class SchemaRecord {
             checkInstance(this.instance, i);
             this.ctor = ctor;
             return this;
+        }
+
+        /** Append one more field, widening to the next arity. */
+        public <F20> Group20<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, F20> and(FieldRef<A, F20> f) {
+            return new Group20<>(instance, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f);
         }
 
         @Override
@@ -1234,6 +1372,11 @@ public final class SchemaRecord {
             return this;
         }
 
+        /** Append one more field, widening to the next arity. */
+        public <F21> Group21<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, F20, F21> and(FieldRef<A, F21> f) {
+            return new Group21<>(instance, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f);
+        }
+
         @Override
         public SchemaCodec<A> build() {
             Codec<A> codec = RecordCodecBuilder.<A>create(i -> BiggerCodecs.group(i,
@@ -1264,6 +1407,10 @@ public final class SchemaRecord {
 
     // ---- Group21 ----
 
+    /**
+     * Terminal arity: {@code Group21} has no {@code and(...)} — 21 fields is the cap, matching the
+     * top of {@link BiggerCodecs}'s applyN ladder. Records needing more must be split or nested.
+     */
     public static final class Group21<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, F20, F21> implements Group<A> {
         private final Instance<A> instance;
         private final FieldRef<A, F1> f1; private final FieldRef<A, F2> f2; private final FieldRef<A, F3> f3;
