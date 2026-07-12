@@ -11,19 +11,6 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 
-/**
- * Tags codecs returned by Codec's combinator default methods (xmap, flatXmap, ...) with the
- * schema of the inner codec ({@code this}). Most of these combinators do not change the
- * editable shape of the data — they're newtype wrappers, validation passes, or default
- * suppliers — so the inner schema is the correct shape for the GUI.
- *
- * <p>For combinators that <em>could</em> change shape semantically (e.g. an xmap that
- * encodes a tree as a string), the result is "harmlessly correct": the UI shows the
- * inner shape, which is what the on-disk JSON looks like.</p>
- *
- * <p>The unchecked cast of the inner Schema to {@code Schema<S>} is structurally safe
- * because the codec contract guarantees both representations parse the same JSON shape.</p>
- */
 @Mixin(Codec.class)
 public interface CodecXmapMixin {
 
@@ -50,8 +37,6 @@ public interface CodecXmapMixin {
         codecui$inheritInner(wrapped);
         return wrapped;
     }
-
-    // Codec<A> validate(...) -> Codec<A>. Wrapper preserves A's schema.
     @ModifyReturnValue(method = "validate", at = @At("RETURN"))
     private Codec<?> codecui$tagValidate(Codec<?> wrapped) {
         codecui$inheritInner(wrapped);
@@ -63,8 +48,6 @@ public interface CodecXmapMixin {
         codecui$inheritInner(wrapped);
         return wrapped;
     }
-
-    // orElse(A) -> Codec<A>. Schema unchanged.
     @ModifyReturnValue(method = "orElse(Ljava/lang/Object;)Lcom/mojang/serialization/Codec;",
             at = @At("RETURN"))
     private Codec<?> codecui$tagOrElseValue(Codec<?> wrapped) {
@@ -104,11 +87,6 @@ public interface CodecXmapMixin {
         codecui$inheritInner(wrapped);
         return wrapped;
     }
-
-    // fieldOf(name) -> MapCodec<A>. The output is an anonymous MapCodec.of(...) that wraps
-    // `this` under a single named field. Tag it as a single-field Schema.Record so the
-    // RecordCodecBuilder mixin (which calls resolveMap on this MapCodec when handling the
-    // 2-arg of(getter, MapCodec) form) can unwrap it and inline the inner field type.
     @ModifyReturnValue(method = "fieldOf(Ljava/lang/String;)Lcom/mojang/serialization/MapCodec;",
             at = @At("RETURN"))
     private MapCodec<?> codecui$tagFieldOf(MapCodec<?> wrapped, @Local(argsOnly = true) String name) {
@@ -147,9 +125,6 @@ public interface CodecXmapMixin {
         codecui$tagSingleField(wrapped, name, true, defaultValue);
         return wrapped;
     }
-
-    // ---- static range/length factories: preserve the exact bounds, which the generic
-    // xmap-inheritance path would otherwise erase back to full-range primitives ----
 
     @ModifyReturnValue(method = "intRange", at = @At("RETURN"))
     private static Codec<Integer> codecui$tagIntRange(Codec<Integer> wrapped,
@@ -191,15 +166,9 @@ public interface CodecXmapMixin {
             Codec<?> inner = (Codec<?>) (Object) this;
             FieldOfTags.put(wrapped, name, inner, optional, defaultValue);
         } catch (Throwable ignored) {
-            // Best-effort.
         }
     }
 
-    /**
-     * Resolves the inner codec's schema (via {@link SchemaTags} side-channel if previously
-     * tagged, otherwise the full resolver) and tags the wrapper with it. We perform the
-     * unchecked cross-cast since combinators preserve the on-disk JSON shape.
-     */
     @Unique
     @SuppressWarnings({"unchecked", "rawtypes"})
     private void codecui$inheritInner(Codec<?> wrapped) {
@@ -211,7 +180,6 @@ public interface CodecXmapMixin {
             net.mehvahdjukaar.codecui.internal.XmapTags.putCodec(
                     wrapped, (Codec<?>) (Object) this);
         } catch (Throwable ignored) {
-            // Best-effort.
         }
     }
 }

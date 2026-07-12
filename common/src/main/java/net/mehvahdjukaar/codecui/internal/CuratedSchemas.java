@@ -34,9 +34,7 @@ import java.util.List;
  */
 public final class CuratedSchemas {
 
-    // Own logger (not CodecUI.LOGGER): this runs at resolver entry, which must also work
-    // on a bare JVM where Polytone's class-init (all the content managers) can fail.
-    private static final Logger LOGGER = LogManager.getLogger("PolytoneCodecUi");
+    private static final Logger LOGGER = LogManager.getLogger("Schema Logger");
 
     private static volatile boolean bootstrapped = false;
 
@@ -99,7 +97,6 @@ public final class CuratedSchemas {
         SchemaCodecs.registerCompanion(ExtraCodecs.ARGB_COLOR_CODEC, new Schema.Color(true, false));
     }
 
-    @SuppressWarnings({"unchecked", "rawtypes"})
     private static void registerBootstrapDependent() {
         // BlockState.CODEC is built during *very early* MC bootstrap (Blocks init), before
         // our codec_ui mixins are applied to Codec.fieldOf — so the internal keyCodec never
@@ -126,7 +123,7 @@ public final class CuratedSchemas {
         // standard vanilla on-disk shape.
         SchemaCodecs.registerCompanion(net.minecraft.world.level.dimension.DimensionType.DIRECT_CODEC,
                 new Schema.Record<>(net.minecraft.world.level.dimension.DimensionType.class,
-                        List.<Schema.Field<net.minecraft.world.level.dimension.DimensionType, ?>>of(
+                        List.of(
                         new Schema.Field<>("ultrawarm", new Schema.Bool(), false, null),
                         new Schema.Field<>("natural", new Schema.Bool(), false, null),
                         new Schema.Field<>("coordinate_scale", new Schema.DoubleRange(1e-5, 30_000_000.0), false, null),

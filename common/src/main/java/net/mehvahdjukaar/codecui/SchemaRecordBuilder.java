@@ -21,10 +21,6 @@ import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
-/**
- * Schema-aware mirror of {@link RecordCodecBuilder}: declare fields, then call
- * {@code buildN} with a constructor reference to obtain a {@link SchemaCodec}.
- */
 public final class SchemaRecordBuilder<A> {
 
     private final Class<A> type;
@@ -54,7 +50,6 @@ public final class SchemaRecordBuilder<A> {
         if (field.optional && field.defaultValue != null) {
             return field.codec.optionalFieldOf(field.name, field.defaultValue);
         }
-        // required (or optional with null default - shouldn't really happen here)
         return field.codec.fieldOf(field.name);
     }
 
@@ -90,7 +85,6 @@ public final class SchemaRecordBuilder<A> {
     public <F1> SchemaCodec<A> build1(Function<F1, A> ctor, Field<A, F1> f1) {
         validate(f1);
         MapCodec<F1> mc1 = mapCodecFor(f1);
-        // Arity 1: MapCodec.xmap is the cleanest path.
         var codec = mc1.xmap(ctor, f1.getter).codec();
         return SchemaCodec.of(codec, buildSchema());
     }
@@ -233,8 +227,6 @@ public final class SchemaRecordBuilder<A> {
         ));
         return SchemaCodec.of(codec, buildSchema());
     }
-
-    // ---- MapCodec-producing variants, for use as dispatch sub-codecs. ----
 
     public <F1> SchemaMapCodec<A> buildMapCodec1(Function<F1, A> ctor, Field<A, F1> f1) {
         validate(f1);

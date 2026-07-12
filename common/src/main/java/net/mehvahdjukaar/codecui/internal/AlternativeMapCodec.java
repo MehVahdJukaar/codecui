@@ -71,7 +71,6 @@ public final class AlternativeMapCodec<A> extends MapCodec<A> {
     }
 
     public static <B> MapCodec<Optional<B>> optionalAlias(Codec<B> codec, String primaryName, String alias) {
-        //first lenient so we can go to second
         return new AlternativeMapCodec<>(codec.fieldOf(primaryName).xmap(Optional::of, Optional::get),
                 codec.fieldOf(alias).xmap(Optional::of, Optional::get),
                 Optional.empty());

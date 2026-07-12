@@ -9,17 +9,8 @@ import com.mojang.datafixers.util.Function11;
 import com.mojang.datafixers.util.Function8;
 import com.mojang.datafixers.util.Function9;
 
-/**
- * Applicative {@code group}/{@code apply} helpers for arities 17..21, mirroring DataFixerUpper's
- * built-in {@code RecordCodecBuilder.Instance.apply1..16}. DFU stops at 16 fields; these hand-curry
- * the extra arguments so {@link net.mehvahdjukaar.codecui.SchemaRecord} can build record codecs with
- * up to 21 fields. Public because the {@code FunctionN} types appear in SchemaRecord's public
- * {@code apply(...)} signatures (callers pass a constructor reference, which Java infers).
- */
+
 public class BiggerCodecs {
-
-    //17
-
     public static <Mu extends Kind1.Mu, F extends K1, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17> P17<F, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17> group
             (Kind1<F, Mu> kind, final App<F, T1> t1, final App<F, T2> t2, final App<F, T3> t3, final App<F, T4> t4, final App<F, T5> t5, final App<F, T6> t6, final App<F, T7> t7, final App<F, T8> t8, final App<F, T9> t9, final App<F, T10> t10,
              final App<F, T11> t11, final App<F, T12> t12, final App<F, T13> t13, final App<F, T14> t14, final App<F, T15> t15, final App<F, T16> t16, final App<F, T17> t17) {
@@ -57,9 +48,6 @@ public class BiggerCodecs {
             return (t1, t2, t3, t4, t5, t6, t7, t8, t9) -> (t10, t11, t12, t13, t14, t15, t16, t17) -> apply(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17);
         }
     }
-
-    //18
-
     public static <Mu extends Kind1.Mu, F extends K1, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18> P18<F, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18> group
             (Kind1<F, Mu> kind, final App<F, T1> t1, final App<F, T2> t2, final App<F, T3> t3, final App<F, T4> t4, final App<F, T5> t5, final App<F, T6> t6, final App<F, T7> t7, final App<F, T8> t8, final App<F, T9> t9, final App<F, T10> t10,
              final App<F, T11> t11, final App<F, T12> t12, final App<F, T13> t13, final App<F, T14> t14, final App<F, T15> t15, final App<F, T16> t16, final App<F, T17> t17, final App<F, T18> t18) {
@@ -96,9 +84,6 @@ public class BiggerCodecs {
             return (t1, t2, t3, t4, t5, t6, t7, t8, t9) -> (t10, t11, t12, t13, t14, t15, t16, t17, t18) -> apply(t1, t2, t3, t4, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18);
         }
     }
-
-    //19
-
     public static <Mu extends Kind1.Mu, F extends K1, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10,
             T11, T12, T13, T14, T15, T16, T17, T18, T19> P19<F, T1, T2, T3, T4, T5, T6, T7, T8, T9,
             T10, T11, T12, T13, T14, T15, T16, T17, T18, T19> group(
@@ -163,9 +148,6 @@ public class BiggerCodecs {
                                     t12, t13, t14, t15, t16, t17, t18, t19);
         }
     }
-
-    //20
-
     public static <Mu extends Kind1.Mu, F extends K1, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10,
             T11, T12, T13, T14, T15, T16, T17, T18, T19, T20> P20<F, T1, T2, T3, T4, T5,
             T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19,
@@ -270,9 +252,6 @@ public class BiggerCodecs {
                                     t12, t13, t14, t15, t16, t17, t18, t19, t20);
         }
     }
-
-    //21
-
     public static <Mu extends Kind1.Mu, F extends K1, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10,
             T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21> P21<F, T1, T2, T3, T4, T5,
             T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19,

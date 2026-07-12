@@ -14,16 +14,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-/**
- * Reflective introspection of DFU codec instances — tier-3 field scans, tier-3.5 wrapper/RCB
- * recovery for NeoForge where construction mixins cannot run on the parent-layer DFU classes.
- */
+
 final class CodecReflection {
 
-    /** A codec-valued instance field discovered by {@link #scanInnerCodecs}. */
+
     record ScannedInner(Object value, String fieldName) {}
 
-    /** Name + element codec recovered from a {@code fieldOf} {@link MapCodec}. */
+
     record FieldOfEntry(String name, Codec<?> elementCodec) {}
 
     // ---- Tier 3: scan instance fields for Codec / MapCodec values ----
@@ -94,7 +91,6 @@ final class CodecReflection {
         return fields.isEmpty() ? null : List.copyOf(fields);
     }
 
-    // ---- Shared primitives ----
 
     static @Nullable Codec<?> decoderAsCodec(@Nullable Object decoder) {
         return decoder instanceof Codec<?> c ? c : null;
@@ -155,7 +151,6 @@ final class CodecReflection {
         }
     }
 
-    // ---- RCB decoder-tree walk ----
 
     private static boolean looksLikeRecordCodec(MapCodec<?> codec) {
         String cn = codec.getClass().getName();

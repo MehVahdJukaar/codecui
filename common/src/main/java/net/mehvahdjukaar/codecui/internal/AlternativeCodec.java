@@ -8,13 +8,6 @@ import com.mojang.serialization.DynamicOps;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * N-ary "try each" alternative codec: decode tries every alternative in order and returns the
- * first success (falling back to the last partial with combined errors); encode tries every
- * alternative in order and returns the first that succeeds. This is a proper multi-format union
- * — unlike a fold of {@link Codec#withAlternative} which always encodes with the primary — so a
- * value round-trips through whichever alternative actually accepts it.
- */
 public record AlternativeCodec<A>(Codec<? extends A>... codecs) implements Codec<A> {
 
     @SafeVarargs
@@ -51,9 +44,6 @@ public record AlternativeCodec<A>(Codec<? extends A>... codecs) implements Codec
         }
 
         String combined = String.join("; ", errors);
-
-        // Carry the FULL context: reporting only the partial's own message hides that other
-        // alternatives were tried and why they failed too.
         if (lastPartial != null) {
             return lastPartial.mapError(msg ->
                     "No alternative matched (partial from one attempt: " + msg + "). All errors: " + combined);
@@ -72,7 +62,6 @@ public record AlternativeCodec<A>(Codec<? extends A>... codecs) implements Codec
                     return encoded;
                 }
             } catch (ClassCastException ignored) {
-                // Not the right codec for this input, try next.
             }
         }
         return DataResult.error(() -> "No alternative codec could encode value: " + input);
