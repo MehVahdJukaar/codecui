@@ -446,12 +446,18 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         if (codec instanceof RegistryFixedCodec<?> rfx && REGISTRY_FIXED_KEY != null) {
             return new Schema.ResourceId((ResourceKey<? extends Registry<?>>) REGISTRY_FIXED_KEY.get(rfx));
         }
-        // HolderSet<E>: a "#namespace:path" tag string, a single entry, or a list of entries.
+        // HolderSet<E>: a "#namespace:path" tag, a single entry, or a list of entries.
         if (codec instanceof HolderSetCodec<?> hs && HOLDER_SET_ELEMENT != null) {
             Schema<?> element = resolveCodec((Codec<?>) HOLDER_SET_ELEMENT.get(hs), cache);
-            Schema<?> tagOrId = new Schema.Str(0, Integer.MAX_VALUE, null);
+            // The element schema is the registry's ResourceId — reuse its key so the tag side
+            // gets a real tag picker instead of a raw text box. Falls back to text if unknown.
+            ResourceKey<? extends Registry<?>> registry =
+                    element instanceof Schema.ResourceId r ? r.registry() : null;
+            Schema<?> tag = registry != null
+                    ? new Schema.TagId(registry)
+                    : new Schema.Str(0, Integer.MAX_VALUE, null);
             return Schema.anyOf(
-                    Schema.option("#tag or id", tagOrId),
+                    Schema.option("tag", tag),
                     Schema.option("single", element),
                     Schema.option("list", new Schema.ListOf(element, 0, Integer.MAX_VALUE)));
         }

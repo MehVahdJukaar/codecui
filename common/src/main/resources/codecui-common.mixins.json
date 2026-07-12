@@ -9,7 +9,8 @@
     "RecordCodecBuilderMixin",
     "RecordCodecBuilderInstanceMixin",
     "RegistryByNameCodecMixin",
-    "StringRepresentableCodecMixin"
+    "StringRepresentableCodecMixin",
+    "TagKeyCodecMixin"
   ],
   "client": [
   ],

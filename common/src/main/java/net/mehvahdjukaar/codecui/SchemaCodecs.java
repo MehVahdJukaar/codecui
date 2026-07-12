@@ -24,7 +24,9 @@ import net.minecraft.core.Registry;
 import net.minecraft.core.RegistryCodecs;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
@@ -329,6 +331,38 @@ public final class SchemaCodecs {
     public static <T> SchemaCodec<T> registryEntry(ResourceKey<? extends Registry<T>> registryKey, Codec<T> nameCodec) {
         Schema<T> schema = castSchema(new Schema.ResourceId(registryKey));
         return SchemaCodec.of(nameCodec, schema);
+    }
+
+    /**
+     * The tag twin of {@link #registryEntry}: a field that picks one {@link TagKey} of
+     * {@code registryKey}. Uses {@link TagKey#codec} for the wire form and a {@link Schema.TagId}
+     * so the editor shows a tag picker. Note {@code TagKey.codec} is already tagged with the same
+     * schema on construction (see {@code TagKeyCodecMixin}), so {@code SchemaCodec.wrap} of a bare
+     * {@code TagKey.codec(...)} yields the same result — this is just the explicit spelling.
+     */
+    public static <T> SchemaCodec<TagKey<T>> tag(ResourceKey<? extends Registry<T>> registryKey) {
+        Schema<TagKey<T>> schema = castSchema(new Schema.TagId(registryKey));
+        return SchemaCodec.of(TagKey.codec(registryKey), schema);
+    }
+
+    /**
+     * Enumerates the currently loaded tag ids of {@code registryKey}, sorted — the candidate list
+     * a UI backend feeds into a {@link Schema.TagId} picker (the tag analogue of iterating a
+     * registry's {@code keySet()} for {@link Schema.ResourceId}). Tags are data-driven, so this is
+     * only meaningful once tags have been loaded/synced (i.e. with a world open); it returns an
+     * empty list — never throws — for an unknown registry or before tags bind, letting the backend
+     * fall back to a free-text field.
+     */
+    public static List<Identifier> availableTagIds(ResourceKey<? extends Registry<?>> registryKey) {
+        if (registryKey == null) return List.of();
+        var holder = BuiltInRegistries.REGISTRY.get(registryKey.identifier());
+        if (holder.isEmpty()) return List.of();
+        Registry<?> registry = holder.get().value();
+        return registry.getTags()
+                .flatMap(named -> named.unwrapKey().stream())
+                .map(TagKey::location)
+                .sorted(java.util.Comparator.comparing(Identifier::toString))
+                .toList();
     }
 
     /**

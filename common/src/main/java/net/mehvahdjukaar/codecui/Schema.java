@@ -37,6 +37,15 @@ public sealed interface Schema<A> {
 
     record ResourceId(@Nullable ResourceKey<? extends Registry<?>> registry) implements Schema<ResourceLocation> {}
 
+    /**
+     * A tag id for {@code registry} — the on-disk form is a {@code "namespace:path"} string
+     * (some codecs {@code #}-prefix it). The twin of {@link ResourceId}: instead of one registry
+     * entry it picks one {@link net.minecraft.tags.TagKey}. Backends render a tag picker whose
+     * candidates come from the registry's loaded tags (see {@link SchemaCodecs#availableTagIds}),
+     * degrading to a plain text field when {@code registry} is null or no tags are loaded.
+     */
+    record TagId(@Nullable ResourceKey<? extends Registry<?>> registry) implements Schema<Identifier> {}
+
     record Enum<A>(List<A> options, Function<A, String> label) implements Schema<A> {}
 
     record Record<A>(Class<A> type, List<Field<A, ?>> fields) implements Schema<A> {}
@@ -105,6 +114,8 @@ public sealed interface Schema<A> {
 
     static Str str() { return new Str(0, Integer.MAX_VALUE, null); }
 
+    static TagId tagId(ResourceKey<? extends Registry<?>> registry) { return new TagId(registry); }
+
     static Bool bool() { return new Bool(); }
 
     static Color colorRgb()  { return new Color(false); }
@@ -157,6 +168,7 @@ public sealed interface Schema<A> {
             case Color ignored -> "color";
             case Str ignored -> "text";
             case ResourceId ignored -> "id";
+            case TagId ignored -> "tag";
             case Enum<?> ignored -> "choice";
             case Record<?> ignored -> "object";
             case ListOf<?> ignored -> "list";
