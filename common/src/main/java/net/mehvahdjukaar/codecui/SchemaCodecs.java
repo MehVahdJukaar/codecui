@@ -14,7 +14,7 @@ import net.mehvahdjukaar.codecui.internal.DispatchRegistry;
 import net.mehvahdjukaar.codecui.internal.EitherLeftCodec;
 import net.mehvahdjukaar.codecui.internal.LenientCodecWithLog;
 import net.mehvahdjukaar.codecui.internal.LenientUnboundedMapCodec;
-import net.mehvahdjukaar.codecui.internal.MergedFieldsCodec;
+import net.mehvahdjukaar.codecui.internal.CodecWithExtra;
 import net.mehvahdjukaar.codecui.internal.ReferenceOrDirectCodec;
 import net.mehvahdjukaar.codecui.internal.SchemaResolver;
 import net.mehvahdjukaar.codecui.internal.SchemaTags;
@@ -439,7 +439,7 @@ public final class SchemaCodecs {
      */
     public static <A> Codec<A> withExtra(Codec<A> base, List<MapCodec<?>> extras,
                                          BiFunction<A, List<Object>, A> merge) {
-        Codec<A> raw = new MergedFieldsCodec<>(base, extras, merge);
+        Codec<A> raw = new CodecWithExtra<>(base, extras, merge);
         return SchemaCodec.lazy(raw, () -> resolve(base));
     }
 

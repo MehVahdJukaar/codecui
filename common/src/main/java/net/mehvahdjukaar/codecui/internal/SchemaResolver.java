@@ -687,15 +687,17 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
             Schema<?> resolved = resolveCodec((Codec) inner, cache);
             return (resolved instanceof Schema.Opaque) ? schema : resolved;
         }
-        if (schema instanceof Schema.Record<?>(Class<?> type, List<Schema.Field<?, ?>> fields)) {
+        if (schema instanceof Schema.Record<?> rec) {
+            // Not deconstructed: Record<?>'s `fields` component is List<Field<CAP,?>>, which a record
+            // pattern can't name as List<Field<?,?>> (lists are invariant). Bind + accessor instead.
             List<Schema.Field> out = new ArrayList<>();
             boolean changed = false;
-            for (Schema.Field f : (List<Schema.Field>) (List) fields) {
+            for (Schema.Field f : (List<Schema.Field>) (List) rec.fields()) {
                 Schema<?> e = enrichOpaques(f.schema(), cache);
                 changed |= e != f.schema();
                 out.add(new Schema.Field(f.name(), e, f.optional(), f.defaultValue()));
             }
-            return changed ? new Schema.Record(type, out) : schema;
+            return changed ? new Schema.Record(rec.type(), out) : schema;
         }
         if (schema instanceof Schema.ListOf<?>(Schema<?> element, int min, int max)) {
             Schema<?> e = enrichOpaques(element, cache);
@@ -721,15 +723,17 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
             }
             return changed ? new Schema.AnyOf(List.copyOf(out)) : schema;
         }
-        if (schema instanceof Schema.OneOf<?>(String typeField, Map<String, Schema<?>> variants)) {
+        if (schema instanceof Schema.OneOf<?> one) {
+            // Not deconstructed: OneOf<?>'s `variants` component is Map<String, Schema<? extends CAP>>,
+            // which a record pattern can't name as Map<String, Schema<?>>. Bind + accessor instead.
             LinkedHashMap<String, Schema<?>> out = new LinkedHashMap<>();
             boolean changed = false;
-            for (var en : variants.entrySet()) {
+            for (var en : one.variants().entrySet()) {
                 Schema<?> e = enrichOpaques(en.getValue(), cache);
                 changed |= e != en.getValue();
                 out.put(en.getKey(), e);
             }
-            return changed ? new Schema.OneOf(typeField, out) : schema;
+            return changed ? new Schema.OneOf(one.typeField(), out) : schema;
         }
         // Ref (cycle guard) + all leaf schemas (Bool, ranges, Str, ResourceId, Color, Enum,
         // Custom) are returned unchanged.
@@ -804,20 +808,29 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
             }
         }
 
+        // Probe each registered hook. A hook whose registry ISN'T this dispatch's fails on EVERY
+        // key (a foreign K makes the dispatch's decoder throw ClassCastException -> null), so once
+        // the first few keys all miss we reject the hook in O(1) instead of iterating its whole
+        // (possibly large) registry. Only the matching hook is enumerated in full — this keeps the
+        // cost independent of how many/large the other registries are, so the list can grow freely.
+        // Trade-off: a hook whose first MAX_MISS entries all *legitimately* fail to decode would be
+        // skipped — not a concern for the vanilla type registries registered here.
+        final int MAX_MISS = 4;
         for (DispatchRegistry.Hook<?> hook : DispatchRegistry.all()) {
-            CodecUI.LOGGER.debug("trying hook {} with {} keys", hook.keyType().getName(), hook.keys().get().size());
-            boolean any = false;
+            List<?> keys = hook.keys().get();
             LinkedHashMap<String, Schema<?>> local = new LinkedHashMap<>();
-            for (Object k : hook.keys().get()) {
+            int miss = 0;
+            for (Object k : keys) {
                 MapCodec<?> variantCodec = applyDecoder(fn, k);
-                if (variantCodec == null) continue;
-                any = true;
-                Schema<?> variantSchema = resolveMapCodec(variantCodec, cache);
+                if (variantCodec == null) {
+                    if (local.isEmpty() && ++miss >= MAX_MISS) break; // wrong registry — bail cheaply
+                    continue;
+                }
                 String name = ((Function<Object, String>) hook.nameOf()).apply(k);
-                local.put(name, variantSchema);
+                local.put(name, resolveMapCodec(variantCodec, cache));
             }
-            CodecUI.LOGGER.debug("hook {} produced {} variants", hook.keyType().getSimpleName(), local.size());
-            if (any) {
+            if (!local.isEmpty()) {
+                CodecUI.LOGGER.debug("hook {} produced {} variants", hook.keyType().getSimpleName(), local.size());
                 variants.putAll(local);
                 break;
             }

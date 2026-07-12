@@ -21,12 +21,12 @@ import java.util.function.BiFunction;
  * per-arity ladder of classes: the merge function receives the decoded base plus the decoded extra
  * values in declaration order. Zero extras degenerates to a passthrough of {@code base}.</p>
  */
-public final class MergedFieldsCodec<A> implements Codec<A> {
+public final class CodecWithExtra<A> implements Codec<A> {
     private final Codec<A> base;
     private final List<MapCodec<?>> extras;
     private final BiFunction<A, List<Object>, A> merge;
 
-    public MergedFieldsCodec(Codec<A> base, List<MapCodec<?>> extras, BiFunction<A, List<Object>, A> merge) {
+    public CodecWithExtra(Codec<A> base, List<MapCodec<?>> extras, BiFunction<A, List<Object>, A> merge) {
         this.base = Objects.requireNonNull(base);
         this.extras = List.copyOf(extras);
         this.merge = Objects.requireNonNull(merge);
@@ -59,6 +59,6 @@ public final class MergedFieldsCodec<A> implements Codec<A> {
 
     @Override
     public String toString() {
-        return "MergedFieldsCodec[" + base + ", extras=" + extras + "]";
+        return "CodecWithExtra[" + base + ", extras=" + extras + "]";
     }
 }

@@ -155,7 +155,6 @@ public interface CodecXmapMixin {
     }
 
     @Unique
-    @SuppressWarnings({"unchecked", "rawtypes"})
     private void codecui$tagSingleField(MapCodec<?> wrapped, String name, boolean optional, Object defaultValue) {
         if (wrapped == null) return;
         try {
@@ -170,7 +169,6 @@ public interface CodecXmapMixin {
     }
 
     @Unique
-    @SuppressWarnings({"unchecked", "rawtypes"})
     private void codecui$inheritInner(Codec<?> wrapped) {
         if (wrapped == null || wrapped == (Object) this) return;
         try {

@@ -7,6 +7,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -130,7 +131,7 @@ public sealed interface Schema<A> {
      */
     @SuppressWarnings("unchecked")
     static <A> Schema<A> anyOf(List<AnyOf.Option> options) {
-        java.util.ArrayList<AnyOf.Option> flat = new java.util.ArrayList<>(options.size());
+        ArrayList<AnyOf.Option> flat = new ArrayList<>(options.size());
         for (AnyOf.Option o : options) {
             if (o.schema() instanceof AnyOf<?>(List<AnyOf.Option> options1)) flat.addAll(options1);
             else flat.add(o);

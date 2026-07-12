@@ -13,8 +13,30 @@ import net.minecraft.util.ExtraCodecs;
 import net.minecraft.util.valueproviders.FloatProviderType;
 import net.minecraft.util.valueproviders.IntProviderType;
 import net.minecraft.world.level.dimension.DimensionType;
+import net.minecraft.world.level.levelgen.blockpredicates.BlockPredicateType;
+import net.minecraft.world.level.levelgen.carver.WorldCarver;
+import net.minecraft.world.level.levelgen.feature.Feature;
+import net.minecraft.world.level.levelgen.feature.featuresize.FeatureSizeType;
+import net.minecraft.world.level.levelgen.feature.foliageplacers.FoliagePlacerType;
+import net.minecraft.world.level.levelgen.feature.rootplacers.RootPlacerType;
+import net.minecraft.world.level.levelgen.feature.stateproviders.BlockStateProviderType;
+import net.minecraft.world.level.levelgen.feature.treedecorators.TreeDecoratorType;
+import net.minecraft.world.level.levelgen.feature.trunkplacers.TrunkPlacerType;
 import net.minecraft.world.level.levelgen.heightproviders.HeightProviderType;
+import net.minecraft.world.level.levelgen.placement.PlacementModifierType;
+import net.minecraft.world.level.levelgen.structure.StructureType;
+import net.minecraft.world.level.levelgen.structure.placement.StructurePlacementType;
+import net.minecraft.world.level.levelgen.structure.pools.StructurePoolElementType;
+import net.minecraft.world.level.levelgen.structure.templatesystem.PosRuleTestType;
 import net.minecraft.world.level.levelgen.structure.templatesystem.RuleTestType;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructureProcessorType;
+import net.minecraft.world.level.levelgen.structure.templatesystem.rule.blockentity.RuleBlockEntityModifierType;
+import net.minecraft.world.level.storage.loot.entries.LootPoolEntryType;
+import net.minecraft.world.level.storage.loot.functions.LootItemFunctionType;
+import net.minecraft.world.level.storage.loot.predicates.LootItemConditionType;
+import net.minecraft.world.level.storage.loot.providers.nbt.LootNbtProviderType;
+import net.minecraft.world.level.storage.loot.providers.number.LootNumberProviderType;
+import net.minecraft.world.level.storage.loot.providers.score.LootScoreProviderType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -114,12 +136,50 @@ public final class CuratedSchemas {
      * registries (whose elements carry a per-element {@code MapCodec}) are dispatch-backed — plain
      * value registries (Block, Item, …) enumerate through the {@link Schema.ResourceId} id-picker
      * path instead — and nothing reflectively distinguishes the two. Add more the same way.</p>
+     *
+     * <p><b>Only registries of concrete "type" objects belong here</b> — ones whose dispatch decoder
+     * casts the key to a specific class (so a foreign key fails fast, letting the resolver's probe
+     * tell hooks apart). Registries whose elements are bare {@code MapCodec<? extends X>}
+     * (DENSITY_FUNCTION_TYPE, MATERIAL_RULE/CONDITION, ENTITY_SUB_PREDICATE_TYPE, the ENCHANTMENT_*
+     * effect registries, …) are deliberately excluded: their dispatch decoder is identity, so every
+     * such registry would accept every other's keys and cross-contaminate the variant lists.</p>
      */
     private static void registerVanillaDispatches() {
-        registerRegistryDispatch(RuleTestType.class, BuiltInRegistries.RULE_TEST);
+        // Value providers (used all over worldgen configs).
         registerRegistryDispatch(IntProviderType.class, BuiltInRegistries.INT_PROVIDER_TYPE);
-        registerRegistryDispatch(HeightProviderType.class, BuiltInRegistries.HEIGHT_PROVIDER_TYPE);
         registerRegistryDispatch(FloatProviderType.class, BuiltInRegistries.FLOAT_PROVIDER_TYPE);
+        registerRegistryDispatch(HeightProviderType.class, BuiltInRegistries.HEIGHT_PROVIDER_TYPE);
+
+        // Worldgen features / placement / block-state providers.
+        registerRegistryDispatch(Feature.class, BuiltInRegistries.FEATURE);
+        registerRegistryDispatch(PlacementModifierType.class, BuiltInRegistries.PLACEMENT_MODIFIER_TYPE);
+        registerRegistryDispatch(BlockStateProviderType.class, BuiltInRegistries.BLOCKSTATE_PROVIDER_TYPE);
+        registerRegistryDispatch(BlockPredicateType.class, BuiltInRegistries.BLOCK_PREDICATE_TYPE);
+        registerRegistryDispatch(WorldCarver.class, BuiltInRegistries.CARVER);
+        registerRegistryDispatch(FeatureSizeType.class, BuiltInRegistries.FEATURE_SIZE_TYPE);
+
+        // Tree building blocks (feature sub-configs).
+        registerRegistryDispatch(FoliagePlacerType.class, BuiltInRegistries.FOLIAGE_PLACER_TYPE);
+        registerRegistryDispatch(TrunkPlacerType.class, BuiltInRegistries.TRUNK_PLACER_TYPE);
+        registerRegistryDispatch(RootPlacerType.class, BuiltInRegistries.ROOT_PLACER_TYPE);
+        registerRegistryDispatch(TreeDecoratorType.class, BuiltInRegistries.TREE_DECORATOR_TYPE);
+
+        // Structures, placement, jigsaw pool elements, and the structure-template rule system.
+        registerRegistryDispatch(StructureType.class, BuiltInRegistries.STRUCTURE_TYPE);
+        registerRegistryDispatch(StructurePlacementType.class, BuiltInRegistries.STRUCTURE_PLACEMENT);
+        registerRegistryDispatch(StructurePoolElementType.class, BuiltInRegistries.STRUCTURE_POOL_ELEMENT);
+        registerRegistryDispatch(StructureProcessorType.class, BuiltInRegistries.STRUCTURE_PROCESSOR);
+        registerRegistryDispatch(RuleTestType.class, BuiltInRegistries.RULE_TEST);
+        registerRegistryDispatch(PosRuleTestType.class, BuiltInRegistries.POS_RULE_TEST);
+        registerRegistryDispatch(RuleBlockEntityModifierType.class, BuiltInRegistries.RULE_BLOCK_ENTITY_MODIFIER);
+
+        // Loot tables: entries, functions, conditions, and the number/nbt/score providers.
+        registerRegistryDispatch(LootPoolEntryType.class, BuiltInRegistries.LOOT_POOL_ENTRY_TYPE);
+        registerRegistryDispatch(LootItemFunctionType.class, BuiltInRegistries.LOOT_FUNCTION_TYPE);
+        registerRegistryDispatch(LootItemConditionType.class, BuiltInRegistries.LOOT_CONDITION_TYPE);
+        registerRegistryDispatch(LootNumberProviderType.class, BuiltInRegistries.LOOT_NUMBER_PROVIDER_TYPE);
+        registerRegistryDispatch(LootNbtProviderType.class, BuiltInRegistries.LOOT_NBT_PROVIDER_TYPE);
+        registerRegistryDispatch(LootScoreProviderType.class, BuiltInRegistries.LOOT_SCORE_PROVIDER_TYPE);
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
