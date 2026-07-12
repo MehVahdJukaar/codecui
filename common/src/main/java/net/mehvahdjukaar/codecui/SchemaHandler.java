@@ -30,11 +30,6 @@ import org.jetbrains.annotations.Nullable;
  *             Schema.option("list", new Schema.ListOf<>(element, 0, Integer.MAX_VALUE)));
  * });
  * }</pre>
- *
- * <p>Related extension points, in resolution order: per-instance companions
- * ({@link SchemaResolvers#registerCompanion}), this interface, {@link EnumerableCodec}
- * (implemented directly on enumerable custom codecs), and dispatch key hooks
- * ({@link SchemaResolvers#registerDispatchKeys}).</p>
  */
 @FunctionalInterface
 public interface SchemaHandler {

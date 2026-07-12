@@ -1,6 +1,8 @@
 package net.mehvahdjukaar.codecui;
 
 import com.mojang.datafixers.util.Either;
+import com.mojang.datafixers.util.Function3;
+import com.mojang.datafixers.util.Function4;
 import com.mojang.datafixers.util.Function5;
 import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
@@ -12,7 +14,7 @@ import net.mehvahdjukaar.codecui.internal.DispatchRegistry;
 import net.mehvahdjukaar.codecui.internal.EitherLeftCodec;
 import net.mehvahdjukaar.codecui.internal.LenientCodecWithLog;
 import net.mehvahdjukaar.codecui.internal.LenientUnboundedMapCodec;
-import net.mehvahdjukaar.codecui.internal.PostProcessCodecs;
+import net.mehvahdjukaar.codecui.internal.MergedFieldsCodec;
 import net.mehvahdjukaar.codecui.internal.ReferenceOrDirectCodec;
 import net.mehvahdjukaar.codecui.internal.SchemaResolver;
 import net.mehvahdjukaar.codecui.internal.SchemaTags;
@@ -30,6 +32,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -49,10 +52,6 @@ import java.util.function.Supplier;
  * {@link SchemaCodec} (or {@link SchemaMapCodec}); the editor reads {@link SchemaCodec#schema()}.</p>
  */
 public final class SchemaCodecs {
-
-    private SchemaCodecs() {}
-
-    // ---- inference-engine extension points (feed the resolver behind SchemaCodec.wrap) ----
 
     /**
      * Manually register a schema for a codec that can't be auto-introspected (opaque
@@ -82,11 +81,9 @@ public final class SchemaCodecs {
      * become entries in the variant picker, with fully resolved bodies.
      */
     public static <K> void registerDispatchKeys(Class<K> keyType, Supplier<List<K>> keys,
-                                                Function<K, MapCodec<?>> codecOf, Function<K, String> nameOf) {
-        DispatchRegistry.register(keyType, keys, codecOf, nameOf);
+                                                Function<K, String> nameOf) {
+        DispatchRegistry.register(keyType, keys, nameOf);
     }
-
-    // ---- primitive SchemaCodecs: declare a field without wrapping by hand ----
 
     public static final SchemaCodec<Boolean> BOOL =
             SchemaCodec.of(Codec.BOOL, new Schema.Bool());
@@ -207,8 +204,6 @@ public final class SchemaCodecs {
         Schema<A> schema = (Schema<A>) (Schema) new Schema.Record<>(Object.class, fields);
         return SchemaMapCodec.of(mapCodec, schema);
     }
-
-    // ---- labeled alternatives: state each alternative ONCE (label + codec together) ----
 
     /** A labeled alternative for {@link #withAlternative} / {@link #labeled}. */
     public record Alt<A>(String label, Codec<A> codec) {}
@@ -356,8 +351,6 @@ public final class SchemaCodecs {
         return SchemaCodec.of(codec, schema);
     }
 
-    // ---- generic combinators (reusable across mods) ----
-
     /**
      * A "reference OR inline" codec (like {@code RegistryFileCodec} for simple map registries):
      * a string decodes through {@code reference}, anything else through {@code direct}. Renders
@@ -440,16 +433,45 @@ public final class SchemaCodecs {
                 predicate -> List.of());
     }
 
-    /** Decode a base object plus up to four extra merged fields; the editor surface is the base's. */
-    public static <A, B, C, D, E> Codec<A> postProcess(Codec<A> base,
-                                                       MapCodec<B> c1, MapCodec<C> c2,
-                                                       MapCodec<D> c3, MapCodec<E> c4,
-                                                       Function5<A, B, C, D, E, A> f) {
-        Codec<A> raw = PostProcessCodecs.of(base, c1, c2, c3, c4, f);
+    /**
+     * Decode a base object plus extra merged map-fields read off the same input, folding them into
+     * the base via {@code merge};
+     */
+    public static <A> Codec<A> withExtra(Codec<A> base, List<MapCodec<?>> extras,
+                                         BiFunction<A, List<Object>, A> merge) {
+        Codec<A> raw = new MergedFieldsCodec<>(base, extras, merge);
         return SchemaCodec.lazy(raw, () -> resolve(base));
     }
 
-    // ---- Minecraft item helpers (lazy so registry access is deferred past class-load) ----
+    @SuppressWarnings("unchecked")
+    public static <A, B> Codec<A> withExtra(Codec<A> base, MapCodec<B> c1,
+                                            BiFunction<A, B, A> f) {
+        return withExtra(base, List.of(c1), (A a, List<Object> v) -> f.apply(a, (B) v.get(0)));
+    }
+
+    /** Typed two-extra {@link #withExtra(Codec, List, BiFunction)}. */
+    @SuppressWarnings("unchecked")
+    public static <A, B, C> Codec<A> withExtra(Codec<A> base, MapCodec<B> c1, MapCodec<C> c2,
+                                               Function3<A, B, C, A> f) {
+        return withExtra(base, List.of(c1, c2),
+                (A a, List<Object> v) -> f.apply(a, (B) v.get(0), (C) v.get(1)));
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <A, B, C, D> Codec<A> withExtra(Codec<A> base, MapCodec<B> c1, MapCodec<C> c2,
+                                                  MapCodec<D> c3, Function4<A, B, C, D, A> f) {
+        return withExtra(base, List.of(c1, c2, c3),
+                (A a, List<Object> v) -> f.apply(a, (B) v.getFirst(), (C) v.get(1), (D) v.get(2)));
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <A, B, C, D, E> Codec<A> withExtra(Codec<A> base,
+                                                     MapCodec<B> c1, MapCodec<C> c2,
+                                                     MapCodec<D> c3, MapCodec<E> c4,
+                                                     Function5<A, B, C, D, E, A> f) {
+        return withExtra(base, List.of(c1, c2, c3, c4),
+                (A a, List<Object> v) -> f.apply(a, (B) v.getFirst(), (C) v.get(1), (D) v.get(2), (E) v.get(3)));
+    }
 
     /** An {@link ItemStack} written either as a full stack object or as a bare item id. */
     public static final Codec<ItemStack> ITEM_OR_STACK = Codec.lazyInitialized(() ->

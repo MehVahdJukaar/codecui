@@ -73,7 +73,6 @@ public abstract class RecordCodecBuilderMixin {
             if (entries.isEmpty()) return result;
             RecordFieldTags.onBuilt(result, entries);
         } catch (Throwable ignored) {
-            // Best-effort.
         }
         return result;
     }

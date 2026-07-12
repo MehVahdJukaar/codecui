@@ -2,16 +2,12 @@ package net.mehvahdjukaar.codecui;
 
 import com.mojang.serialization.MapCodec;
 
-/**
- * Pairing of a {@link MapCodec} with its {@link Schema}.
- */
 public sealed interface SchemaMapCodec<A> permits SchemaMapCodec.SimpleSchemaMapCodec {
 
     MapCodec<A> mapCodec();
 
     Schema<A> schema();
 
-    /** Lift to a {@link SchemaCodec} sharing the same schema. */
     default SchemaCodec<A> asCodec() {
         return SchemaCodec.of(mapCodec().codec(), schema());
     }

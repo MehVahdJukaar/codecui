@@ -25,23 +25,13 @@ import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
-/**
- * Fluent, single-call entry point for building a {@link SchemaCodec} of a record-like type.
- * Mirrors {@link RecordCodecBuilder#create(Function)}'s shape.
- */
 public final class SchemaRecord {
 
-    private SchemaRecord() {}
-
-    /** Build a {@link SchemaCodec} for {@code type} via a fluent group/apply chain. */
     public static <A> SchemaCodec<A> create(Class<A> type, Function<Instance<A>, Group<A>> fn) {
         Instance<A> instance = new Instance<>(type);
         Group<A> group = fn.apply(instance);
         return group.build();
     }
-
-    // ---- Freestanding field factories (mirror Instance.field/optional, minus the instance).
-    //      A is inferred from the getter's Function<A, F>, exactly like DFU's forGetter. ----
 
     public static <A, F> FieldRef<A, F> field(String name, SchemaCodec<F> codec, Function<A, F> getter) {
         return new FieldRef<>(name, codec, false, null, getter);
@@ -291,8 +281,6 @@ public final class SchemaRecord {
         }
     }
 
-    // ---- shared helpers ----
-
     private static <A, F> MapCodec<F> mapCodecFor(FieldRef<A, F> field) {
         if (field.mapCodecOverride != null) {
             return field.mapCodecOverride;
@@ -326,15 +314,12 @@ public final class SchemaRecord {
         }
     }
 
-    /** Result of {@code instance.group(...)}; finishes with {@code .apply(instance, ctor)} then is built. */
     public sealed interface Group<A>
             permits Group1, Group2, Group3, Group4, Group5, Group6, Group7, Group8, Group9,
                     Group10, Group11, Group12, Group13, Group14, Group15, Group16,
                     Group17, Group18, Group19, Group20, Group21 {
         SchemaCodec<A> build();
     }
-
-    // ---- Group1 ----
 
     public static final class Group1<A, F1> implements Group<A> {
         private final Instance<A> instance;
@@ -360,8 +345,6 @@ public final class SchemaRecord {
         }
     }
 
-    // ---- Group2 ----
-
     public static final class Group2<A, F1, F2> implements Group<A> {
         private final Instance<A> instance;
         private final FieldRef<A, F1> f1;
@@ -380,7 +363,6 @@ public final class SchemaRecord {
             return this;
         }
 
-        /** Append one more field, widening to the next arity. */
         public <F3> Group3<A, F1, F2, F3> and(FieldRef<A, F3> f) {
             return new Group3<>(instance, f1, f2, f);
         }
@@ -397,8 +379,6 @@ public final class SchemaRecord {
             return SchemaCodec.lazy(codec, () -> buildSchema(instance.type, f1, f2));
         }
     }
-
-    // ---- Group3 ----
 
     public static final class Group3<A, F1, F2, F3> implements Group<A> {
         private final Instance<A> instance;
@@ -420,7 +400,6 @@ public final class SchemaRecord {
             return this;
         }
 
-        /** Append one more field, widening to the next arity. */
         public <F4> Group4<A, F1, F2, F3, F4> and(FieldRef<A, F4> f) {
             return new Group4<>(instance, f1, f2, f3, f);
         }
@@ -439,8 +418,6 @@ public final class SchemaRecord {
             return SchemaCodec.lazy(codec, () -> buildSchema(instance.type, f1, f2, f3));
         }
     }
-
-    // ---- Group4 ----
 
     public static final class Group4<A, F1, F2, F3, F4> implements Group<A> {
         private final Instance<A> instance;
@@ -465,7 +442,6 @@ public final class SchemaRecord {
             return this;
         }
 
-        /** Append one more field, widening to the next arity. */
         public <F5> Group5<A, F1, F2, F3, F4, F5> and(FieldRef<A, F5> f) {
             return new Group5<>(instance, f1, f2, f3, f4, f);
         }
@@ -486,8 +462,6 @@ public final class SchemaRecord {
             return SchemaCodec.lazy(codec, () -> buildSchema(instance.type, f1, f2, f3, f4));
         }
     }
-
-    // ---- Group5 ----
 
     public static final class Group5<A, F1, F2, F3, F4, F5> implements Group<A> {
         private final Instance<A> instance;
@@ -514,7 +488,6 @@ public final class SchemaRecord {
             return this;
         }
 
-        /** Append one more field, widening to the next arity. */
         public <F6> Group6<A, F1, F2, F3, F4, F5, F6> and(FieldRef<A, F6> f) {
             return new Group6<>(instance, f1, f2, f3, f4, f5, f);
         }
@@ -537,8 +510,6 @@ public final class SchemaRecord {
             return SchemaCodec.lazy(codec, () -> buildSchema(instance.type, f1, f2, f3, f4, f5));
         }
     }
-
-    // ---- Group6 ----
 
     public static final class Group6<A, F1, F2, F3, F4, F5, F6> implements Group<A> {
         private final Instance<A> instance;
@@ -567,7 +538,6 @@ public final class SchemaRecord {
             return this;
         }
 
-        /** Append one more field, widening to the next arity. */
         public <F7> Group7<A, F1, F2, F3, F4, F5, F6, F7> and(FieldRef<A, F7> f) {
             return new Group7<>(instance, f1, f2, f3, f4, f5, f6, f);
         }
@@ -592,8 +562,6 @@ public final class SchemaRecord {
             return SchemaCodec.lazy(codec, () -> buildSchema(instance.type, f1, f2, f3, f4, f5, f6));
         }
     }
-
-    // ---- Group7 ----
 
     public static final class Group7<A, F1, F2, F3, F4, F5, F6, F7> implements Group<A> {
         private final Instance<A> instance;
@@ -625,7 +593,6 @@ public final class SchemaRecord {
             return this;
         }
 
-        /** Append one more field, widening to the next arity. */
         public <F8> Group8<A, F1, F2, F3, F4, F5, F6, F7, F8> and(FieldRef<A, F8> f) {
             return new Group8<>(instance, f1, f2, f3, f4, f5, f6, f7, f);
         }
@@ -652,8 +619,6 @@ public final class SchemaRecord {
             return SchemaCodec.lazy(codec, () -> buildSchema(instance.type, f1, f2, f3, f4, f5, f6, f7));
         }
     }
-
-    // ---- Group8 ----
 
     public static final class Group8<A, F1, F2, F3, F4, F5, F6, F7, F8> implements Group<A> {
         private final Instance<A> instance;
@@ -688,7 +653,6 @@ public final class SchemaRecord {
             return this;
         }
 
-        /** Append one more field, widening to the next arity. */
         public <F9> Group9<A, F1, F2, F3, F4, F5, F6, F7, F8, F9> and(FieldRef<A, F9> f) {
             return new Group9<>(instance, f1, f2, f3, f4, f5, f6, f7, f8, f);
         }
@@ -717,8 +681,6 @@ public final class SchemaRecord {
             return SchemaCodec.lazy(codec, () -> buildSchema(instance.type, f1, f2, f3, f4, f5, f6, f7, f8));
         }
     }
-
-    // ---- Group9 ----
 
     public static final class Group9<A, F1, F2, F3, F4, F5, F6, F7, F8, F9> implements Group<A> {
         private final Instance<A> instance;
@@ -756,7 +718,6 @@ public final class SchemaRecord {
             return this;
         }
 
-        /** Append one more field, widening to the next arity. */
         public <F10> Group10<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10> and(FieldRef<A, F10> f) {
             return new Group10<>(instance, f1, f2, f3, f4, f5, f6, f7, f8, f9, f);
         }
@@ -788,8 +749,6 @@ public final class SchemaRecord {
         }
     }
 
-    // ---- Group10 ---- (arities >9 use group(...).apply(i, ctor); DFU's applyN defaults stop at 9)
-
     public static final class Group10<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10> implements Group<A> {
         private final Instance<A> instance;
         private final FieldRef<A, F1> f1; private final FieldRef<A, F2> f2; private final FieldRef<A, F3> f3;
@@ -813,7 +772,6 @@ public final class SchemaRecord {
             return this;
         }
 
-        /** Append one more field, widening to the next arity. */
         public <F11> Group11<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11> and(FieldRef<A, F11> f) {
             return new Group11<>(instance, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f);
         }
@@ -835,8 +793,6 @@ public final class SchemaRecord {
             return SchemaCodec.lazy(codec, () -> buildSchema(instance.type, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10));
         }
     }
-
-    // ---- Group11 ----
 
     public static final class Group11<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11> implements Group<A> {
         private final Instance<A> instance;
@@ -861,7 +817,6 @@ public final class SchemaRecord {
             return this;
         }
 
-        /** Append one more field, widening to the next arity. */
         public <F12> Group12<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12> and(FieldRef<A, F12> f) {
             return new Group12<>(instance, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f);
         }
@@ -884,8 +839,6 @@ public final class SchemaRecord {
             return SchemaCodec.lazy(codec, () -> buildSchema(instance.type, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11));
         }
     }
-
-    // ---- Group12 ----
 
     public static final class Group12<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12> implements Group<A> {
         private final Instance<A> instance;
@@ -911,7 +864,6 @@ public final class SchemaRecord {
             return this;
         }
 
-        /** Append one more field, widening to the next arity. */
         public <F13> Group13<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13> and(FieldRef<A, F13> f) {
             return new Group13<>(instance, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f);
         }
@@ -935,8 +887,6 @@ public final class SchemaRecord {
             return SchemaCodec.lazy(codec, () -> buildSchema(instance.type, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12));
         }
     }
-
-    // ---- Group13 ----
 
     public static final class Group13<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13> implements Group<A> {
         private final Instance<A> instance;
@@ -963,7 +913,6 @@ public final class SchemaRecord {
             return this;
         }
 
-        /** Append one more field, widening to the next arity. */
         public <F14> Group14<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14> and(FieldRef<A, F14> f) {
             return new Group14<>(instance, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f);
         }
@@ -988,8 +937,6 @@ public final class SchemaRecord {
             return SchemaCodec.lazy(codec, () -> buildSchema(instance.type, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13));
         }
     }
-
-    // ---- Group14 ----
 
     public static final class Group14<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14> implements Group<A> {
         private final Instance<A> instance;
@@ -1016,7 +963,6 @@ public final class SchemaRecord {
             return this;
         }
 
-        /** Append one more field, widening to the next arity. */
         public <F15> Group15<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15> and(FieldRef<A, F15> f) {
             return new Group15<>(instance, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f);
         }
@@ -1042,8 +988,6 @@ public final class SchemaRecord {
             return SchemaCodec.lazy(codec, () -> buildSchema(instance.type, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14));
         }
     }
-
-    // ---- Group15 ----
 
     public static final class Group15<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15> implements Group<A> {
         private final Instance<A> instance;
@@ -1097,8 +1041,6 @@ public final class SchemaRecord {
             return SchemaCodec.lazy(codec, () -> buildSchema(instance.type, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15));
         }
     }
-
-    // ---- Group16 ----
 
     public static final class Group16<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16> implements Group<A> {
         private final Instance<A> instance;
@@ -1156,8 +1098,6 @@ public final class SchemaRecord {
         }
     }
 
-    // ---- Group17 ----
-
     public static final class Group17<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17> implements Group<A> {
         private final Instance<A> instance;
         private final FieldRef<A, F1> f1; private final FieldRef<A, F2> f2; private final FieldRef<A, F3> f3;
@@ -1186,7 +1126,6 @@ public final class SchemaRecord {
             return this;
         }
 
-        /** Append one more field, widening to the next arity. */
         public <F18> Group18<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18> and(FieldRef<A, F18> f) {
             return new Group18<>(instance, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f);
         }
@@ -1216,8 +1155,6 @@ public final class SchemaRecord {
         }
     }
 
-    // ---- Group18 ----
-
     public static final class Group18<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18> implements Group<A> {
         private final Instance<A> instance;
         private final FieldRef<A, F1> f1; private final FieldRef<A, F2> f2; private final FieldRef<A, F3> f3;
@@ -1246,7 +1183,6 @@ public final class SchemaRecord {
             return this;
         }
 
-        /** Append one more field, widening to the next arity. */
         public <F19> Group19<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19> and(FieldRef<A, F19> f) {
             return new Group19<>(instance, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f);
         }
@@ -1277,8 +1213,6 @@ public final class SchemaRecord {
         }
     }
 
-    // ---- Group19 ----
-
     public static final class Group19<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19> implements Group<A> {
         private final Instance<A> instance;
         private final FieldRef<A, F1> f1; private final FieldRef<A, F2> f2; private final FieldRef<A, F3> f3;
@@ -1308,7 +1242,6 @@ public final class SchemaRecord {
             return this;
         }
 
-        /** Append one more field, widening to the next arity. */
         public <F20> Group20<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, F20> and(FieldRef<A, F20> f) {
             return new Group20<>(instance, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f);
         }
@@ -1340,8 +1273,6 @@ public final class SchemaRecord {
         }
     }
 
-    // ---- Group20 ----
-
     public static final class Group20<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, F20> implements Group<A> {
         private final Instance<A> instance;
         private final FieldRef<A, F1> f1; private final FieldRef<A, F2> f2; private final FieldRef<A, F3> f3;
@@ -1372,14 +1303,13 @@ public final class SchemaRecord {
             return this;
         }
 
-        /** Append one more field, widening to the next arity. */
         public <F21> Group21<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, F20, F21> and(FieldRef<A, F21> f) {
             return new Group21<>(instance, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, f20, f);
         }
 
         @Override
         public SchemaCodec<A> build() {
-            Codec<A> codec = RecordCodecBuilder.<A>create(i -> BiggerCodecs.group(i,
+            Codec<A> codec = RecordCodecBuilder.create(i -> BiggerCodecs.group(i,
                     RecordCodecBuilder.of(f1.getter, mapCodecFor(f1)),
                     RecordCodecBuilder.of(f2.getter, mapCodecFor(f2)),
                     RecordCodecBuilder.of(f3.getter, mapCodecFor(f3)),
@@ -1405,12 +1335,6 @@ public final class SchemaRecord {
         }
     }
 
-    // ---- Group21 ----
-
-    /**
-     * Terminal arity: {@code Group21} has no {@code and(...)} — 21 fields is the cap, matching the
-     * top of {@link BiggerCodecs}'s applyN ladder. Records needing more must be split or nested.
-     */
     public static final class Group21<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17, F18, F19, F20, F21> implements Group<A> {
         private final Instance<A> instance;
         private final FieldRef<A, F1> f1; private final FieldRef<A, F2> f2; private final FieldRef<A, F3> f3;
@@ -1470,12 +1394,6 @@ public final class SchemaRecord {
         }
     }
 
-    /**
-     * Single field declaration produced by {@link Instance#field}/{@link Instance#optional}.
-     * The last two components are only set by the {@code Optional<F>} flavor of
-     * {@code optional(...)}: a prebuilt {@code optionalFieldOf(name)} map codec, plus the
-     * inner element codec whose schema the editor should display.
-     */
     public record FieldRef<A, F>(String name, @Nullable SchemaCodec<F> codec, boolean optional,
                                  @Nullable F defaultValue, Function<A, F> getter,
                                  @Nullable MapCodec<F> mapCodecOverride,

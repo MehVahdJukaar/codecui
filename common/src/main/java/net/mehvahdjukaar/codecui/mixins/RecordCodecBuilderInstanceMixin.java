@@ -67,7 +67,6 @@ public abstract class RecordCodecBuilderInstanceMixin {
                 RecordFieldTags.copy(in, out);
             }
         } catch (Throwable ignored) {
-            // Best-effort.
         }
         return result;
     }
@@ -110,7 +109,6 @@ public abstract class RecordCodecBuilderInstanceMixin {
             }
             RecordFieldTags.concat(resultBuilder, in);
         } catch (Throwable ignored) {
-            // Best-effort.
         }
     }
 }

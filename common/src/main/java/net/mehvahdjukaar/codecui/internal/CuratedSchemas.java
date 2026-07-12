@@ -1,16 +1,26 @@
 package net.mehvahdjukaar.codecui.internal;
 
+import net.mehvahdjukaar.codecui.CodecUI;
 import net.mehvahdjukaar.codecui.Schema;
 import net.mehvahdjukaar.codecui.SchemaCodecs;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Registry;
 import net.minecraft.core.UUIDUtil;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.ExtraCodecs;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import net.minecraft.util.valueproviders.FloatProviderType;
+import net.minecraft.util.valueproviders.IntProviderType;
+import net.minecraft.world.level.dimension.DimensionType;
+import net.minecraft.world.level.levelgen.heightproviders.HeightProviderType;
+import net.minecraft.world.level.levelgen.structure.templatesystem.RuleTestType;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.regex.Pattern;
 
 /**
  * THE hand-maintained list of schema registrations for codecs that auto-inspection can't
@@ -34,11 +44,7 @@ import java.util.List;
  */
 public final class CuratedSchemas {
 
-    private static final Logger LOGGER = LogManager.getLogger("Schema Logger");
-
     private static volatile boolean bootstrapped = false;
-
-    private CuratedSchemas() {}
 
     public static void bootstrap() {
         if (bootstrapped) return;
@@ -46,11 +52,10 @@ public final class CuratedSchemas {
             if (bootstrapped) return;
             bootstrapped = true;
         }
-        VanillaDispatches.bootstrap();
         try {
             register();
         } catch (Throwable t) {
-            LOGGER.warn("[codec_ui] curated schema registration failed", t);
+            CodecUI.LOGGER.warn("curated schema registration failed", t);
         }
         // Separate block: these reference classes that need the game bootstrap (Blocks,
         // ItemStack components). On a bare JVM they fail without taking down the safe
@@ -58,13 +63,15 @@ public final class CuratedSchemas {
         try {
             registerBootstrapDependent();
         } catch (Throwable t) {
-            LOGGER.info("[codec_ui] game-dependent curated schemas unavailable (no game bootstrap): {}",
+            CodecUI.LOGGER.info("game-dependent curated schemas unavailable (no game bootstrap): {}",
                     String.valueOf(t));
         }
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static void register() {
+        registerVanillaDispatches();
+
         // ResourceLocation.CODEC is STRING.comapFlatMap -> inference yields plain text; an id
         // widget (with the registry-less picker) is the nicer surface.
         SchemaCodecs.registerCompanion(ResourceLocation.CODEC, new Schema.ResourceId(null));
@@ -76,7 +83,7 @@ public final class CuratedSchemas {
 
         // UUIDUtil.STRING_CODEC / LENIENT_CODEC decode via opaque lambdas; on disk they are
         // the canonical hyphenated string form.
-        Schema uuidString = new Schema.Str(36, 36, java.util.regex.Pattern.compile(
+        Schema uuidString = new Schema.Str(36, 36, Pattern.compile(
                 "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"));
         SchemaCodecs.registerCompanion(UUIDUtil.STRING_CODEC, uuidString);
 
@@ -95,6 +102,45 @@ public final class CuratedSchemas {
         // point of this whole exercise. On 1.21.1 only ARGB_COLOR_CODEC exists (int-primary);
         // RGB_COLOR_CODEC and the STRING_* hex-string color codecs were added in 1.21.11.
         SchemaCodecs.registerCompanion(ExtraCodecs.ARGB_COLOR_CODEC, new Schema.Color(true, false));
+    }
+
+    /**
+     * Dispatch key sets for vanilla {@code Codec.dispatch(...)} families keyed on a "type" object
+     * from a registry (e.g. {@link RuleTestType}). A {@code KeyDispatchCodec} hides its valid key
+     * set inside a closure, so the resolver can't enumerate variants without this side channel; it
+     * feeds each key back through the dispatch's own decoder to recover the variant body.
+     *
+     * <p>These are hand-listed rather than derived from "all registries" because only <i>type</i>
+     * registries (whose elements carry a per-element {@code MapCodec}) are dispatch-backed — plain
+     * value registries (Block, Item, …) enumerate through the {@link Schema.ResourceId} id-picker
+     * path instead — and nothing reflectively distinguishes the two. Add more the same way.</p>
+     */
+    private static void registerVanillaDispatches() {
+        registerRegistryDispatch(RuleTestType.class, BuiltInRegistries.RULE_TEST);
+        registerRegistryDispatch(IntProviderType.class, BuiltInRegistries.INT_PROVIDER_TYPE);
+        registerRegistryDispatch(HeightProviderType.class, BuiltInRegistries.HEIGHT_PROVIDER_TYPE);
+        registerRegistryDispatch(FloatProviderType.class, BuiltInRegistries.FLOAT_PROVIDER_TYPE);
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static <K> void registerRegistryDispatch(Class<? super K> keyType, Registry<? extends K> registry) {
+        // LAZY: re-snapshot on each call so we see whatever's in the registry when the editor opens,
+        // not at static-init time (avoids any class-loading order race with registry population).
+        Supplier<List<K>> keys = () -> {
+            List<K> snapshot = new ArrayList<>();
+            try {
+                for (K v : registry) snapshot.add(v);
+            } catch (Throwable t) {
+                CodecUI.LOGGER.warn("[codecui] Failed to iterate registry for {}: {}",
+                        keyType.getSimpleName(), t.toString());
+            }
+            return snapshot;
+        };
+        Function<K, String> nameOf = v -> {
+            ResourceLocation id = ((Registry) registry).getKey(v);
+            return id != null ? id.toString() : String.valueOf(v);
+        };
+        SchemaCodecs.registerDispatchKeys((Class<K>) keyType, keys, nameOf);
     }
 
     private static void registerBootstrapDependent() {
@@ -121,8 +167,8 @@ public final class CuratedSchemas {
         // DimensionType.DIRECT_CODEC wraps fields via ExtraCodecs.catchDecoderException
         // (a raw Codec.of with anonymous decoder) — no mixin point. Companion describes the
         // standard vanilla on-disk shape.
-        SchemaCodecs.registerCompanion(net.minecraft.world.level.dimension.DimensionType.DIRECT_CODEC,
-                new Schema.Record<>(net.minecraft.world.level.dimension.DimensionType.class,
+        SchemaCodecs.registerCompanion(DimensionType.DIRECT_CODEC,
+                new Schema.Record<>(DimensionType.class,
                         List.of(
                         new Schema.Field<>("ultrawarm", new Schema.Bool(), false, null),
                         new Schema.Field<>("natural", new Schema.Bool(), false, null),

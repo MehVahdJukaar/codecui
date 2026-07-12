@@ -1,6 +1,5 @@
 package net.mehvahdjukaar.codecui.internal;
 
-import com.mojang.serialization.MapCodec;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collections;
@@ -18,40 +17,30 @@ import java.util.function.Supplier;
  * because the keyCodec is the output of {@code Registry.byNameCodec()} which itself is a
  * {@code flatComapMap} wrapper that hides the underlying registry inside a lambda closure.</p>
  *
- * <p>This class provides a side-channel: vanilla dispatches register their key set + variant
- * codec lookup explicitly (see {@link VanillaDispatches}). The {@code SchemaResolver} then
- * iterates registered hooks and applies the dispatch's decoder function to each candidate key;
- * keys that produce a {@code DataResult.success} contribute variants to the resulting
- * {@code Schema.OneOf}.</p>
  */
 public final class DispatchRegistry {
 
     /**
-     * A single dispatch hook: the known keys for some K, plus a way to obtain the variant codec.
-     * Note that the codec lookup function is only used as a fallback — the SchemaResolver
-     * normally goes through the dispatch's own internal decoder function.
-     */
-    /**
-     * Lazy key supplier — each call re-resolves the keys, so dispatches register at class-load
-     * time but the actual iteration happens at editor-open time when registries are fully populated
-     * (and, for dynamic registries, when a level / registryAccess is available).
+     * A single dispatch hook: the known keys for some K, plus how to name each one. The
+     * SchemaResolver recovers each variant's body by feeding these keys through the dispatch's
+     * own internal decoder function — so no variant-codec lookup is needed here.
+     *
+     * <p>The key supplier is lazy — each call re-resolves the keys, so dispatches register at
+     * class-load time but the actual iteration happens at editor-open time when registries are
+     * fully populated (and, for dynamic registries, when a level / registryAccess is available).</p>
      */
     public record Hook<K>(Class<K> keyType,
                           Supplier<List<K>> keys,
-                          Function<K, MapCodec<?>> codecOf,
                           Function<K, String> nameOf) {}
 
     // IdentityHashMap on Class keys (Class identity is fine).
     private static final Map<Class<?>, Hook<?>> HOOKS =
             Collections.synchronizedMap(new IdentityHashMap<>());
 
-    private DispatchRegistry() {}
-
     public static <K> void register(Class<K> keyType,
-                                    java.util.function.Supplier<List<K>> keys,
-                                    Function<K, MapCodec<?>> codecOf,
+                                    Supplier<List<K>> keys,
                                     Function<K, String> nameOf) {
-        HOOKS.put(keyType, new Hook<>(keyType, keys, codecOf, nameOf));
+        HOOKS.put(keyType, new Hook<>(keyType, keys, nameOf));
     }
 
     @SuppressWarnings("unchecked")

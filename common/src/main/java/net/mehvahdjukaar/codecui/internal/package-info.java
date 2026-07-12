@@ -7,10 +7,12 @@
  * <p>Contents: {@link net.mehvahdjukaar.codecui.internal.SchemaResolver}
  * (the tiered codec→schema walker) and the weak-identity side-channel tag stores written
  * by the mixins ({@code SchemaTags}, {@code XmapTags}, {@code FieldOfTags},
- * {@code RecordFieldTags}), plus dispatch key enumeration ({@code DispatchRegistry},
- * {@code VanillaDispatches}) and {@code CuratedSchemas} — the hand-maintained list of
- * registrations for codecs inference can't handle (kept strictly separate from the
- * inference code; entries use only the public {@code SchemaResolvers} API).</p>
+ * {@code RecordFieldTags}), plus dispatch key enumeration
+ * ({@link net.mehvahdjukaar.codecui.internal.DispatchRegistry}) and
+ * {@link net.mehvahdjukaar.codecui.internal.CuratedSchemas} — the hand-maintained list of
+ * registrations for codecs inference can't handle (companions, handlers, and the vanilla
+ * dispatch key sets). Kept strictly separate from the inference code: every curated entry
+ * goes through only the public {@code SchemaCodecs} API.</p>
  *
  * <p>Invariant that must hold everywhere in this package: tags recorded at codec
  * construction time must be LAZY (store the inner codec, resolve at lookup), never an

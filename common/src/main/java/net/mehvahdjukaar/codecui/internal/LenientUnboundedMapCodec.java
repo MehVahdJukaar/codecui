@@ -2,17 +2,15 @@ package net.mehvahdjukaar.codecui.internal;
 
 import com.google.common.collect.ImmutableMap;
 import com.mojang.datafixers.util.Pair;
-import com.mojang.logging.LogUtils;
 import com.mojang.serialization.*;
 import com.mojang.serialization.codecs.BaseMapCodec;
-import org.slf4j.Logger;
+import net.mehvahdjukaar.codecui.CodecUI;
 
 import java.util.Map;
 import java.util.Objects;
 
 public record LenientUnboundedMapCodec<K, V>(Codec<K> keyCodec,
                                              Codec<V> elementCodec) implements BaseMapCodec<K, V>, Codec<Map<K, V>> {
-    private static final Logger LOGGER = LogUtils.getLogger();
 
     @Override
     public <T> DataResult<Map<K, V>> decode(DynamicOps<T> ops, MapLike<T> input) {
@@ -22,7 +20,7 @@ public record LenientUnboundedMapCodec<K, V>(Codec<K> keyCodec,
             DataResult<V> v = this.elementCodec().parse(ops, pair.getSecond());
             DataResult<Pair<K, V>> entry = k.apply2stable(Pair::of, v);
             entry.error().ifPresent((e) -> {
-                LOGGER.error("Failed to decode key {} for value {}: {}", k, v, e);
+                CodecUI.LOGGER.error("Failed to decode key {} for value {}: {}", k, v, e);
             });
             entry.result().ifPresent((e) -> {
                 read.put(e.getFirst(), e.getSecond());
@@ -34,11 +32,7 @@ public record LenientUnboundedMapCodec<K, V>(Codec<K> keyCodec,
 
     @Override
     public <T> DataResult<Pair<Map<K, V>, T>> decode(DynamicOps<T> ops, T input) {
-        return ops.getMap(input).setLifecycle(Lifecycle.stable()).flatMap((map) -> {
-            return this.decode(ops, map);
-        }).map((r) -> {
-            return Pair.of(r, input);
-        });
+        return ops.getMap(input).setLifecycle(Lifecycle.stable()).flatMap((map) -> this.decode(ops, map)).map((r) -> Pair.of(r, input));
     }
 
     @Override
@@ -66,6 +60,6 @@ public record LenientUnboundedMapCodec<K, V>(Codec<K> keyCodec,
     @Override
     public String toString() {
         String var10000 = String.valueOf(this.keyCodec);
-        return "LenientUnboundedMapCodec[" + var10000 + " -> " + String.valueOf(this.elementCodec) + "]";
+        return "LenientUnboundedMapCodec[" + var10000 + " -> " + this.elementCodec + "]";
     }
 }

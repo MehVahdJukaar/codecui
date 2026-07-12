@@ -19,17 +19,17 @@ import net.mehvahdjukaar.codecui.CodecUI;
 import net.mehvahdjukaar.codecui.EnumerableCodec;
 import net.mehvahdjukaar.codecui.Schema;
 import net.mehvahdjukaar.codecui.SchemaHandler;
-import net.minecraft.resources.HolderSetCodec;
-import net.minecraft.resources.RegistryFileCodec;
-import net.minecraft.resources.RegistryFixedCodec;
-import net.minecraft.resources.ResourceKey;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.*;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
-import java.util.IdentityHashMap;
-import java.util.LinkedHashMap;
+import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * Walks a Codec graph and produces an introspected Schema. Falls back to {@link Schema.Opaque}
@@ -45,7 +45,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
 
     // Registered via SchemaCodecs.registerHandler. Consulted after per-instance tags,
     // before the built-in structural tiers.
-    private static final java.util.List<SchemaHandler> HANDLERS = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private static final List<SchemaHandler> HANDLERS = new CopyOnWriteArrayList<>();
 
     public static SchemaResolver get() {
         return INSTANCE;
@@ -122,12 +122,12 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
             var lookup = MethodHandles.privateLookupIn(KeyDispatchCodec.class, MethodHandles.lookup());
             kdk = lookup.findVarHandle(KeyDispatchCodec.class, "keyCodec", MapCodec.class);
             // KeyDispatchCodec field is named "type" (Function<? super V, ...>), used for the type field name.
-            kdt = lookup.findVarHandle(KeyDispatchCodec.class, "type", java.util.function.Function.class);
+            kdt = lookup.findVarHandle(KeyDispatchCodec.class, "type", Function.class);
             // "decoder" Function<? super K, DataResult<? extends MapDecoder<? extends V>>> — the
             // public constructor uses the same `codec` function as both decoder and source for the
             // (lazily-wrapped) encoder, so applying decoder to a candidate K yields the variant
             // MapCodec wrapped in DataResult. We use this for variant enumeration.
-            kdd = lookup.findVarHandle(KeyDispatchCodec.class, "decoder", java.util.function.Function.class);
+            kdd = lookup.findVarHandle(KeyDispatchCodec.class, "decoder", Function.class);
         } catch (Throwable ignored) {}
         try {
             var lookup = MethodHandles.privateLookupIn(SimpleMapCodec.class, MethodHandles.lookup());
@@ -137,12 +137,12 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         } catch (Throwable ignored) {}
         try {
             var lookup = MethodHandles.privateLookupIn(Codec.RecursiveCodec.class, MethodHandles.lookup());
-            rw = lookup.findVarHandle(Codec.RecursiveCodec.class, "wrapped", java.util.function.Supplier.class);
+            rw = lookup.findVarHandle(Codec.RecursiveCodec.class, "wrapped", Supplier.class);
         } catch (Throwable ignored) {}
         try {
             rmc = Class.forName("com.mojang.serialization.MapCodec$RecursiveMapCodec");
             var lookup = MethodHandles.privateLookupIn(rmc, MethodHandles.lookup());
-            rmw = lookup.findVarHandle(rmc, "wrapped", java.util.function.Supplier.class);
+            rmw = lookup.findVarHandle(rmc, "wrapped", Supplier.class);
         } catch (Throwable ignored) {
             rmc = null;
         }
@@ -242,7 +242,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         }
 
         // Tier 0d: lazy xmap/stable/etc. wrapper tag — delegate to inner FRESH.
-        Codec<?> innerWrapped = net.mehvahdjukaar.codecui.internal.XmapTags.getCodec(codec);
+        Codec<?> innerWrapped = XmapTags.getCodec(codec);
         if (innerWrapped != null) {
             Schema<?> innerSchema = resolveCodec((Codec) innerWrapped, cache);
             cache.put(codec, innerSchema);
@@ -275,12 +275,12 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
 
         // Tier 0a: lazy fieldOf tag — resolve inner FRESH so companions registered after the
         // fieldOf mixin fired still take effect.
-        net.mehvahdjukaar.codecui.internal.FieldOfTags.Entry foe =
-                net.mehvahdjukaar.codecui.internal.FieldOfTags.get(codec);
+        FieldOfTags.Entry foe =
+                FieldOfTags.get(codec);
         if (foe != null) {
             Schema<?> innerSchema = resolveCodec((Codec) foe.innerCodec(), cache);
             Schema.Field field = new Schema.Field(foe.name(), innerSchema, foe.optional(), foe.defaultValue());
-            Schema rec = new Schema.Record(Object.class, java.util.List.of(field));
+            Schema rec = new Schema.Record(Object.class, List.of(field));
             cache.put(codec, rec);
             return rec;
         }
@@ -288,7 +288,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         // Tier 0b: lazy RecordCodecBuilder.build tag — rebuild the Schema.Record fresh from
         // the accumulated field entries. Cached only in the per-resolve cache (not SchemaTags),
         // so a companion registered after RCB.build() still affects the next resolve.
-        java.util.List<RecordFieldTags.Entry> built = RecordFieldTags.getBuilt(codec);
+        List<RecordFieldTags.Entry> built = RecordFieldTags.getBuilt(codec);
         if (built != null && !built.isEmpty()) {
             Schema<?> rec = schemaFromRecordEntries(built, cache);
             cache.put(codec, rec);
@@ -303,7 +303,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         }
 
         // Tier 0d: lazy MapCodec xmap wrapper tag — delegate to inner FRESH.
-        MapCodec<?> innerWrappedMap = net.mehvahdjukaar.codecui.internal.XmapTags.getMap(codec);
+        MapCodec<?> innerWrappedMap = XmapTags.getMap(codec);
         if (innerWrappedMap != null) {
             Schema<?> innerSchema = resolveMapCodec((MapCodec) innerWrappedMap, cache);
             cache.put(codec, innerSchema);
@@ -342,7 +342,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
                         : handler.tryResolve((Codec<?>) codec, this);
                 if (schema != null) return schema;
             } catch (Throwable t) {
-                CodecUI.LOGGER.warn("[codec_ui] SchemaHandler {} threw on {}: {}",
+                CodecUI.LOGGER.warn("SchemaHandler {} threw on {}: {}",
                         handler.getClass().getName(), codec.getClass().getName(), t.toString());
             }
         }
@@ -379,21 +379,21 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         // MapCodec.codec() returns a MapCodecCodec record wrapping the underlying MapCodec.
         // Promote to the inner MapCodec resolution so dispatch codecs (KeyDispatchCodec, RCB.build
         // outputs) reach the MapCodec tier-2 path.
-        if (codec instanceof MapCodec.MapCodecCodec<?> mcc) {
-            return resolveMapCodec(mcc.codec(), cache);
+        if (codec instanceof MapCodec.MapCodecCodec<?>(MapCodec<?> codec1)) {
+            return resolveMapCodec(codec1, cache);
         }
-        if (codec instanceof ListCodec<?> list) {
-            Schema<?> elem = resolveCodec(list.elementCodec(), cache);
-            return new Schema.ListOf(elem, list.minSize(), list.maxSize());
+        if (codec instanceof ListCodec<?>(Codec<?> elementCodec, int minSize, int maxSize)) {
+            Schema<?> elem = resolveCodec(elementCodec, cache);
+            return new Schema.ListOf(elem, minSize, maxSize);
         }
-        if (codec instanceof EitherCodec<?, ?> either) {
-            Schema<?> l = resolveCodec(either.first(), cache);
-            Schema<?> r = resolveCodec(either.second(), cache);
+        if (codec instanceof EitherCodec<?, ?>(Codec<?> first1, Codec<?> second1)) {
+            Schema<?> l = resolveCodec(first1, cache);
+            Schema<?> r = resolveCodec(second1, cache);
             return Schema.anyOf(Schema.option(l), Schema.option(r));
         }
-        if (codec instanceof UnboundedMapCodec<?, ?> map) {
-            Schema<?> k = resolveCodec(map.keyCodec(), cache);
-            Schema<?> v = resolveCodec(map.elementCodec(), cache);
+        if (codec instanceof UnboundedMapCodec<?, ?>(Codec<?> keyCodec, Codec<?> elementCodec)) {
+            Schema<?> k = resolveCodec(keyCodec, cache);
+            Schema<?> v = resolveCodec(elementCodec, cache);
             return new Schema.MapOf(k, v);
         }
         if (codec instanceof PairCodec<?, ?> pair && PAIR_CODEC_FIRST != null && PAIR_CODEC_SECOND != null) {
@@ -403,9 +403,9 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
             Schema<?> s = resolveCodec(second, cache);
             return new Schema.PairOf(f, s);
         }
-        if (codec instanceof XorCodec<?, ?> xor) {
-            Schema<?> l = resolveCodec(xor.first(), cache);
-            Schema<?> r = resolveCodec(xor.second(), cache);
+        if (codec instanceof XorCodec<?, ?>(Codec<?> first, Codec<?> second)) {
+            Schema<?> l = resolveCodec(first, cache);
+            Schema<?> r = resolveCodec(second, cache);
             return Schema.anyOf(Schema.option(l), Schema.option(r));
         }
         // Codec.recursive / Codec.lazyInitialized. Forcing the memoized supplier is safe:
@@ -413,7 +413,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         // which render as Opaque (raw JSON validated by the real codec).
         if (codec instanceof Codec.RecursiveCodec<?> rec && RECURSIVE_WRAPPED != null) {
             try {
-                java.util.function.Supplier<?> sup = (java.util.function.Supplier<?>) RECURSIVE_WRAPPED.get(rec);
+                Supplier<?> sup = (Supplier<?>) RECURSIVE_WRAPPED.get(rec);
                 Object inner = sup.get();
                 if (inner instanceof Codec<?> c && c != codec) {
                     return resolveCodec(c, cache);
@@ -434,7 +434,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         // Holder<E> by registry id, optionally with an inline definition (SoundEvent.CODEC etc.).
         if (codec instanceof RegistryFileCodec<?> rfc && REGISTRY_FILE_KEY != null
                 && REGISTRY_FILE_ELEMENT != null && REGISTRY_FILE_INLINE != null) {
-            var key = (ResourceKey<? extends net.minecraft.core.Registry<?>>) REGISTRY_FILE_KEY.get(rfc);
+            var key = (ResourceKey<? extends Registry<?>>) REGISTRY_FILE_KEY.get(rfc);
             Schema<?> id = new Schema.ResourceId(key);
             if ((boolean) REGISTRY_FILE_INLINE.get(rfc)) {
                 Schema<?> inline = resolveCodec((Codec<?>) REGISTRY_FILE_ELEMENT.get(rfc), cache);
@@ -444,7 +444,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         }
         // Holder<E> strictly by registry id.
         if (codec instanceof RegistryFixedCodec<?> rfx && REGISTRY_FIXED_KEY != null) {
-            return new Schema.ResourceId((ResourceKey<? extends net.minecraft.core.Registry<?>>) REGISTRY_FIXED_KEY.get(rfx));
+            return new Schema.ResourceId((ResourceKey<? extends Registry<?>>) REGISTRY_FIXED_KEY.get(rfx));
         }
         // HolderSet<E>: a "#namespace:path" tag string, a single entry, or a list of entries.
         if (codec instanceof HolderSetCodec<?> hs && HOLDER_SET_ELEMENT != null) {
@@ -457,7 +457,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         }
         // Custom registries etc. that expose their value set — a dropdown of registered names.
         if (codec instanceof EnumerableCodec en) {
-            java.util.List<String> names = new java.util.ArrayList<>(en.codecUiValues().keySet());
+            List<String> names = new ArrayList<>(en.codecUiValues().keySet());
             return new Schema.Enum<>(names, Function.identity());
         }
         return null;
@@ -474,7 +474,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
             // RecordCodecBuilder) will normally have already produced its own Record schema;
             // this is the standalone fallback.
             Schema.Field field = new Schema.Field(name, elemSchema, true, null);
-            return new Schema.Record(Object.class, java.util.List.of(field));
+            return new Schema.Record(Object.class, List.of(field));
         }
         if (codec instanceof PairMapCodec<?, ?> pair && PAIR_MAP_FIRST != null && PAIR_MAP_SECOND != null) {
             MapCodec<?> first = (MapCodec<?>) PAIR_MAP_FIRST.get(pair);
@@ -519,7 +519,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         // MapCodec.recursive — mirror of the RecursiveCodec handler above.
         if (RECURSIVE_MAP_CLASS != null && RECURSIVE_MAP_WRAPPED != null && RECURSIVE_MAP_CLASS.isInstance(codec)) {
             try {
-                java.util.function.Supplier<?> sup = (java.util.function.Supplier<?>) RECURSIVE_MAP_WRAPPED.get(codec);
+                Supplier<?> sup = (Supplier<?>) RECURSIVE_MAP_WRAPPED.get(codec);
                 Object inner = sup.get();
                 if (inner instanceof MapCodec<?> mc && mc != codec) {
                     return resolveMapCodec(mc, cache);
@@ -548,20 +548,20 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
     @SuppressWarnings({"unchecked", "rawtypes"})
     private @Nullable Schema<?> tierThreeReflective(Object codec,
                                                                               IdentityHashMap<Object, Schema<?>> cache) {
-        java.util.List<CodecReflection.ScannedInner> scanned = CodecReflection.scanInnerCodecs(codec);
+        List<CodecReflection.ScannedInner> scanned = CodecReflection.scanInnerCodecs(codec);
         if (scanned.isEmpty()) return null;
 
-        java.util.List<Object> inners = new java.util.ArrayList<>(scanned.size());
-        java.util.List<String> names = new java.util.ArrayList<>(scanned.size());
+        List<Object> inners = new ArrayList<>(scanned.size());
+        List<String> names = new ArrayList<>(scanned.size());
         for (CodecReflection.ScannedInner s : scanned) {
             inners.add(s.value());
             names.add(s.fieldName());
         }
 
-        CodecUI.LOGGER.debug("[codec_ui] tier-3 reflective guess for {} ({} inner codecs: {})",
+        CodecUI.LOGGER.debug("tier-3 reflective guess for {} ({} inner codecs: {})",
                 codec.getClass().getName(), inners.size(), names);
         if (inners.size() == 1) {
-            return resolveAny(inners.get(0), cache);
+            return resolveAny(inners.getFirst(), cache);
         }
         if (inners.size() == 2) {
             String a = names.get(0), b = names.get(1);
@@ -571,7 +571,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
             if (aKey && bVal) return new Schema.MapOf(resolveAny(inners.get(0), cache), resolveAny(inners.get(1), cache));
             if (bKey && aVal) return new Schema.MapOf(resolveAny(inners.get(1), cache), resolveAny(inners.get(0), cache));
         }
-        java.util.List<Schema.AnyOf.Option> options = new java.util.ArrayList<>(inners.size());
+        List<Schema.AnyOf.Option> options = new ArrayList<>(inners.size());
         for (Object inner : inners) {
             options.add(Schema.option(resolveAny(inner, cache)));
         }
@@ -595,20 +595,18 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
     // built on the same private-field reflection the structural tiers already use — is what keeps
     // those leaves editable. Conservative and companion-overridable, exactly like tier 3.
 
-    /** {@code RecordCodecBuilder.build} output on NeoForge — walk the captured decoder tree. */
-    @SuppressWarnings({"unchecked", "rawtypes"})
     private @Nullable Schema<?> unwrapRecordCodec(MapCodec<?> codec, IdentityHashMap<Object, Schema<?>> cache) {
-        java.util.List<RecordFieldTags.Entry> extracted = CodecReflection.extractRecordFields(codec);
+        List<RecordFieldTags.Entry> extracted = CodecReflection.extractRecordFields(codec);
         if (extracted == null || extracted.isEmpty()) return null;
-        CodecUI.LOGGER.debug("[codec_ui] tier-3.5 RCB unwrap for {} ({} fields)",
+        CodecUI.LOGGER.debug("tier-3.5 RCB unwrap for {} ({} fields)",
                 codec.getClass().getName(), extracted.size());
         return schemaFromRecordEntries(extracted, cache);
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private Schema<?> schemaFromRecordEntries(java.util.List<RecordFieldTags.Entry> entries,
+    private Schema<?> schemaFromRecordEntries(List<RecordFieldTags.Entry> entries,
                                               IdentityHashMap<Object, Schema<?>> cache) {
-        java.util.List<Schema.Field<?, ?>> fields = new java.util.ArrayList<>(entries.size());
+        List<Schema.Field<?, ?>> fields = new ArrayList<>(entries.size());
         for (var e : entries) {
             Schema<?> fieldSchema;
             boolean optional;
@@ -624,7 +622,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
                 // (e.g. spawners/spawn_costs buried inside a phantom creature_spawn_probability).
                 if (mapSchema instanceof Schema.Record<?> rec) {
                     if (rec.fields().size() == 1) {
-                        Schema.Field<?, ?> inner = rec.fields().get(0);
+                        Schema.Field<?, ?> inner = rec.fields().getFirst();
                         addField(fields, new Schema.Field(e.name(), inner.schema(), inner.optional(), inner.defaultValue()));
                     } else {
                         for (Schema.Field<?, ?> f : rec.fields()) addField(fields, f);
@@ -632,20 +630,19 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
                     continue;
                 }
                 fieldSchema = mapSchema;
-                optional = false;
             } else {
                 fieldSchema = resolveCodec((Codec) e.elementCodec(), cache);
-                optional = false;
             }
+            optional = false;
             addField(fields, new Schema.Field(e.name(), fieldSchema, optional, defaultValue));
         }
-        return new Schema.Record(Object.class, java.util.List.copyOf(fields));
+        return new Schema.Record(Object.class, List.copyOf(fields));
     }
 
     /** Appends a field unless one with the same name is already present (mirrors the NeoForge
      *  decoder-tree walk's name dedup). Guards against a spread sub-record colliding with a
      *  sibling field of the same key. */
-    private static void addField(java.util.List<Schema.Field<?, ?>> fields, Schema.Field<?, ?> field) {
+    private static void addField(List<Schema.Field<?, ?>> fields, Schema.Field<?, ?> field) {
         for (Schema.Field<?, ?> existing : fields) {
             if (existing.name().equals(field.name())) return;
         }
@@ -660,7 +657,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         if (field == null) return null;
         Schema<?> innerSchema = resolveCodec(field.elementCodec(), cache);
         Schema.Field f = new Schema.Field(field.name(), innerSchema, false, null);
-        return new Schema.Record(Object.class, java.util.List.of(f));
+        return new Schema.Record(Object.class, List.of(f));
     }
 
     /** Follow {@code Encoder}/{@code Decoder}/{@code MapEncoder}/{@code MapDecoder}-typed fields into
@@ -690,49 +687,49 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
             Schema<?> resolved = resolveCodec((Codec) inner, cache);
             return (resolved instanceof Schema.Opaque) ? schema : resolved;
         }
-        if (schema instanceof Schema.Record<?> rec) {
-            java.util.List<Schema.Field> out = new java.util.ArrayList<>();
+        if (schema instanceof Schema.Record<?>(Class<?> type, List<Schema.Field<?, ?>> fields)) {
+            List<Schema.Field> out = new ArrayList<>();
             boolean changed = false;
-            for (Schema.Field f : (java.util.List<Schema.Field>) (java.util.List) rec.fields()) {
+            for (Schema.Field f : (List<Schema.Field>) (List) fields) {
                 Schema<?> e = enrichOpaques(f.schema(), cache);
                 changed |= e != f.schema();
                 out.add(new Schema.Field(f.name(), e, f.optional(), f.defaultValue()));
             }
-            return changed ? new Schema.Record(rec.type(), (java.util.List) out) : schema;
+            return changed ? new Schema.Record(type, out) : schema;
         }
-        if (schema instanceof Schema.ListOf<?> l) {
-            Schema<?> e = enrichOpaques(l.element(), cache);
-            return e == l.element() ? schema : new Schema.ListOf(e, l.min(), l.max());
+        if (schema instanceof Schema.ListOf<?>(Schema<?> element, int min, int max)) {
+            Schema<?> e = enrichOpaques(element, cache);
+            return e == element ? schema : new Schema.ListOf(e, min, max);
         }
-        if (schema instanceof Schema.MapOf<?, ?> m) {
-            Schema<?> k = enrichOpaques(m.key(), cache);
-            Schema<?> v = enrichOpaques(m.value(), cache);
-            return (k == m.key() && v == m.value()) ? schema : new Schema.MapOf(k, v);
+        if (schema instanceof Schema.MapOf<?, ?>(Schema<?> key, Schema<?> value)) {
+            Schema<?> k = enrichOpaques(key, cache);
+            Schema<?> v = enrichOpaques(value, cache);
+            return (k == key && v == value) ? schema : new Schema.MapOf(k, v);
         }
-        if (schema instanceof Schema.PairOf<?, ?> p) {
-            Schema<?> f = enrichOpaques(p.first(), cache);
-            Schema<?> s = enrichOpaques(p.second(), cache);
-            return (f == p.first() && s == p.second()) ? schema : new Schema.PairOf(f, s);
+        if (schema instanceof Schema.PairOf<?, ?>(Schema<?> first, Schema<?> second)) {
+            Schema<?> f = enrichOpaques(first, cache);
+            Schema<?> s = enrichOpaques(second, cache);
+            return (f == first && s == second) ? schema : new Schema.PairOf(f, s);
         }
-        if (schema instanceof Schema.AnyOf<?> any) {
-            java.util.List<Schema.AnyOf.Option> out = new java.util.ArrayList<>();
+        if (schema instanceof Schema.AnyOf<?>(List<Schema.AnyOf.Option> options)) {
+            List<Schema.AnyOf.Option> out = new ArrayList<>();
             boolean changed = false;
-            for (Schema.AnyOf.Option o : any.options()) {
+            for (Schema.AnyOf.Option o : options) {
                 Schema<?> e = enrichOpaques(o.schema(), cache);
                 changed |= e != o.schema();
                 out.add(new Schema.AnyOf.Option(o.label(), e));
             }
-            return changed ? new Schema.AnyOf(java.util.List.copyOf(out)) : schema;
+            return changed ? new Schema.AnyOf(List.copyOf(out)) : schema;
         }
-        if (schema instanceof Schema.OneOf<?> one) {
+        if (schema instanceof Schema.OneOf<?>(String typeField, Map<String, Schema<?>> variants)) {
             LinkedHashMap<String, Schema<?>> out = new LinkedHashMap<>();
             boolean changed = false;
-            for (var en : ((java.util.Map<String, Schema<?>>) (java.util.Map) one.variants()).entrySet()) {
+            for (var en : variants.entrySet()) {
                 Schema<?> e = enrichOpaques(en.getValue(), cache);
                 changed |= e != en.getValue();
                 out.put(en.getKey(), e);
             }
-            return changed ? new Schema.OneOf(one.typeField(), (java.util.Map) out) : schema;
+            return changed ? new Schema.OneOf(typeField, out) : schema;
         }
         // Ref (cycle guard) + all leaf schemas (Bool, ranges, Str, ResourceId, Color, Enum,
         // Custom) are returned unchanged.
@@ -742,7 +739,8 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
     /**
      * Enumerates variants for a {@link KeyDispatchCodec}. Strategy:
      * <ol>
-     *   <li>Bootstrap {@link VanillaDispatches} on first call (idempotent).</li>
+     *   <li>Ensure {@link CuratedSchemas} (which registers the vanilla dispatch hooks) is
+     *       bootstrapped — idempotent; normally already done at the top of {@code resolve}.</li>
      *   <li>Read the dispatch's private {@code decoder} field — a
      *       {@code Function<K, DataResult<MapDecoder<V>>>} (in practice {@code MapCodec<V>},
      *       since the public ctor of {@code KeyDispatchCodec} stores the user's codec function
@@ -760,18 +758,18 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
     private LinkedHashMap<String, Schema<?>> enumerateDispatchVariants(KeyDispatchCodec<?, ?> dispatch,
                                                                        IdentityHashMap<Object, Schema<?>> cache) {
         LinkedHashMap<String, Schema<?>> variants = new LinkedHashMap<>();
-        CodecUI.LOGGER.debug("[codec_ui] enumerateDispatchVariants called for {}", dispatch.getClass().getName());
+        CodecUI.LOGGER.debug("enumerateDispatchVariants called for {}", dispatch.getClass().getName());
 
         if (KEY_DISPATCH_DECODER == null) {
-            CodecUI.LOGGER.warn("[codec_ui]   KEY_DISPATCH_DECODER VarHandle is null — field lookup failed at init");
+            CodecUI.LOGGER.warn("KEY_DISPATCH_DECODER VarHandle is null — field lookup failed at init");
             return variants;
         }
-        VanillaDispatches.bootstrap();
-        CodecUI.LOGGER.debug("[codec_ui]   DispatchRegistry has {} hooks", DispatchRegistry.all().size());
+        CuratedSchemas.bootstrap();
+        CodecUI.LOGGER.debug("DispatchRegistry has {} hooks", DispatchRegistry.all().size());
 
         Object decoderFn = KEY_DISPATCH_DECODER.get(dispatch);
         if (!(decoderFn instanceof Function<?, ?> fn)) {
-            CodecUI.LOGGER.warn("[codec_ui]   decoder field is not a Function (got {})",
+            CodecUI.LOGGER.warn("decoder field is not a Function (got {})",
                     decoderFn == null ? "null" : decoderFn.getClass().getName());
             return variants;
         }
@@ -787,38 +785,38 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
             Codec<?> innerKey = foe != null ? foe.innerCodec() : null;
             if (innerKey instanceof EnumerableCodec en) {
                 for (var e : en.codecUiValues().entrySet()) {
-                    MapCodec<?> variantCodec = applyDecoder((Function) fn, e.getValue());
+                    MapCodec<?> variantCodec = applyDecoder(fn, e.getValue());
                     if (variantCodec == null) continue;
                     variants.put(e.getKey(), resolveMapCodec(variantCodec, cache));
                 }
             } else if (innerKey != null
                     && resolveCodec((Codec) innerKey, cache) instanceof Schema.Enum keyEnum) {
                 for (Object k : keyEnum.options()) {
-                    MapCodec<?> variantCodec = applyDecoder((Function) fn, k);
+                    MapCodec<?> variantCodec = applyDecoder(fn, k);
                     if (variantCodec == null) continue;
                     String name = ((Function<Object, String>) keyEnum.label()).apply(k);
                     variants.put(name, resolveMapCodec(variantCodec, cache));
                 }
             }
             if (!variants.isEmpty()) {
-                CodecUI.LOGGER.debug("[codec_ui]   key-codec enumeration produced {} variants", variants.size());
+                CodecUI.LOGGER.debug("key-codec enumeration produced {} variants", variants.size());
                 return variants;
             }
         }
 
         for (DispatchRegistry.Hook<?> hook : DispatchRegistry.all()) {
-            CodecUI.LOGGER.debug("[codec_ui]   trying hook {} with {} keys", hook.keyType().getName(), hook.keys().get().size());
+            CodecUI.LOGGER.debug("trying hook {} with {} keys", hook.keyType().getName(), hook.keys().get().size());
             boolean any = false;
             LinkedHashMap<String, Schema<?>> local = new LinkedHashMap<>();
             for (Object k : hook.keys().get()) {
-                MapCodec<?> variantCodec = applyDecoder((Function) fn, k);
+                MapCodec<?> variantCodec = applyDecoder(fn, k);
                 if (variantCodec == null) continue;
                 any = true;
                 Schema<?> variantSchema = resolveMapCodec(variantCodec, cache);
                 String name = ((Function<Object, String>) hook.nameOf()).apply(k);
                 local.put(name, variantSchema);
             }
-            CodecUI.LOGGER.debug("[codec_ui]   hook {} produced {} variants", hook.keyType().getSimpleName(), local.size());
+            CodecUI.LOGGER.debug("hook {} produced {} variants", hook.keyType().getSimpleName(), local.size());
             if (any) {
                 variants.putAll(local);
                 break;
@@ -826,10 +824,12 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         }
 
         // (Old name-only fallback removed: it picked the WRONG hook for unknown-K dispatches
-        // because hook.codecOf.apply(k) succeeds for any registered K regardless of whether
-        // the dispatch's actual K matches. Result: BlockState's dispatch got IntProvider variants.)
+        // because a per-hook variant-codec lookup succeeds for any registered K regardless of
+        // whether the dispatch's actual K matches. Result: BlockState's dispatch got IntProvider
+        // variants. That lookup is now gone entirely — hooks only carry keys + names, and the
+        // dispatch's own decoder is the sole way a variant body is recovered.)
 
-        CodecUI.LOGGER.debug("[codec_ui]   final variant count: {}", variants.size());
+        CodecUI.LOGGER.debug("final variant count: {}", variants.size());
         return variants;
     }
 
@@ -871,31 +871,30 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         // Try the lazy FieldOfTags first (typical case: BLOCK.byNameCodec().fieldOf("Name")).
         // Resolve the inner Codec fresh and check if its schema is a ResourceId.
         Schema.ResourceId rid = null;
-        net.mehvahdjukaar.codecui.internal.FieldOfTags.Entry foe =
-                net.mehvahdjukaar.codecui.internal.FieldOfTags.get(keyCodec);
+        FieldOfTags.Entry foe =
+                FieldOfTags.get(keyCodec);
         if (foe != null) {
             IdentityHashMap<Object, Schema<?>> tmpCache = new IdentityHashMap<>();
             Schema<?> innerSchema = resolveCodec((Codec) foe.innerCodec(), tmpCache);
-            CodecUI.LOGGER.debug("[codec_ui]   registry-tag fallback: FieldOfTags inner={}, schema={}",
+            CodecUI.LOGGER.debug("registry-tag fallback: FieldOfTags inner={}, schema={}",
                     foe.innerCodec().getClass().getSimpleName(), innerSchema);
             if (innerSchema instanceof Schema.ResourceId r && r.registry() != null) rid = r;
         }
         // Fall back to eager SchemaTags entry (manual companion tagging on the keyCodec).
         if (rid == null) {
             Schema<?> keyCodecSchema = SchemaTags.lookupMap(keyCodec);
-            CodecUI.LOGGER.debug("[codec_ui]   registry-tag fallback: SchemaTags entry={}", keyCodecSchema);
+            CodecUI.LOGGER.debug("registry-tag fallback: SchemaTags entry={}", keyCodecSchema);
             if (keyCodecSchema instanceof Schema.Record<?> rec && rec.fields().size() == 1) {
-                Schema<?> fs = rec.fields().get(0).schema();
+                Schema<?> fs = rec.fields().getFirst().schema();
                 if (fs instanceof Schema.ResourceId r && r.registry() != null) rid = r;
             }
         }
         if (rid == null) return variants;
 
         try {
-            net.minecraft.core.Registry<?> registry = (net.minecraft.core.Registry<?>)
-                    net.minecraft.core.registries.BuiltInRegistries.REGISTRY.get(rid.registry().location());
+            Registry<?> registry = BuiltInRegistries.REGISTRY.get(rid.registry().location());
             if (registry == null) {
-                CodecUI.LOGGER.warn("[codec_ui]   registry {} not found in BuiltInRegistries", rid.registry());
+                CodecUI.LOGGER.warn("registry {} not found in BuiltInRegistries", rid.registry());
                 return variants;
             }
             // For small registries (rule tests, height providers, ...) the registry VALUES are
@@ -903,8 +902,8 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
             // body. Large registries (Block, Item, ...) stay name-only with opaque bodies.
             boolean resolveBodies = registry.size() <= 128 && KEY_DISPATCH_DECODER != null;
             Object decoderFn = resolveBodies ? KEY_DISPATCH_DECODER.get(dispatch) : null;
-            java.util.List<net.minecraft.resources.ResourceLocation> ids = new java.util.ArrayList<>(registry.keySet());
-            ids.sort(java.util.Comparator.comparing(net.minecraft.resources.ResourceLocation::toString));
+            List<ResourceLocation> ids = new ArrayList<>(registry.keySet());
+            ids.sort(Comparator.comparing(net.minecraft.resources.ResourceLocation::toString));
             int bodies = 0;
             for (net.minecraft.resources.ResourceLocation id : ids) {
                 Schema<?> body = new Schema.Opaque<>(null, null);
@@ -918,10 +917,10 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
                 }
                 variants.put(id.toString(), body);
             }
-            CodecUI.LOGGER.debug("[codec_ui]   registry-backed dispatch: populated {} variants ({} with real bodies) from {}",
+            CodecUI.LOGGER.debug("registry-backed dispatch: populated {} variants ({} with real bodies) from {}",
                     variants.size(), bodies, rid.registry().location());
         } catch (Throwable t) {
-            CodecUI.LOGGER.warn("[codec_ui]   Failed to enumerate registry {}: {}", rid.registry(), t.toString());
+            CodecUI.LOGGER.warn("Failed to enumerate registry {}: {}", rid.registry(), t.toString());
         }
         return variants;
     }

@@ -101,7 +101,6 @@ public final class RecordFieldTags {
         }
     }
 
-    /** Returns the accumulated field list for a builder, or empty list if none. */
     public static List<Entry> get(RecordCodecBuilder<?, ?> builder) {
         if (builder == null) return List.of();
         List<Entry> v = TAGS.get(builder);

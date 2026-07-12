@@ -29,11 +29,10 @@ public abstract class StringRepresentableCodecMixin {
     private void codecui$tagEnum(StringRepresentable[] values, Function<String, ?> nameLookup,
                                   ToIntFunction<?> indexLookup, CallbackInfo ci) {
         try {
-            Codec self = (Codec) (Object) this;
+            Codec self = (Codec) this;
             SchemaTags.tag(self, new Schema.Enum<>(List.of((Object[]) values),
                     v -> ((StringRepresentable) v).getSerializedName()));
         } catch (Throwable ignored) {
-            // Best-effort.
         }
     }
 }

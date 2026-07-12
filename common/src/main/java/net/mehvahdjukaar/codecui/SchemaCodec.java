@@ -35,7 +35,6 @@ public sealed interface SchemaCodec<A> extends Codec<A> {
         return lazy(codec, () -> net.mehvahdjukaar.codecui.internal.SchemaResolver.get().resolve(codec));
     }
 
-    /** Wrap a raw codec with an explicit schema. */
     static <A> SchemaCodec<A> of(Codec<A> codec, Schema<A> schema) {
         return new SimpleSchemaCodec<>(codec, schema);
     }

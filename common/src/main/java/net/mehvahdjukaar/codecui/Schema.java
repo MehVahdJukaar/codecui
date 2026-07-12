@@ -84,7 +84,6 @@ public sealed interface Schema<A> {
         }
     }
 
-    // Escape hatches
     record Opaque<A>(Codec<A> codec, @Nullable A example) implements Schema<A> {}
 
     /**
@@ -94,8 +93,6 @@ public sealed interface Schema<A> {
      * for Swing. Backends pattern-match on the runtime type of {@code widgetDef} to dispatch.
      */
     record Custom<A>(Object widgetDef) implements Schema<A> {}
-
-    // ---- ergonomic helpers ----
 
     static IntRange intRange(int min, int max) { return new IntRange(min, max); }
 
@@ -112,8 +109,6 @@ public sealed interface Schema<A> {
     static Color colorRgb()  { return new Color(false); }
 
     static Color colorArgb() { return new Color(true); }
-
-    // ---- AnyOf construction ----
 
     /** Unlabeled alternative — receives an auto {@code "#N kind"} label in {@link #anyOf}. */
     static AnyOf.Option option(Schema<?> schema) {
@@ -137,10 +132,10 @@ public sealed interface Schema<A> {
     static <A> Schema<A> anyOf(List<AnyOf.Option> options) {
         java.util.ArrayList<AnyOf.Option> flat = new java.util.ArrayList<>(options.size());
         for (AnyOf.Option o : options) {
-            if (o.schema() instanceof AnyOf<?> nested) flat.addAll(nested.options());
+            if (o.schema() instanceof AnyOf<?>(List<AnyOf.Option> options1)) flat.addAll(options1);
             else flat.add(o);
         }
-        if (flat.size() == 1) return (Schema<A>) flat.get(0).schema();
+        if (flat.size() == 1) return (Schema<A>) flat.getFirst().schema();
         for (int i = 0; i < flat.size(); i++) {
             AnyOf.Option o = flat.get(i);
             if (o.label() == null) {

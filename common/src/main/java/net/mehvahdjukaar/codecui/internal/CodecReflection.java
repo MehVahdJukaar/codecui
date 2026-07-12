@@ -23,8 +23,6 @@ final class CodecReflection {
 
     record FieldOfEntry(String name, Codec<?> elementCodec) {}
 
-    // ---- Tier 3: scan instance fields for Codec / MapCodec values ----
-
     static List<ScannedInner> scanInnerCodecs(Object codec) {
         ArrayList<ScannedInner> inners = new ArrayList<>();
         try {
@@ -53,8 +51,6 @@ final class CodecReflection {
         return inners;
     }
 
-    // ---- Tier 3.5: fieldOf unwrap ----
-
     static @Nullable FieldOfEntry unwrapFieldOf(MapCodec<?> codec) {
         Object fieldDec = findFieldValueByClassName(codec, "FieldDecoder");
         if (fieldDec == null) return null;
@@ -65,16 +61,12 @@ final class CodecReflection {
         return inner == null ? null : new FieldOfEntry(name, inner);
     }
 
-    // ---- Tier 3.5: shape-preserving wrapper unwrap (xmap / validate / orElse / …) ----
-
     static @Nullable Object singleCapturedInner(Object codec) {
         Set<Object> inners = Collections.newSetFromMap(new IdentityHashMap<>());
         Set<Object> visited = Collections.newSetFromMap(new IdentityHashMap<>());
         collectCapturedInners(codec, codec, inners, visited, 0);
         return inners.size() == 1 ? inners.iterator().next() : null;
     }
-
-    // ---- Tier 3.5: RecordCodecBuilder.build output ----
 
     static @Nullable List<RecordFieldTags.Entry> extractRecordFields(MapCodec<?> codec) {
         if (!looksLikeRecordCodec(codec)) return null;

@@ -41,7 +41,6 @@ public abstract class MapCodecXmapMixin {
             net.mehvahdjukaar.codecui.internal.XmapTags.putMap(
                     wrapped, (MapCodec<?>) (Object) this);
         } catch (Throwable ignored) {
-            // Best-effort.
         }
     }
 }

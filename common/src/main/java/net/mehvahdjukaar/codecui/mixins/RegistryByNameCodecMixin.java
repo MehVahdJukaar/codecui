@@ -43,7 +43,6 @@ public interface RegistryByNameCodecMixin<T> {
             Schema.ResourceId schema = new Schema.ResourceId(key);
             SchemaTags.tag((Codec) wrapped, (Schema) schema);
         } catch (Throwable ignored) {
-            // Best-effort.
         }
     }
 }
