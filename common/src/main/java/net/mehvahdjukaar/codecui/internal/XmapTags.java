@@ -24,8 +24,6 @@ public final class XmapTags {
     private static final Map<MapCodec<?>, MapCodec<?>> MAP_INNER =
             Collections.synchronizedMap(new WeakHashMap<>());
 
-    private XmapTags() {}
-
     public static void putCodec(Codec<?> wrapped, Codec<?> inner) {
         if (wrapped == null || inner == null || wrapped == inner) return;
         CODEC_INNER.put(wrapped, inner);
