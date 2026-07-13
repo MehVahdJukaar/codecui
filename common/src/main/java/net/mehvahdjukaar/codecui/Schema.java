@@ -44,7 +44,7 @@ public sealed interface Schema<A> {
      * candidates come from the registry's loaded tags (see {@link SchemaCodecs#availableTagIds}),
      * degrading to a plain text field when {@code registry} is null or no tags are loaded.
      */
-    record TagId(@Nullable ResourceKey<? extends Registry<?>> registry) implements Schema<Identifier> {}
+    record TagId(@Nullable ResourceKey<? extends Registry<?>> registry) implements Schema<ResourceLocation> {}
 
     record Enum<A>(List<A> options, Function<A, String> label) implements Schema<A> {}
 

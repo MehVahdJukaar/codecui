@@ -24,8 +24,8 @@ import net.minecraft.core.Registry;
 import net.minecraft.core.RegistryCodecs;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -353,15 +353,13 @@ public final class SchemaCodecs {
      * empty list — never throws — for an unknown registry or before tags bind, letting the backend
      * fall back to a free-text field.
      */
-    public static List<Identifier> availableTagIds(ResourceKey<? extends Registry<?>> registryKey) {
+    public static List<ResourceLocation> availableTagIds(ResourceKey<? extends Registry<?>> registryKey) {
         if (registryKey == null) return List.of();
-        var holder = BuiltInRegistries.REGISTRY.get(registryKey.identifier());
-        if (holder.isEmpty()) return List.of();
-        Registry<?> registry = holder.get().value();
+        Registry<?> registry = BuiltInRegistries.REGISTRY.get(registryKey.location());
+        if (registry == null) return List.of();
         return registry.getTags()
-                .flatMap(named -> named.unwrapKey().stream())
-                .map(TagKey::location)
-                .sorted(java.util.Comparator.comparing(Identifier::toString))
+                .map(pair -> pair.getFirst().location())
+                .sorted(java.util.Comparator.comparing(ResourceLocation::toString))
                 .toList();
     }
 

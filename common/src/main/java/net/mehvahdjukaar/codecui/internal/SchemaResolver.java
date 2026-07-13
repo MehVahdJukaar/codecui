@@ -70,6 +70,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
     private static final @Nullable VarHandle KEY_DISPATCH_KEYCODEC;
     private static final @Nullable VarHandle KEY_DISPATCH_TYPE;
     private static final @Nullable VarHandle KEY_DISPATCH_DECODER;
+    private static final @Nullable VarHandle KEY_DISPATCH_TYPEKEY;
 
     private static final @Nullable VarHandle SIMPLE_MAP_KEYCODEC;
     private static final @Nullable VarHandle SIMPLE_MAP_ELEMENT;
@@ -93,7 +94,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         VarHandle pf = null, ps = null;
         VarHandle ofn = null, ofe = null, ofl = null;
         VarHandle pmf = null, pms = null;
-        VarHandle kdk = null, kdt = null, kdd = null;
+        VarHandle kdk = null, kdt = null, kdd = null, kdtk = null;
         VarHandle smk = null, sme = null, sms = null;
         VarHandle rw = null, rmw = null;
         Class<?> rmc = null;
@@ -120,7 +121,15 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         } catch (Throwable ignored) {}
         try {
             var lookup = MethodHandles.privateLookupIn(KeyDispatchCodec.class, MethodHandles.lookup());
-            kdk = lookup.findVarHandle(KeyDispatchCodec.class, "keyCodec", MapCodec.class);
+            // keyCodec's declared type differs across DFU versions: 1.21.11's DFU 9 stores the
+            // already-fieldOf-wrapped MapCodec, 1.21.1's DFU 8 stores the raw key Codec. Try both;
+            // this lookup must NOT abort the sibling lookups below (a shared try that failed here
+            // left `decoder` null on DFU 8, killing all dispatch enumeration).
+            try {
+                kdk = lookup.findVarHandle(KeyDispatchCodec.class, "keyCodec", MapCodec.class);
+            } catch (Throwable e) {
+                kdk = lookup.findVarHandle(KeyDispatchCodec.class, "keyCodec", Codec.class);
+            }
             // KeyDispatchCodec field is named "type" (Function<? super V, ...>), used for the type field name.
             kdt = lookup.findVarHandle(KeyDispatchCodec.class, "type", Function.class);
             // "decoder" Function<? super K, DataResult<? extends MapDecoder<? extends V>>> — the
@@ -128,6 +137,11 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
             // (lazily-wrapped) encoder, so applying decoder to a candidate K yields the variant
             // MapCodec wrapped in DataResult. We use this for variant enumeration.
             kdd = lookup.findVarHandle(KeyDispatchCodec.class, "decoder", Function.class);
+            // DFU 8 (1.21.1) keeps the JSON type field name in a `typeKey` String field; DFU 9
+            // dropped it (the name lives inside the fieldOf-wrapped keyCodec instead).
+            try {
+                kdtk = lookup.findVarHandle(KeyDispatchCodec.class, "typeKey", String.class);
+            } catch (Throwable ignored) {}
         } catch (Throwable ignored) {}
         try {
             var lookup = MethodHandles.privateLookupIn(SimpleMapCodec.class, MethodHandles.lookup());
@@ -182,6 +196,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         KEY_DISPATCH_KEYCODEC = kdk;
         KEY_DISPATCH_TYPE = kdt;
         KEY_DISPATCH_DECODER = kdd;
+        KEY_DISPATCH_TYPEKEY = kdtk;
         SIMPLE_MAP_KEYCODEC = smk;
         SIMPLE_MAP_ELEMENT = sme;
         SIMPLE_MAP_KEYS = sms;
@@ -490,10 +505,10 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
             return new Schema.PairOf(f, s);
         }
         if (codec instanceof KeyDispatchCodec<?, ?> dispatch && KEY_DISPATCH_KEYCODEC != null) {
-            MapCodec<?> keyCodec = (MapCodec<?>) KEY_DISPATCH_KEYCODEC.get(dispatch);
-            // typeKey is the JSON field name driving the dispatch. DFU stores it implicitly via
-            // the keyCodec's keys(); we use the MapCodec's first key if we can, else "type".
-            String typeKey = extractFirstKey(keyCodec);
+            Object keyCodec = KEY_DISPATCH_KEYCODEC.get(dispatch);
+            // typeKey is the JSON field name driving the dispatch. On DFU 8 it's a plain field;
+            // on DFU 9 it lives inside the fieldOf-wrapped keyCodec, read via keys(). Else "type".
+            String typeKey = dispatchTypeKey(dispatch, keyCodec);
             LinkedHashMap<String, Schema<?>> variants = enumerateDispatchVariants(dispatch, cache);
 
             // Generic fallback: if no registered hook matched, check whether the keyCodec is a
@@ -764,6 +779,35 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
      * decoder.apply(K) failing fast for the wrong K type and returning a successful
      * {@code DataResult} only when K matches.</p>
      */
+    /**
+     * The JSON field name driving a dispatch. DFU 8 exposes it as a {@code typeKey} String field;
+     * DFU 9 folds it into the fieldOf-wrapped keyCodec, recovered via {@code keys()}. Defaults to
+     * {@code "type"}.
+     */
+    private String dispatchTypeKey(KeyDispatchCodec<?, ?> dispatch, @Nullable Object keyCodec) {
+        if (KEY_DISPATCH_TYPEKEY != null) {
+            try {
+                if (KEY_DISPATCH_TYPEKEY.get(dispatch) instanceof String s && !s.isEmpty()) return s;
+            } catch (Throwable ignored) {}
+        }
+        if (keyCodec instanceof MapCodec<?> mc) return extractFirstKey(mc);
+        return "type";
+    }
+
+    /**
+     * The dispatch's raw key {@link Codec} (the registry byNameCodec / StringRepresentable codec).
+     * DFU 9 stores it fieldOf-wrapped as a {@link MapCodec} (unwrapped through {@link FieldOfTags});
+     * DFU 8 stores the raw Codec directly. Returns null when it can't be recovered.
+     */
+    private static @Nullable Codec<?> innerKeyCodec(@Nullable Object keyCodec) {
+        if (keyCodec instanceof MapCodec<?> mc) {
+            FieldOfTags.Entry foe = FieldOfTags.get(mc);
+            return foe != null ? foe.innerCodec() : null;
+        }
+        if (keyCodec instanceof Codec<?> c) return c;
+        return null;
+    }
+
     @SuppressWarnings({"unchecked", "rawtypes"})
     private LinkedHashMap<String, Schema<?>> enumerateDispatchVariants(KeyDispatchCodec<?, ?> dispatch,
                                                                        IdentityHashMap<Object, Schema<?>> cache) {
@@ -790,9 +834,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         // (StringRepresentable codecs), we know the exact key set of THIS dispatch — feed
         // each key through the decoder and get real variant bodies.
         if (KEY_DISPATCH_KEYCODEC != null) {
-            MapCodec<?> keyCodec = (MapCodec<?>) KEY_DISPATCH_KEYCODEC.get(dispatch);
-            FieldOfTags.Entry foe = keyCodec == null ? null : FieldOfTags.get(keyCodec);
-            Codec<?> innerKey = foe != null ? foe.innerCodec() : null;
+            Codec<?> innerKey = innerKeyCodec(KEY_DISPATCH_KEYCODEC.get(dispatch));
             if (innerKey instanceof EnumerableCodec en) {
                 for (var e : en.codecUiValues().entrySet()) {
                     MapCodec<?> variantCodec = applyDecoder(fn, e.getValue());
@@ -883,25 +925,25 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
      * edit the body as raw JSON.</p>
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private LinkedHashMap<String, Schema<?>> enumerateFromRegistryTag(MapCodec<?> keyCodec, KeyDispatchCodec<?, ?> dispatch,
+    private LinkedHashMap<String, Schema<?>> enumerateFromRegistryTag(Object keyCodec, KeyDispatchCodec<?, ?> dispatch,
                                                                       IdentityHashMap<Object, Schema<?>> cache) {
         LinkedHashMap<String, Schema<?>> variants = new LinkedHashMap<>();
 
-        // Try the lazy FieldOfTags first (typical case: BLOCK.byNameCodec().fieldOf("Name")).
-        // Resolve the inner Codec fresh and check if its schema is a ResourceId.
+        // Resolve the dispatch's raw key Codec and check whether it's a registry id (BLOCK/RECIPE_
+        // SERIALIZER/... byNameCodec, tagged ResourceId). On DFU 9 the key is fieldOf-wrapped
+        // (unwrapped via FieldOfTags); on DFU 8 it's the raw tagged Codec.
         Schema.ResourceId rid = null;
-        FieldOfTags.Entry foe =
-                FieldOfTags.get(keyCodec);
-        if (foe != null) {
+        Codec<?> innerKey = innerKeyCodec(keyCodec);
+        if (innerKey != null) {
             IdentityHashMap<Object, Schema<?>> tmpCache = new IdentityHashMap<>();
-            Schema<?> innerSchema = resolveCodec((Codec) foe.innerCodec(), tmpCache);
-            CodecUI.LOGGER.debug("registry-tag fallback: FieldOfTags inner={}, schema={}",
-                    foe.innerCodec().getClass().getSimpleName(), innerSchema);
+            Schema<?> innerSchema = resolveCodec((Codec) innerKey, tmpCache);
+            CodecUI.LOGGER.debug("registry-tag fallback: inner={}, schema={}",
+                    innerKey.getClass().getSimpleName(), innerSchema);
             if (innerSchema instanceof Schema.ResourceId r && r.registry() != null) rid = r;
         }
-        // Fall back to eager SchemaTags entry (manual companion tagging on the keyCodec).
-        if (rid == null) {
-            Schema<?> keyCodecSchema = SchemaTags.lookupMap(keyCodec);
+        // Fall back to an eager SchemaTags entry (manual companion tagging on a MapCodec keyCodec).
+        if (rid == null && keyCodec instanceof MapCodec<?> mapKey) {
+            Schema<?> keyCodecSchema = SchemaTags.lookupMap(mapKey);
             CodecUI.LOGGER.debug("registry-tag fallback: SchemaTags entry={}", keyCodecSchema);
             if (keyCodecSchema instanceof Schema.Record<?> rec && rec.fields().size() == 1) {
                 Schema<?> fs = rec.fields().getFirst().schema();
