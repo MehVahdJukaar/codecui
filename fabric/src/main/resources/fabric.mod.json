@@ -14,7 +14,6 @@
   "accessWidener": "${mod_id}.accesswidener",
   "license": "${mod_license}",
   "icon": "icon.png",
-  "environment": "client",
   "entrypoints": {
     "main": [
       "net.mehvahdjukaar.codecui.platform.CodecUIFabric"

@@ -10,6 +10,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.ExtraCodecs;
+import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.util.valueproviders.FloatProviderType;
 import net.minecraft.util.valueproviders.IntProviderType;
 import net.minecraft.world.level.dimension.DimensionType;
@@ -223,6 +224,26 @@ public final class CuratedSchemas {
                         List.<Schema.Field<net.minecraft.world.item.ItemStack, ?>>of(
                         new Schema.Field<>("id", new Schema.ResourceId(Registries.ITEM), false, null),
                         new Schema.Field<>("count", new Schema.IntRange(1, 99), true, 1))));
+
+        // Ingredient.CODEC is either(list(Value), Value) with Value = xor(ItemValue, TagValue) —
+        // and on NeoForge a custom-ingredient type dispatch too. Structurally that resolves to an
+        // unlabeled AnyOf: both Value records surface as bare "object" and the custom dispatch as a
+        // "raw" opaque. Curate the on-disk shape with real labels — {"item": id} / {"tag": id}, or a
+        // list mixing the two. (The NeoForge {"type": ...} custom form falls outside this surface.)
+        Schema<Ingredient> ingredientItem = new Schema.Record<>(Ingredient.class,
+                List.<Schema.Field<Ingredient, ?>>of(
+                        new Schema.Field<>("item", new Schema.ResourceId(Registries.ITEM), false, null)));
+        Schema<Ingredient> ingredientTag = new Schema.Record<>(Ingredient.class,
+                List.<Schema.Field<Ingredient, ?>>of(
+                        new Schema.Field<>("tag", new Schema.TagId(Registries.ITEM), false, null)));
+        Schema<Ingredient> ingredientValue = Schema.anyOf(
+                Schema.option("item", ingredientItem), Schema.option("tag", ingredientTag));
+        Schema<Ingredient> ingredient = Schema.anyOf(
+                Schema.option("item", ingredientItem),
+                Schema.option("tag", ingredientTag),
+                Schema.option("list", new Schema.ListOf<>(ingredientValue, 1, Integer.MAX_VALUE)));
+        SchemaCodecs.registerCompanion(Ingredient.CODEC, ingredient);
+        SchemaCodecs.registerCompanion(Ingredient.CODEC_NONEMPTY, ingredient);
 
         // DimensionType.DIRECT_CODEC wraps fields via ExtraCodecs.catchDecoderException
         // (a raw Codec.of with anonymous decoder) — no mixin point. Companion describes the
