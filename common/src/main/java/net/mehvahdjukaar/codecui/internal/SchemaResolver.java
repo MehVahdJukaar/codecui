@@ -2,6 +2,7 @@ package net.mehvahdjukaar.codecui.internal;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
+import com.mojang.serialization.codecs.BaseMapCodec;
 import com.mojang.serialization.codecs.CompoundListCodec;
 import com.mojang.serialization.codecs.DispatchedMapCodec;
 import com.mojang.serialization.codecs.EitherCodec;
@@ -12,7 +13,6 @@ import com.mojang.serialization.codecs.OptionalFieldCodec;
 import com.mojang.serialization.codecs.PairCodec;
 import com.mojang.serialization.codecs.PairMapCodec;
 import com.mojang.serialization.codecs.SimpleMapCodec;
-import com.mojang.serialization.codecs.UnboundedMapCodec;
 import com.mojang.serialization.codecs.XorCodec;
 import com.mojang.serialization.DataResult;
 import net.mehvahdjukaar.codecui.CodecUI;
@@ -380,9 +380,14 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
             Schema<?> r = resolveCodec(second1, cache);
             return Schema.anyOf(Schema.option(l), Schema.option(r));
         }
-        if (codec instanceof UnboundedMapCodec<?, ?>(Codec<?> keyCodec, Codec<?> elementCodec)) {
-            Schema<?> k = resolveCodec(keyCodec, cache);
-            Schema<?> v = resolveCodec(elementCodec, cache);
+        // Unbounded map-style Codec<Map<K,V>>. DFU's UnboundedMapCodec, vanilla's
+        // ExtraCodecs.StrictUnboundedMapCodec and our own LenientUnboundedMapCodec all implement
+        // BaseMapCodec, which publicly exposes the key/element codecs — so one branch covers every
+        // present and future variant without per-type reflection. (SimpleMapCodec also implements
+        // BaseMapCodec but is a MapCodec, handled on the map path; it never reaches here.)
+        if (codec instanceof BaseMapCodec<?, ?> bm) {
+            Schema<?> k = resolveCodec(bm.keyCodec(), cache);
+            Schema<?> v = resolveCodec(bm.elementCodec(), cache);
             return new Schema.MapOf(k, v);
         }
         if (codec instanceof PairCodec<?, ?> pair && PAIR_CODEC_FIRST != null && PAIR_CODEC_SECOND != null) {
