@@ -59,7 +59,6 @@ public record LenientUnboundedMapCodec<K, V>(Codec<K> keyCodec,
 
     @Override
     public String toString() {
-        String var10000 = String.valueOf(this.keyCodec);
-        return "LenientUnboundedMapCodec[" + var10000 + " -> " + this.elementCodec + "]";
+        return "LenientUnboundedMapCodec[" + String.valueOf(this.keyCodec) + " -> " + this.elementCodec + "]";
     }
 }

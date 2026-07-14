@@ -84,11 +84,8 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
     private static final @Nullable VarHandle EITHER_MAP_FIRST;
     private static final @Nullable VarHandle EITHER_MAP_SECOND;
 
-    private static final @Nullable VarHandle REGISTRY_FILE_KEY;
-    private static final @Nullable VarHandle REGISTRY_FILE_ELEMENT;
-    private static final @Nullable VarHandle REGISTRY_FILE_INLINE;
-    private static final @Nullable VarHandle REGISTRY_FIXED_KEY;
-    private static final @Nullable VarHandle HOLDER_SET_ELEMENT;
+    // net.minecraft.* registry/holder codecs are read via their (access-widened) fields directly,
+    // not reflection - string field names would not survive Fabric's intermediary remap.
 
     static {
         VarHandle pf = null, ps = null;
@@ -100,9 +97,6 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         Class<?> rmc = null;
         VarHandle clk = null, cle = null;
         VarHandle emf = null, ems = null;
-        VarHandle rfk = null, rfe = null, rfi = null;
-        VarHandle rxk = null;
-        VarHandle hse = null;
         try {
             var lookup = MethodHandles.privateLookupIn(PairCodec.class, MethodHandles.lookup());
             pf = lookup.findVarHandle(PairCodec.class, "first", Codec.class);
@@ -171,21 +165,6 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
             ems = lookup.findVarHandle(EitherMapCodec.class, "second", MapCodec.class);
         } catch (Throwable ignored) {}
 
-        try {
-            var lookup = MethodHandles.privateLookupIn(RegistryFileCodec.class, MethodHandles.lookup());
-            rfk = lookup.findVarHandle(RegistryFileCodec.class, "registryKey", ResourceKey.class);
-            rfe = lookup.findVarHandle(RegistryFileCodec.class, "elementCodec", Codec.class);
-            rfi = lookup.findVarHandle(RegistryFileCodec.class, "allowInline", boolean.class);
-        } catch (Throwable ignored) {}
-        try {
-            var lookup = MethodHandles.privateLookupIn(RegistryFixedCodec.class, MethodHandles.lookup());
-            rxk = lookup.findVarHandle(RegistryFixedCodec.class, "registryKey", ResourceKey.class);
-        } catch (Throwable ignored) {}
-        try {
-            var lookup = MethodHandles.privateLookupIn(HolderSetCodec.class, MethodHandles.lookup());
-            hse = lookup.findVarHandle(HolderSetCodec.class, "elementCodec", Codec.class);
-        } catch (Throwable ignored) {}
-
         PAIR_CODEC_FIRST = pf;
         PAIR_CODEC_SECOND = ps;
         OPTIONAL_FIELD_NAME = ofn;
@@ -207,11 +186,6 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         COMPOUND_LIST_ELEMENT = cle;
         EITHER_MAP_FIRST = emf;
         EITHER_MAP_SECOND = ems;
-        REGISTRY_FILE_KEY = rfk;
-        REGISTRY_FILE_ELEMENT = rfe;
-        REGISTRY_FILE_INLINE = rfi;
-        REGISTRY_FIXED_KEY = rxk;
-        HOLDER_SET_ELEMENT = hse;
     }
 
     // Per-call cache; new IdentityHashMap each resolve() so it doesn't leak codecs.
@@ -447,23 +421,22 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
             return new Schema.MapOf(k, new Schema.Opaque<>(null, null));
         }
         // Holder<E> by registry id, optionally with an inline definition (SoundEvent.CODEC etc.).
-        if (codec instanceof RegistryFileCodec<?> rfc && REGISTRY_FILE_KEY != null
-                && REGISTRY_FILE_ELEMENT != null && REGISTRY_FILE_INLINE != null) {
-            var key = (ResourceKey<? extends Registry<?>>) REGISTRY_FILE_KEY.get(rfc);
+        if (codec instanceof RegistryFileCodec<?> rfc) {
+            var key = (ResourceKey<? extends Registry<?>>) rfc.registryKey;
             Schema<?> id = new Schema.ResourceId(key);
-            if ((boolean) REGISTRY_FILE_INLINE.get(rfc)) {
-                Schema<?> inline = resolveCodec((Codec<?>) REGISTRY_FILE_ELEMENT.get(rfc), cache);
+            if (rfc.allowInline) {
+                Schema<?> inline = resolveCodec(rfc.elementCodec, cache);
                 return Schema.anyOf(Schema.option("reference", id), Schema.option("inline", inline));
             }
             return id;
         }
         // Holder<E> strictly by registry id.
-        if (codec instanceof RegistryFixedCodec<?> rfx && REGISTRY_FIXED_KEY != null) {
-            return new Schema.ResourceId((ResourceKey<? extends Registry<?>>) REGISTRY_FIXED_KEY.get(rfx));
+        if (codec instanceof RegistryFixedCodec<?> rfx) {
+            return new Schema.ResourceId(rfx.registryKey);
         }
         // HolderSet<E>: a "#namespace:path" tag, a single entry, or a list of entries.
-        if (codec instanceof HolderSetCodec<?> hs && HOLDER_SET_ELEMENT != null) {
-            Schema<?> element = resolveCodec((Codec<?>) HOLDER_SET_ELEMENT.get(hs), cache);
+        if (codec instanceof HolderSetCodec<?> hs) {
+            Schema<?> element = resolveCodec(hs.elementCodec, cache);
             // The element schema is the registry's ResourceId — reuse its key so the tag side
             // gets a real tag picker instead of a raw text box. Falls back to text if unknown.
             ResourceKey<? extends Registry<?>> registry =

@@ -234,6 +234,12 @@ public final class SchemaCodecs {
      * themselves AnyOf splice flat, keeping their own (more specific) labels.
      */
     public static <A> SchemaCodec<A> labeled(Codec<A> codec, Alt<?>... alternatives) {
+        // No explicit alternatives: this is just a SchemaCodec adapter over the raw codec, so
+        // resolve it structurally. Wrapping it in an AnyOf would produce a picker with zero
+        // options (an empty AnyOf), which is degenerate and blows up the widget layer.
+        if (alternatives.length == 0) {
+            return SchemaCodec.lazy(codec, () -> resolve(codec));
+        }
         return SchemaCodec.lazy(codec, () -> {
             List<Schema.AnyOf.Option> options = new java.util.ArrayList<>(alternatives.length);
             for (Alt<?> alt : alternatives) {
