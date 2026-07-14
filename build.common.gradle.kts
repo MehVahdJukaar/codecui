@@ -11,24 +11,6 @@ val isUnobfuscated = stonecutter.eval(stonecutter.current.version, ">=26")
 tasks.named<ProcessResources>("processResources") {
     fun prop(name: String) = project.property(name) as String
 
-    val props = HashMap<String, String>().apply {
-        this["version"] = "${prop("deps.minecraft")}-${prop("mod.version")}"
-        this["minecraft"] = prop("mod.mc_dep_forgelike")
-        this["neoforge_version"] = prop("deps.neoforge")
-        this["mod_id"] = prop("mod.id")
-        this["mod_name"] = prop("mod.name")
-        this["mod_description"] = prop("mod.description")
-        this["mod_license"] = prop("mod.license")
-        this["mod_authors"] = prop("mod.author")
-        this["mod_homepage"] = prop("mod.homepage")
-        this["mod_credits"] = prop("mod.credits")
-        this["mod_github"] = prop("mod.github")
-    }
-
-    filesMatching(listOf("fabric.mod.json", "META-INF/neoforge.mods.toml", "META-INF/mods.toml")) {
-        expand(props)
-    }
-
     val mixin = HashMap<String, String>().apply {
         this["java"] = "JAVA_${prop("deps.java")}"
     }
@@ -38,7 +20,7 @@ tasks.named<ProcessResources>("processResources") {
     }
 }
 
-version = "${property("deps.minecraft")}-${property("mod.version")}-neoforge"
+version = "${property("deps.minecraft")}-${property("mod.version")}-common"
 base.archivesName = property("mod.archives_base") as String
 
 jsonlang {
@@ -165,7 +147,7 @@ project.tasks.named("copyAccessTransformersPublications") {
 
 neoForge {
     enable {
-        version = property("deps.neoforge") as String
+        neoFormVersion = "1.21-20240613.152323"
         // Disable recompilation for performance reasons.
         isDisableRecompilation = true
     }
@@ -207,7 +189,7 @@ dependencies {
 
 tasks {
     processResources {
-        exclude("**/fabric.mod.json", "**/*.accesswidener", "**/*.classtweaker", "**/mods.toml")
+        exclude("**/fabric.mod.json", "**/*.accesswidener", "**/*.classtweaker", "**/neoforge.mods.toml", "**/mods.toml")
     }
 
     named("createMinecraftArtifacts") {
