@@ -375,6 +375,11 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
             Schema<?> elem = resolveCodec(elementCodec, cache);
             return new Schema.ListOf(elem, minSize, maxSize);
         }
+        // Our lenient list (drops undecodable elements) renders as a plain unbounded list.
+        if (codec instanceof LenientListCodec<?> ll) {
+            Schema<?> elem = resolveCodec(ll.elementCodec(), cache);
+            return new Schema.ListOf(elem, 0, Integer.MAX_VALUE);
+        }
         if (codec instanceof EitherCodec<?, ?>(Codec<?> first1, Codec<?> second1)) {
             Schema<?> l = resolveCodec(first1, cache);
             Schema<?> r = resolveCodec(second1, cache);
@@ -439,9 +444,29 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         if (codec instanceof RegistryFixedCodec<?> rfx) {
             return new Schema.ResourceId(rfx.registryKey);
         }
-        // HolderSet<E>: a "#namespace:path" tag, a single entry, or a list of entries.
-        if (codec instanceof HolderSetCodec<?> hs) {
-            Schema<?> element = resolveCodec(hs.elementCodec, cache);
+        // Recursive HolderSet<E>: like the vanilla one but every list element is itself a
+        // tag / single / list. cache.get(codec) is the Ref placeholder inserted on entry; using
+        // it as the list element makes the schema self-recursive once this call binds the Ref.
+        if (codec instanceof RecursiveHolderSetCodec<?> rhs) {
+            Schema<?> element = resolveCodec(rhs.elementCodec(), cache);
+            ResourceKey<? extends Registry<?>> registry =
+                    element instanceof Schema.ResourceId r ? r.registry() : null;
+            Schema<?> tag = registry != null
+                    ? new Schema.TagId(registry)
+                    : new Schema.Str(0, Integer.MAX_VALUE, null);
+            Schema<?> self = cache.get(codec);
+            Schema<?> node = self != null ? self : element;
+            return Schema.anyOf(
+                    Schema.option("tag", tag),
+                    Schema.option("single", element),
+                    Schema.option("list", new Schema.ListOf(node, 0, Integer.MAX_VALUE)));
+        }
+        // HolderSet<E> (vanilla or our lenient copy): a "#namespace:path" tag, a single entry,
+        // or a list of entries. Both expose the same element codec, so share one schema shape.
+        Codec<?> holderSetElement = codec instanceof HolderSetCodec<?> hs ? hs.elementCodec
+                : codec instanceof LenientHolderSetCodec<?> lhs ? lhs.elementCodec() : null;
+        if (holderSetElement != null) {
+            Schema<?> element = resolveCodec(holderSetElement, cache);
             // The element schema is the registry's ResourceId — reuse its key so the tag side
             // gets a real tag picker instead of a raw text box. Falls back to text if unknown.
             ResourceKey<? extends Registry<?>> registry =

@@ -13,8 +13,11 @@ import net.mehvahdjukaar.codecui.internal.BestAlternativeCodec;
 import net.mehvahdjukaar.codecui.internal.DispatchRegistry;
 import net.mehvahdjukaar.codecui.internal.EitherLeftCodec;
 import net.mehvahdjukaar.codecui.internal.LenientCodecWithLog;
+import net.mehvahdjukaar.codecui.internal.LenientHolderSetCodec;
+import net.mehvahdjukaar.codecui.internal.LenientListCodec;
 import net.mehvahdjukaar.codecui.internal.LenientUnboundedMapCodec;
 import net.mehvahdjukaar.codecui.internal.CodecWithExtra;
+import net.mehvahdjukaar.codecui.internal.RecursiveHolderSetCodec;
 import net.mehvahdjukaar.codecui.internal.ReferenceOrDirectCodec;
 import net.mehvahdjukaar.codecui.internal.SchemaResolver;
 import net.mehvahdjukaar.codecui.internal.SchemaTags;
@@ -352,6 +355,16 @@ public final class SchemaCodecs {
     }
 
     /**
+     * A {@link HolderSet} codec like vanilla's (a tag, a single entry, or a list of entries) except
+     * the list is <b>recursive</b>: every element may itself be a tag, an entry or a nested list, all
+     * flattened into one set. Lets tags and entries be mixed inside a single list. The resolver
+     * derives a self-recursive tag / single / list schema, so {@code SchemaCodec.wrap} suffices.
+     */
+    public static <E> SchemaCodec<HolderSet<E>> recursiveHolderSet(ResourceKey<? extends Registry<E>> registryKey, Codec<Holder<E>> elementCodec) {
+        return SchemaCodec.wrap(RecursiveHolderSetCodec.create(registryKey, elementCodec));
+    }
+
+    /**
      * Enumerates the currently loaded tag ids of {@code registryKey}, sorted — the candidate list
      * a UI backend feeds into a {@link Schema.TagId} picker (the tag analogue of iterating a
      * registry's {@code keySet()} for {@link Schema.ResourceId}). Tags are data-driven, so this is
@@ -439,6 +452,21 @@ public final class SchemaCodecs {
                 Schema.option("list", new Schema.ListOf<>(element, 0, Integer.MAX_VALUE)));
     }
 
+    /** A list that skips (rather than fails on) elements which can't decode. */
+    public static <A> SchemaCodec<List<A>> lenientList(Codec<A> elementCodec) {
+        Codec<List<A>> raw = LenientListCodec.of(elementCodec);
+        return SchemaCodec.lazy(raw, () -> new Schema.ListOf<>(resolve(elementCodec), 0, Integer.MAX_VALUE));
+    }
+
+    /**
+     * A {@link HolderSet} codec like vanilla's (a tag, a single entry, or a list of entries) whose
+     * list is lenient: entries that fail to decode are skipped instead of failing the whole set.
+     * For the recursive (mixed tags/entries in one list) variant see {@link #recursiveHolderSet}.
+     */
+    public static <E> SchemaCodec<HolderSet<E>> lenientHolderSet(ResourceKey<? extends Registry<E>> registryKey, Codec<Holder<E>> elementCodec) {
+        return SchemaCodec.wrap(LenientHolderSetCodec.create(registryKey, elementCodec, false));
+    }
+
     /** An unbounded {@code Map} that logs and skips entries which fail to decode, instead of failing the whole map. */
     public static <K, V> SchemaCodec<Map<K, V>> lenientUnboundedMap(Codec<K> keyCodec, Codec<V> valueCodec) {
         Codec<Map<K, V>> raw = new LenientUnboundedMapCodec<>(keyCodec, valueCodec);
@@ -452,6 +480,11 @@ public final class SchemaCodecs {
 
     public static <A> MapCodec<Optional<A>> lenientWithLog(Codec<A> elementCodec, String name) {
         return LenientCodecWithLog.of(elementCodec, name);
+    }
+
+    /** A required field readable under either {@code primaryName} or {@code alias}. */
+    public static <B> MapCodec<B> alias(Codec<B> codec, String primaryName, String alias) {
+        return AlternativeMapCodec.alias(codec, primaryName, alias);
     }
 
     /** An optional field readable under either {@code primaryName} or {@code alias}. */
