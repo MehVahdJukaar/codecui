@@ -9,6 +9,8 @@ issueTrackerURL = "${mod_github}/issues"
     config = "${mod_id}.mixins.json"
 [[mixins]]
     config = "${mod_id}-common.mixins.json"
+[[mixins]]
+    config = "${mod_id}-common-codec.mixins.json"
 
 [[mods]]
     modId = "${mod_id}"
