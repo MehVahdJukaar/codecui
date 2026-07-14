@@ -1,14 +1,11 @@
 {
   "minVersion": "0.8",
-  "required": true,
+  "required": false,
   "compatibilityLevel": "${java}",
   "package": "net.mehvahdjukaar.codecui.mixins",
   "mixins": [
-    "RecordCodecBuilderMixin",
-    "RecordCodecBuilderInstanceMixin",
-    "RegistryByNameCodecMixin",
-    "StringRepresentableCodecMixin",
-    "TagKeyCodecMixin"
+    "CodecXmapMixin",
+    "MapCodecXmapMixin"
   ],
   "client": [
   ],

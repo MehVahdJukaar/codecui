@@ -61,6 +61,62 @@ final class CodecReflection {
         return inner == null ? null : new FieldOfEntry(name, inner);
     }
 
+    /**
+     * Best-effort recovery of {@code Codec.intRange/floatRange/doubleRange} bounds when the
+     * construction mixin didn't apply. DFU builds these as {@code PRIMITIVE.flatXmap(checker, checker)}
+     * where {@code checker = checkRange(min, max)} is a lambda capturing the two bounds as its only
+     * fields (Codec.java checkRange). We walk the captured graph of the flatXmapped wrapper for the
+     * single object that captures exactly two {@link Number}s and return them ordered [min, max].
+     * Caller gates this on the wrapper being a flatXmap over a primitive number codec, so the only
+     * two-number capture in the graph is the range checker. Returns null (→ unbounded) if unsure.
+     */
+    static Number @Nullable [] recoverRangeBounds(Object flatXmappedCodec) {
+        Set<Object> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        Number[] pair = findNumberPairCapture(flatXmappedCodec, visited, 0);
+        if (pair == null) return null;
+        return pair[0].doubleValue() <= pair[1].doubleValue()
+                ? pair
+                : new Number[]{pair[1], pair[0]};
+    }
+
+    private static Number @Nullable [] findNumberPairCapture(Object obj, Set<Object> visited, int depth) {
+        if (obj == null || depth > 8 || !visited.add(obj)) return null;
+
+        Number[] direct = twoCapturedNumbers(obj);
+        if (direct != null) return direct;
+
+        for (Class<?> cls = obj.getClass(); cls != null && cls != Object.class; cls = cls.getSuperclass()) {
+            for (Field f : cls.getDeclaredFields()) {
+                if (Modifier.isStatic(f.getModifiers())) continue;
+                Class<?> t = f.getType();
+                // Bounds live inside object-typed captures (Encoder/Decoder/Function); skip
+                // primitives, boxed numbers and strings so we don't recurse into leaf data.
+                if (t.isPrimitive() || t == String.class || Number.class.isAssignableFrom(t)
+                        || t == Boolean.class || t == Character.class) continue;
+                Object v = getFieldValue(f, obj);
+                if (v == null || v == obj) continue;
+                Number[] found = findNumberPairCapture(v, visited, depth + 1);
+                if (found != null) return found;
+            }
+        }
+        return null;
+    }
+
+    /** An object whose only two non-static declared fields both hold {@link Number}s — the shape of
+     *  the {@code checkRange} lambda's captured (min, max). */
+    private static Number @Nullable [] twoCapturedNumbers(Object obj) {
+        List<Field> fields = new ArrayList<>(2);
+        for (Field f : obj.getClass().getDeclaredFields()) {
+            if (Modifier.isStatic(f.getModifiers())) continue;
+            fields.add(f);
+            if (fields.size() > 2) return null;
+        }
+        if (fields.size() != 2) return null;
+        Object a = getFieldValue(fields.get(0), obj);
+        Object b = getFieldValue(fields.get(1), obj);
+        return (a instanceof Number na && b instanceof Number nb) ? new Number[]{na, nb} : null;
+    }
+
     static @Nullable Object singleCapturedInner(Object codec) {
         Set<Object> inners = Collections.newSetFromMap(new IdentityHashMap<>());
         Set<Object> visited = Collections.newSetFromMap(new IdentityHashMap<>());

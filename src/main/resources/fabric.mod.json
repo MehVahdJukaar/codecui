@@ -20,11 +20,12 @@
     ]
   },
   "mixins": [
-    "${mod_id}.mixins.json"
+    "${mod_id}.mixins.json",
+    "${mod_id}-codec.mixins.json"
   ],
   "depends": {
     "fabricloader": ">=${fabric_version}",
-    "fabric": ">=${fabric_api_version}",
+    "fabric-api": ">=${fabric_api_version}",
     "minecraft": "${minecraft}"
   }
 }

@@ -35,7 +35,7 @@ tasks.named<ProcessResources>("processResources") {
         this["java"] = "JAVA_${prop("deps.java")}"
     }
 
-    filesMatching(listOf("codecui.mixins.json")) {
+    filesMatching(listOf("codecui.mixins.json", "codecui-codec.mixins.json")) {
         expand(mixin)
     }
 }
