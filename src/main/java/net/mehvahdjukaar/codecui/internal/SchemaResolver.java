@@ -22,7 +22,7 @@ import net.mehvahdjukaar.codecui.SchemaHandler;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.*;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
@@ -70,7 +70,8 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
     private static final @Nullable VarHandle KEY_DISPATCH_KEYCODEC;
     private static final @Nullable VarHandle KEY_DISPATCH_TYPE;
     private static final @Nullable VarHandle KEY_DISPATCH_DECODER;
-    private static final @Nullable VarHandle KEY_DISPATCH_TYPEKEY;
+    //? <1.21.11
+    //private static final @Nullable VarHandle KEY_DISPATCH_TYPEKEY;
 
     private static final @Nullable VarHandle SIMPLE_MAP_KEYCODEC;
     private static final @Nullable VarHandle SIMPLE_MAP_ELEMENT;
@@ -91,7 +92,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         VarHandle pf = null, ps = null;
         VarHandle ofn = null, ofe = null, ofl = null;
         VarHandle pmf = null, pms = null;
-        VarHandle kdk = null, kdt = null, kdd = null, kdtk = null;
+        VarHandle kdk = null, kdt = null, kdd = null/*? <1.21.11 {*//*, kdtk = null*//*?}*/;
         VarHandle smk = null, sme = null, sms = null;
         VarHandle rw = null, rmw = null;
         Class<?> rmc = null;
@@ -133,9 +134,11 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
             kdd = lookup.findVarHandle(KeyDispatchCodec.class, "decoder", Function.class);
             // DFU 8 (1.21.1) keeps the JSON type field name in a `typeKey` String field; DFU 9
             // dropped it (the name lives inside the fieldOf-wrapped keyCodec instead).
-            try {
+            //? <1.21.11 {
+            /*try {
                 kdtk = lookup.findVarHandle(KeyDispatchCodec.class, "typeKey", String.class);
             } catch (Throwable ignored) {}
+            *///?}
         } catch (Throwable ignored) {}
         try {
             var lookup = MethodHandles.privateLookupIn(SimpleMapCodec.class, MethodHandles.lookup());
@@ -175,7 +178,8 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         KEY_DISPATCH_KEYCODEC = kdk;
         KEY_DISPATCH_TYPE = kdt;
         KEY_DISPATCH_DECODER = kdd;
-        KEY_DISPATCH_TYPEKEY = kdtk;
+        //? <1.21.11
+        //KEY_DISPATCH_TYPEKEY = kdtk;
         SIMPLE_MAP_KEYCODEC = smk;
         SIMPLE_MAP_ELEMENT = sme;
         SIMPLE_MAP_KEYS = sms;
@@ -508,10 +512,13 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
             return new Schema.PairOf(f, s);
         }
         if (codec instanceof KeyDispatchCodec<?, ?> dispatch && KEY_DISPATCH_KEYCODEC != null) {
-            Object keyCodec = KEY_DISPATCH_KEYCODEC.get(dispatch);
+            //? >=1.21.11
+            MapCodec<?> keyCodec = (MapCodec<?>) KEY_DISPATCH_KEYCODEC.get(dispatch);
+            //? <1.21.11
+            //Object keyCodec = KEY_DISPATCH_KEYCODEC.get(dispatch);
             // typeKey is the JSON field name driving the dispatch. On DFU 8 it's a plain field;
             // on DFU 9 it lives inside the fieldOf-wrapped keyCodec, read via keys(). Else "type".
-            String typeKey = dispatchTypeKey(dispatch, keyCodec);
+            String typeKey = /*? >=1.21.11 {*/extractFirstKey(keyCodec)/*?} <1.21.11 {*//*dispatchTypeKey(dispatch, keyCodec)*//*?}*/;
             LinkedHashMap<String, Schema<?>> variants = enumerateDispatchVariants(dispatch, cache);
 
             // Generic fallback: if no registered hook matched, check whether the keyCodec is a
@@ -698,7 +705,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
      * {@code Schema.Opaque} leaf that still carries a codec with the result of resolving that
      * codec through the full pipeline — but only when resolution yields something better than
      * raw JSON. This gives a third-party declaration's raw inner codecs (plain {@code Codec.FLOAT},
-     * {@code ResourceLocation.CODEC}, registry/dispatch codecs, RCB records…) the same live
+     * {@code Identifier.CODEC}, registry/dispatch codecs, RCB records…) the same live
      * inference our own codecs get, instead of the Opaque fallback codecui bakes in without an
      * engine. Container schemas are rebuilt structurally; {@code Ref} nodes are left untouched
      * (recursion is already handled by the per-resolve cache).
@@ -787,7 +794,8 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
      * DFU 9 folds it into the fieldOf-wrapped keyCodec, recovered via {@code keys()}. Defaults to
      * {@code "type"}.
      */
-    private String dispatchTypeKey(KeyDispatchCodec<?, ?> dispatch, @Nullable Object keyCodec) {
+    //? <1.21.11 {
+    /*private String dispatchTypeKey(KeyDispatchCodec<?, ?> dispatch, @Nullable Object keyCodec) {
         if (KEY_DISPATCH_TYPEKEY != null) {
             try {
                 if (KEY_DISPATCH_TYPEKEY.get(dispatch) instanceof String s && !s.isEmpty()) return s;
@@ -796,6 +804,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         if (keyCodec instanceof MapCodec<?> mc) return extractFirstKey(mc);
         return "type";
     }
+    *///?}
 
     /**
      * The dispatch's raw key {@link Codec} (the registry byNameCodec / StringRepresentable codec).
@@ -956,7 +965,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         if (rid == null) return variants;
 
         try {
-            Registry<?> registry = BuiltInRegistries.REGISTRY.get(rid.registry().location());
+            Registry<?> registry = BuiltInRegistries.REGISTRY./*? >1.21.1 {*/getValue/*?} <=1.21.1 {*//*get*//*?}*/(rid.registry()./*? >=1.21.11 {*/identifier/*?} <1.21.11 {*//*location*//*?}*/());
             if (registry == null) {
                 CodecUI.LOGGER.warn("registry {} not found in BuiltInRegistries", rid.registry());
                 return variants;
@@ -966,13 +975,13 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
             // body. Large registries (Block, Item, ...) stay name-only with opaque bodies.
             boolean resolveBodies = registry.size() <= 128 && KEY_DISPATCH_DECODER != null;
             Object decoderFn = resolveBodies ? KEY_DISPATCH_DECODER.get(dispatch) : null;
-            List<ResourceLocation> ids = new ArrayList<>(registry.keySet());
-            ids.sort(Comparator.comparing(net.minecraft.resources.ResourceLocation::toString));
+            List<Identifier> ids = new ArrayList<>(registry.keySet());
+            ids.sort(Comparator.comparing(Identifier::toString));
             int bodies = 0;
-            for (net.minecraft.resources.ResourceLocation id : ids) {
+            for (var id : ids) {
                 Schema<?> body = new Schema.Opaque<>(null, null);
                 if (decoderFn instanceof Function<?, ?> fn) {
-                    Object value = registry.get(id);
+                    Object value = registry./*? >1.21.1 {*/getValue/*?} <=1.21.1 {*//*get*//*?}*/(id);
                     MapCodec<?> variantCodec = value == null ? null : applyDecoder((Function) fn, value);
                     if (variantCodec != null) {
                         body = resolveMapCodec(variantCodec, cache);
@@ -982,7 +991,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
                 variants.put(id.toString(), body);
             }
             CodecUI.LOGGER.debug("registry-backed dispatch: populated {} variants ({} with real bodies) from {}",
-                    variants.size(), bodies, rid.registry().location());
+                    variants.size(), bodies, rid.registry()./*? >=1.21.11 {*/identifier/*?} <1.21.11 {*//*location*//*?}*/());
         } catch (Throwable t) {
             CodecUI.LOGGER.warn("Failed to enumerate registry {}: {}", rid.registry(), t.toString());
         }

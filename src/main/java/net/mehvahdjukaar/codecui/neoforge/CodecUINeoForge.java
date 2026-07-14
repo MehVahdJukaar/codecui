@@ -1,4 +1,4 @@
-package net.mehvahdjukaar.codecui.platform;
+package net.mehvahdjukaar.codecui.neoforge;
 
 //? neoforge {
 import net.mehvahdjukaar.codecui.CodecUI;
@@ -10,7 +10,7 @@ import net.neoforged.fml.loading.FMLEnvironment;
 public class CodecUINeoForge {
 
     public CodecUINeoForge(IEventBus modBus) {
-        CodecUI.init(!FMLEnvironment.production, true);
+        CodecUI.init(!FMLEnvironment./*? >=1.21.9 {*/isProduction()/*?} <1.21.9 {*//*production*//*?}*/, true);
     }
 }
 //?}

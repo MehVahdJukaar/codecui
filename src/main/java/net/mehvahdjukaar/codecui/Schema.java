@@ -4,8 +4,8 @@ import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
-import org.jetbrains.annotations.Nullable;
+import net.minecraft.resources.Identifier;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,7 +35,7 @@ public sealed interface Schema<A> {
 
     record Str(int minLen, int maxLen, @Nullable Pattern pattern) implements Schema<String> {}
 
-    record ResourceId(@Nullable ResourceKey<? extends Registry<?>> registry) implements Schema<ResourceLocation> {}
+    record ResourceId(@Nullable ResourceKey<? extends Registry<?>> registry) implements Schema<Identifier> {}
 
     /**
      * A tag id for {@code registry} — the on-disk form is a {@code "namespace:path"} string
@@ -44,7 +44,7 @@ public sealed interface Schema<A> {
      * candidates come from the registry's loaded tags (see {@link SchemaCodecs#availableTagIds}),
      * degrading to a plain text field when {@code registry} is null or no tags are loaded.
      */
-    record TagId(@Nullable ResourceKey<? extends Registry<?>> registry) implements Schema<ResourceLocation> {}
+    record TagId(@Nullable ResourceKey<? extends Registry<?>> registry) implements Schema<Identifier> {}
 
     record Enum<A>(List<A> options, Function<A, String> label) implements Schema<A> {}
 

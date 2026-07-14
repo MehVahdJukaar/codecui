@@ -1,5 +1,7 @@
 package net.mehvahdjukaar.codecui.internal;
 
+//? >=26.1
+import com.mojang.serialization.MapCodec;
 import net.mehvahdjukaar.codecui.CodecUI;
 import net.mehvahdjukaar.codecui.Schema;
 import net.mehvahdjukaar.codecui.SchemaCodecs;
@@ -8,11 +10,13 @@ import net.minecraft.core.Registry;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.ExtraCodecs;
 import net.minecraft.world.item.crafting.Ingredient;
-import net.minecraft.util.valueproviders.FloatProviderType;
+//? <26.1 {
+/*import net.minecraft.util.valueproviders.FloatProviderType;
 import net.minecraft.util.valueproviders.IntProviderType;
+*///?}
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.levelgen.blockpredicates.BlockPredicateType;
 import net.minecraft.world.level.levelgen.carver.WorldCarver;
@@ -32,12 +36,14 @@ import net.minecraft.world.level.levelgen.structure.templatesystem.PosRuleTestTy
 import net.minecraft.world.level.levelgen.structure.templatesystem.RuleTestType;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureProcessorType;
 import net.minecraft.world.level.levelgen.structure.templatesystem.rule.blockentity.RuleBlockEntityModifierType;
-import net.minecraft.world.level.storage.loot.entries.LootPoolEntryType;
+//? <26.1 {
+/*import net.minecraft.world.level.storage.loot.entries.LootPoolEntryType;
 import net.minecraft.world.level.storage.loot.functions.LootItemFunctionType;
 import net.minecraft.world.level.storage.loot.predicates.LootItemConditionType;
 import net.minecraft.world.level.storage.loot.providers.nbt.LootNbtProviderType;
 import net.minecraft.world.level.storage.loot.providers.number.LootNumberProviderType;
 import net.minecraft.world.level.storage.loot.providers.score.LootScoreProviderType;
+*///?}
 
 import java.util.ArrayList;
 import java.util.List;
@@ -95,9 +101,9 @@ public final class CuratedSchemas {
     private static void register() {
         registerVanillaDispatches();
 
-        // ResourceLocation.CODEC is STRING.comapFlatMap -> inference yields plain text; an id
+        // Identifier.CODEC is STRING.comapFlatMap -> inference yields plain text; an id
         // widget (with the registry-less picker) is the nicer surface.
-        SchemaCodecs.registerCompanion(ResourceLocation.CODEC, new Schema.ResourceId(null));
+        SchemaCodecs.registerCompanion(Identifier.CODEC, new Schema.ResourceId(null));
 
         // UUIDUtil.CODEC is INT_STREAM.comapFlatMap -> opaque (INT_STREAM has no widget).
         // On disk it is a fixed quadruple of ints.
@@ -118,13 +124,24 @@ public final class CuratedSchemas {
         // JOML vector codecs are FLOAT/INT.listOf().comapFlatMap with an arity check hidden
         // in the lambda; inference sees an unbounded list, curation restores the fixed size.
         // Note: ExtraCodecs.VECTOR2F / VECTOR3I do not exist on 1.21.1 (added in 1.21.11).
+        //? >=1.21.11
+        SchemaCodecs.registerCompanion(ExtraCodecs.VECTOR2F, (Schema) new Schema.ListOf<>(floatAll, 2, 2));
         SchemaCodecs.registerCompanion(ExtraCodecs.VECTOR3F, (Schema) new Schema.ListOf<>(floatAll, 3, 3));
         SchemaCodecs.registerCompanion(ExtraCodecs.VECTOR4F, (Schema) new Schema.ListOf<>(floatAll, 4, 4));
+        //? >=1.21.11
+        SchemaCodecs.registerCompanion(ExtraCodecs.VECTOR3I, (Schema) new Schema.ListOf<>(intAll, 3, 3));
 
         // Color codecs: inference at best yields AnyOf(integer, text); a color picker is the
-        // point of this whole exercise. On 1.21.1 only ARGB_COLOR_CODEC exists (int-primary);
+        // point of this whole exercise. INT-primary variants emit packed ints, STRING_*
+        // variants emit "#RRGGBB"/"#AARRGGBB" strings (hexString flag). On 1.21.1 only ARGB_COLOR_CODEC exists (int-primary);
         // RGB_COLOR_CODEC and the STRING_* hex-string color codecs were added in 1.21.11.
+        //? >=1.21.11
+        SchemaCodecs.registerCompanion(ExtraCodecs.RGB_COLOR_CODEC, new Schema.Color(false, false));
         SchemaCodecs.registerCompanion(ExtraCodecs.ARGB_COLOR_CODEC, new Schema.Color(true, false));
+        //? >=1.21.11 {
+        SchemaCodecs.registerCompanion(ExtraCodecs.STRING_RGB_COLOR, new Schema.Color(false, true));
+        SchemaCodecs.registerCompanion(ExtraCodecs.STRING_ARGB_COLOR, new Schema.Color(true, true));
+        //?}
     }
 
     /**
@@ -147,8 +164,8 @@ public final class CuratedSchemas {
      */
     private static void registerVanillaDispatches() {
         // Value providers (used all over worldgen configs).
-        registerRegistryDispatch(IntProviderType.class, BuiltInRegistries.INT_PROVIDER_TYPE);
-        registerRegistryDispatch(FloatProviderType.class, BuiltInRegistries.FLOAT_PROVIDER_TYPE);
+        registerRegistryDispatch(/*? >=26.1 {*/MapCodec/*?} <26.1 {*//*IntProviderType*//*?}*/.class, BuiltInRegistries.INT_PROVIDER_TYPE);
+        registerRegistryDispatch(/*? >=26.1 {*/MapCodec/*?} <26.1 {*//*FloatProviderType*//*?}*/.class, BuiltInRegistries.FLOAT_PROVIDER_TYPE);
         registerRegistryDispatch(HeightProviderType.class, BuiltInRegistries.HEIGHT_PROVIDER_TYPE);
 
         // Worldgen features / placement / block-state providers.
@@ -175,12 +192,12 @@ public final class CuratedSchemas {
         registerRegistryDispatch(RuleBlockEntityModifierType.class, BuiltInRegistries.RULE_BLOCK_ENTITY_MODIFIER);
 
         // Loot tables: entries, functions, conditions, and the number/nbt/score providers.
-        registerRegistryDispatch(LootPoolEntryType.class, BuiltInRegistries.LOOT_POOL_ENTRY_TYPE);
-        registerRegistryDispatch(LootItemFunctionType.class, BuiltInRegistries.LOOT_FUNCTION_TYPE);
-        registerRegistryDispatch(LootItemConditionType.class, BuiltInRegistries.LOOT_CONDITION_TYPE);
-        registerRegistryDispatch(LootNumberProviderType.class, BuiltInRegistries.LOOT_NUMBER_PROVIDER_TYPE);
-        registerRegistryDispatch(LootNbtProviderType.class, BuiltInRegistries.LOOT_NBT_PROVIDER_TYPE);
-        registerRegistryDispatch(LootScoreProviderType.class, BuiltInRegistries.LOOT_SCORE_PROVIDER_TYPE);
+        registerRegistryDispatch(/*? >=26.1 {*/MapCodec/*?} <26.1 {*//*LootPoolEntryType*//*?}*/.class, BuiltInRegistries.LOOT_POOL_ENTRY_TYPE);
+        registerRegistryDispatch(/*? >=26.1 {*/MapCodec/*?} <26.1 {*//*LootItemFunctionType*//*?}*/.class, BuiltInRegistries.LOOT_FUNCTION_TYPE);
+        registerRegistryDispatch(/*? >=26.1 {*/MapCodec/*?} <26.1 {*//*LootItemConditionType*//*?}*/.class, BuiltInRegistries.LOOT_CONDITION_TYPE);
+        registerRegistryDispatch(/*? >=26.1 {*/MapCodec/*?} <26.1 {*//*LootNumberProviderType*//*?}*/.class, BuiltInRegistries.LOOT_NUMBER_PROVIDER_TYPE);
+        registerRegistryDispatch(/*? >=26.1 {*/MapCodec/*?} <26.1 {*//*LootNbtProviderType*//*?}*/.class, BuiltInRegistries.LOOT_NBT_PROVIDER_TYPE);
+        registerRegistryDispatch(/*? >=26.1 {*/MapCodec/*?} <26.1 {*//*LootScoreProviderType*//*?}*/.class, BuiltInRegistries.LOOT_SCORE_PROVIDER_TYPE);
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -198,7 +215,7 @@ public final class CuratedSchemas {
             return snapshot;
         };
         Function<K, String> nameOf = v -> {
-            ResourceLocation id = ((Registry) registry).getKey(v);
+            Identifier id = ((Registry) registry).getKey(v);
             return id != null ? id.toString() : String.valueOf(v);
         };
         SchemaCodecs.registerDispatchKeys((Class<K>) keyType, keys, nameOf);
@@ -221,9 +238,17 @@ public final class CuratedSchemas {
         // round-tripping shape for plain stacks.
         SchemaCodecs.registerCompanion(net.minecraft.world.item.ItemStack.CODEC,
                 new Schema.Record<>(net.minecraft.world.item.ItemStack.class,
-                        List.<Schema.Field<net.minecraft.world.item.ItemStack, ?>>of(
+                        List.of(
                         new Schema.Field<>("id", new Schema.ResourceId(Registries.ITEM), false, null),
                         new Schema.Field<>("count", new Schema.IntRange(1, 99), true, 1))));
+        // In 26.1 and beyond, ItemStackTemplate is a class that acts as a template for an ItemStack, as such, we handle it the same.
+        //? >=26.1 {
+        SchemaCodecs.registerCompanion(net.minecraft.world.item.ItemStackTemplate.CODEC,
+                new Schema.Record<>(net.minecraft.world.item.ItemStackTemplate.class,
+                        List.of(
+                                new Schema.Field<>("id", new Schema.ResourceId(Registries.ITEM), false, null),
+                                new Schema.Field<>("count", new Schema.IntRange(1, 99), true, 1))));
+        //?}
 
         // Ingredient.CODEC is either(list(Value), Value) with Value = xor(ItemValue, TagValue) —
         // and on NeoForge a custom-ingredient type dispatch too. Structurally that resolves to an
@@ -243,7 +268,9 @@ public final class CuratedSchemas {
                 Schema.option("tag", ingredientTag),
                 Schema.option("list", new Schema.ListOf<>(ingredientValue, 1, Integer.MAX_VALUE)));
         SchemaCodecs.registerCompanion(Ingredient.CODEC, ingredient);
-        SchemaCodecs.registerCompanion(Ingredient.CODEC_NONEMPTY, ingredient);
+        // By 1.21.11, Ingredient.CODEC_NONEMPTY was removed as Ingredient.CODEC enforces being non-empty now
+        //? <=1.21.11
+        //SchemaCodecs.registerCompanion(Ingredient.CODEC_NONEMPTY, ingredient);
 
         // DimensionType.DIRECT_CODEC wraps fields via ExtraCodecs.catchDecoderException
         // (a raw Codec.of with anonymous decoder) — no mixin point. Companion describes the

@@ -28,10 +28,12 @@ import net.minecraft.core.RegistryCodecs;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+//? >=26.1
+import net.minecraft.world.item.ItemStackTemplate;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -372,13 +374,19 @@ public final class SchemaCodecs {
      * empty list — never throws — for an unknown registry or before tags bind, letting the backend
      * fall back to a free-text field.
      */
-    public static List<ResourceLocation> availableTagIds(ResourceKey<? extends Registry<?>> registryKey) {
+    public static List<Identifier> availableTagIds(ResourceKey<? extends Registry<?>> registryKey) {
         if (registryKey == null) return List.of();
-        Registry<?> registry = BuiltInRegistries.REGISTRY.get(registryKey.location());
-        if (registry == null) return List.of();
+        var holder = BuiltInRegistries.REGISTRY./*? >1.21.1 {*/get/*?} <=1.21.1 {*//*getHolder*//*?}*/(registryKey./*? >=1.21.11 {*/identifier/*?} <1.21.11 {*//*location*//*?}*/());
+        if (holder.isEmpty()) return List.of();
+        Registry<?> registry = holder.get().value();
         return registry.getTags()
-                .map(pair -> pair.getFirst().location())
-                .sorted(java.util.Comparator.comparing(ResourceLocation::toString))
+                //? >1.21.1 {
+                .flatMap(named -> named.unwrapKey().stream())
+                .map(TagKey::location)
+                //?} <=1.21.1 {
+                /*.map(pair -> pair.getFirst().location())
+                *///?}
+                .sorted(java.util.Comparator.comparing(Identifier::toString))
                 .toList();
     }
 
@@ -546,18 +554,36 @@ public final class SchemaCodecs {
 
     /** An {@link ItemStack} written either as a full stack object or as a bare item id. */
     public static final Codec<ItemStack> ITEM_OR_STACK = Codec.lazyInitialized(() ->
-            Codec.withAlternative(ItemStack.SINGLE_ITEM_CODEC, BuiltInRegistries.ITEM.byNameCodec(),
+            Codec.withAlternative(/*? >=26.1 {*/ItemStack.CODEC.xmap(itemStack -> itemStack.copyWithCount(1), Function.identity())/*?} <26.1 {*//*ItemStack.SINGLE_ITEM_CODEC*//*?}*/, BuiltInRegistries.ITEM.byNameCodec(),
                     Item::getDefaultInstance));
 
     private static final Codec<List<ItemStack>> ITEMSTACK_OR_ITEMSTACK_LIST = singleOrList(ITEM_OR_STACK);
 
     private static final Codec<Supplier<List<ItemStack>>> ITEMSTACK_HOLDER_SET = RegistryCodecs.homogeneousList(Registries.ITEM)
             .xmap(l -> () -> l.stream().map(Holder::value).map(ItemStack::new).toList(),
-                    s -> HolderSet.direct(s.get().stream().map(ItemStack::getItemHolder).toList()));
+                    s -> HolderSet.direct(s.get().stream().map(ItemStack::/*? >=26.1 {*/typeHolder/*?} <26.1 {*//*getItemHolder*//*?}*/).toList()));
 
     /** A single item/stack, a list of them, or an item tag/holder-set — all as a {@code Supplier<List<ItemStack>>}. */
     public static final Codec<Supplier<List<ItemStack>>> ITEMSTACK_OR_LIST_OR_HOLDER_SET =
             Codec.withAlternative(
                     ITEMSTACK_OR_ITEMSTACK_LIST.xmap(l -> () -> l, Supplier::get),
                     ITEMSTACK_HOLDER_SET);
+    //? >=26.1 {
+    /** An {@link ItemStackTemplate} written either as a full stack object or as a bare item id. */
+    public static final Codec<ItemStackTemplate> ITEM_OR_STACK_TEMPLATE = Codec.lazyInitialized(() ->
+            Codec.withAlternative(ItemStackTemplate.CODEC.xmap(itemStack -> itemStack.withCount(1), Function.identity()), BuiltInRegistries.ITEM.byNameCodec(),
+                    ItemStackTemplate::new));
+
+    private static final Codec<List<ItemStackTemplate>> ITEMSTACK_TEMPLATE_OR_ITEMSTACK_TEMPLATE_LIST = singleOrList(ITEM_OR_STACK_TEMPLATE);
+
+    private static final Codec<Supplier<List<ItemStackTemplate>>> ITEMSTACK_TEMPLATE_HOLDER_SET = RegistryCodecs.homogeneousList(Registries.ITEM)
+            .xmap(l -> () -> l.stream().map(Holder::value).map(ItemStackTemplate::new).toList(),
+                    s -> HolderSet.direct(s.get().stream().map(ItemStackTemplate::/*? >=26.1 {*/typeHolder/*?} <26.1 {*//*getItemHolder*//*?}*/).toList()));
+
+    /** A single item/stack, a list of them, or an item tag/holder-set — all as a {@code Supplier<List<ItemStackTemplate>>}. */
+    public static final Codec<Supplier<List<ItemStackTemplate>>> ITEMSTACK_TEMPLATE_OR_LIST_OR_HOLDER_SET =
+            Codec.withAlternative(
+                    ITEMSTACK_TEMPLATE_OR_ITEMSTACK_TEMPLATE_LIST.xmap(l -> () -> l, Supplier::get),
+                    ITEMSTACK_TEMPLATE_HOLDER_SET);
+    //?}
 }

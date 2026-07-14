@@ -1,4 +1,5 @@
 import com.possible_triangle.gradle.access.generateAccessTransformer
+import net.neoforged.nfrtgradle.CreateMinecraftArtifacts
 
 plugins {
     id("net.neoforged.moddev")
@@ -12,7 +13,7 @@ tasks.named<ProcessResources>("processResources") {
     fun prop(name: String) = project.property(name) as String
 
     val props = HashMap<String, String>().apply {
-        this["version"] = prop("mod.version")
+        this["version"] = "${prop("deps.minecraft")}-${prop("mod.version")}"
         this["minecraft"] = prop("mod.mc_dep_forgelike")
         this["neoforge_version"] = prop("deps.neoforge")
         this["mod_id"] = prop("mod.id")
@@ -38,7 +39,7 @@ tasks.named<ProcessResources>("processResources") {
     }
 }
 
-version = "${property("mod.version")}-${property("deps.minecraft")}-neoforge"
+version = "${property("deps.minecraft")}-${property("mod.version")}-neoforge"
 base.archivesName = property("mod.archives_base") as String
 
 jsonlang {
@@ -151,8 +152,16 @@ repositories {
 }
 
 access {
-    from = if (isUnobfuscated) rootProject.file("src/main/resources/${property("mod.id")}.classtweaker")
-    else rootProject.file("src/main/resources/${property("mod.id")}.accesswidener")
+    from = rootProject.file("src/main/resources/${property("mod.id")}.${if (isUnobfuscated) "classtweaker" else "accesswidener"}")
+}
+
+val output = layout.buildDirectory.file("accesstransformer.cfg").map { it.asFile }
+
+project.tasks.withType<CreateMinecraftArtifacts> {
+    dependsOn("transformAccessWidener")
+}
+project.tasks.named("copyAccessTransformersPublications") {
+    dependsOn("transformAccessWidener")
 }
 
 neoForge {
@@ -162,6 +171,10 @@ neoForge {
         isDisableRecompilation = true
     }
     validateAccessTransformers = true
+    accessTransformers {
+        from(output)
+        publish(output)
+    }
 
     if (hasProperty("deps.parchment")) parchment {
         val (mc, ver) = (property("deps.parchment") as String).split(':')

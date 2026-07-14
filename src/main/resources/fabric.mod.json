@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "${mod_id}",
-  "version": "${mod_version}",
+  "version": "${version}",
   "name": "${mod_name}",
   "description": "${mod_description}",
   "authors": [
@@ -11,7 +11,7 @@
     "homepage": "${mod_homepage}",
     "sources": "${mod_github}"
   },
-  "accessWidener": "${mod_id}.accesswidener",
+  "accessWidener": "${mod_accesswidener}",
   "license": "${mod_license}",
   "icon": "icon.png",
   "entrypoints": {

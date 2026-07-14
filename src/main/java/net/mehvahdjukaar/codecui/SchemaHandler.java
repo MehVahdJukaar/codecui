@@ -1,17 +1,17 @@
 package net.mehvahdjukaar.codecui;
-import net.mehvahdjukaar.codecui.*;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
-import org.jetbrains.annotations.Nullable;
+import net.mehvahdjukaar.codecui.internal.SchemaResolver;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Extension point for teaching the schema resolver about codec classes it can't introspect
  * on its own (hand-rolled {@code Codec.of(...)} implementations, exotic third-party
- * combinators, ...). Register via {@link SchemaResolvers#registerHandler}.
+ * combinators, ...). Register via {@link SchemaResolver#registerHandler}.
  *
  * <p>Handlers run for every codec being resolved, <em>after</em> the per-instance tag tiers
- * (companions registered with {@link SchemaResolvers#registerCompanion} and mixin-attached tags
+ * (companions registered with {@link SchemaCodecs#registerCompanion} and mixin-attached tags
  * always win) but <em>before</em> the built-in structural tiers and the reflective fallback —
  * so a handler can override a built-in guess for a whole class of codecs. Return {@code null}
  * to pass ("not mine"); the first handler returning non-null wins. Handlers should be fast:

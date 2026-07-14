@@ -11,11 +11,12 @@ tasks.named<ProcessResources>("processResources") {
     fun prop(name: String) = project.property(name) as String
 
     val props = HashMap<String, String>().apply {
-        this["version"] = prop("mod.version")
+        this["version"] = "${prop("deps.minecraft")}-${prop("mod.version")}"
         this["minecraft"] = prop("mod.mc_dep_fabric")
         this["fabric_api_version"] = prop("deps.fabric-api")
-        this["fabric_version"] = if (isUnobfuscated) prop("deps.fabric-loader") else "0.17"
+        this["fabric_version"] = if (isUnobfuscated) prop("deps.fabric-loader") else "0.18"
         this["java"] = prop("deps.java")
+        this["mod_accesswidener"] = "${prop("mod.id")}.${if (isUnobfuscated) "classtweaker" else "accesswidener"}"
         this["mod_id"] = prop("mod.id")
         this["mod_name"] = prop("mod.name")
         this["mod_description"] = prop("mod.description")
@@ -44,7 +45,7 @@ loom {
     else accessWidenerPath = rootProject.file("src/main/resources/${property("mod.id")}.accesswidener")
 }
 
-version = "${property("mod.version")}-${property("deps.minecraft")}-fabric"
+version = "${property("deps.minecraft")}-${property("mod.version")}-fabric"
 base.archivesName = property("mod.archives_base") as String
 
 jsonlang {

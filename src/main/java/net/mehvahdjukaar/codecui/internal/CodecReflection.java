@@ -3,7 +3,7 @@ package net.mehvahdjukaar.codecui.internal;
 import com.mojang.serialization.*;
 import com.mojang.serialization.codecs.OptionalFieldCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -198,7 +198,7 @@ final class CodecReflection {
         }
     }
 
-    private static @Nullable RecordFieldTags.Entry entryFromDecoderNode(Object node) {
+    private static RecordFieldTags.@Nullable Entry entryFromDecoderNode(Object node) {
         if (node instanceof OptionalFieldCodec<?> opt) {
             return entryFromOptional(opt);
         }
@@ -217,14 +217,14 @@ final class CodecReflection {
         return null;
     }
 
-    private static @Nullable RecordFieldTags.Entry entryFromOptional(OptionalFieldCodec<?> opt) {
+    private static RecordFieldTags.@Nullable Entry entryFromOptional(OptionalFieldCodec<?> opt) {
         String name = (String) readField(opt, "name");
         Codec<?> elem = (Codec<?>) readField(opt, "elementCodec");
         if (name == null || elem == null) return null;
         return new RecordFieldTags.Entry(name, null, opt);
     }
 
-    private static @Nullable RecordFieldTags.Entry entryFromFieldDecoder(Object fieldDec) {
+    private static RecordFieldTags.@Nullable Entry entryFromFieldDecoder(Object fieldDec) {
         Object nameObj = readField(fieldDec, "name");
         Object elem = readField(fieldDec, "elementCodec");
         if (!(nameObj instanceof String name)) return null;

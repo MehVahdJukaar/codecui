@@ -76,7 +76,7 @@ public final class LenientHolderSetCodec<E> implements Codec<HolderSet<E>> {
     private static <E> DataResult<HolderSet<E>> lookupTag(HolderGetter<E> input, TagKey<E> tagKey) {
         return (DataResult<HolderSet<E>>) (Object) input.get(tagKey)
                 .map(DataResult::success)
-                .orElseGet(() -> DataResult.error(() -> "Missing tag: '" + tagKey.location() + "' in '" + tagKey.registry().location() + "'"));
+                .orElseGet(() -> DataResult.error(() -> "Missing tag: '" + tagKey.location() + "' in '" + tagKey.registry()./*? >=1.21.11 {*/identifier/*?} <1.21.11 {*//*location*//*?}*/() + "'"));
     }
 
     @Override
@@ -112,6 +112,6 @@ public final class LenientHolderSetCodec<E> implements Codec<HolderSet<E>> {
 
     @Override
     public String toString() {
-        return "LenientHolderSetCodec[" + this.registryKey.location() + "]";
+        return "LenientHolderSetCodec[" + this.registryKey./*? >=1.21.11 {*/identifier/*?} <1.21.11 {*//*location*//*?}*/() + "]";
     }
 }
