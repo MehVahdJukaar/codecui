@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "${mod_id}",
+  "version": "${mod_version}",
+  "name": "${mod_name}",
+  "description": "${mod_description}",
+  "authors": [
+    "${mod_authors}"
+  ],
+  "contact": {
+    "homepage": "${mod_homepage}",
+    "sources": "${mod_github}"
+  },
+  "accessWidener": "${mod_id}.accesswidener",
+  "license": "${mod_license}",
+  "icon": "icon.png",
+  "entrypoints": {
+    "main": [
+      "net.mehvahdjukaar.codecui.fabric.CodecUIFabric"
+    ]
+  },
+  "mixins": [
+    "${mod_id}.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=${fabric_version}",
+    "fabric": ">=${fabric_api_version}",
+    "minecraft": "${minecraft}"
+  }
+}
