@@ -249,6 +249,9 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         if (result == null) result = (Schema<A>) tierTwoStructural(codec, cache);
         if (result == null) result = (Schema<A>) tierThreeReflective(codec, cache);
         // Tier 3.5: transform-free unwrap of DFU combinator wrappers (xmap/validate/orElse/…).
+        // Range recovery runs first: intRange/floatRange/doubleRange are flatXmaps over a primitive,
+        // so the generic unwrap below would collapse them to an unbounded number and drop the bounds.
+        if (result == null) result = (Schema<A>) recoverPrimitiveRange(codec);
         if (result == null) result = (Schema<A>) unwrapCapturedInner(codec, cache);
         if (result == null) result = (Schema<A>) new Schema.Opaque<>(codec, null);
 
@@ -691,6 +694,25 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
     private @Nullable Schema<?> unwrapCapturedInner(Object codec, IdentityHashMap<Object, Schema<?>> cache) {
         Object inner = CodecReflection.singleCapturedInner(codec);
         return inner == null ? null : resolveAny(inner, cache);
+    }
+
+    /** Reflective fallback for {@code Codec.intRange/floatRange/doubleRange} when the construction
+     *  mixin didn't apply (Tier 0 {@code SchemaTags} absent). DFU builds these as
+     *  {@code PRIMITIVE.flatXmap(checkRange(min,max), …)} — a {@code [flatXmapped]} wrapper over a
+     *  primitive number codec — so we recover the bounds from the checker lambda's captures. Gated
+     *  on both the flatXmap marker and the inner being exactly INT/FLOAT/DOUBLE, so an unrelated
+     *  flatXmap can't be misread as a range; falls through to the unbounded primitive if unsure. */
+    private @Nullable Schema<?> recoverPrimitiveRange(Object codec) {
+        if (!(codec instanceof Codec<?>) || !codec.toString().endsWith("[flatXmapped]")) return null;
+        Object inner = CodecReflection.singleCapturedInner(codec);
+        if (inner != Codec.INT && inner != Codec.FLOAT && inner != Codec.DOUBLE) return null;
+
+        Number[] bounds = CodecReflection.recoverRangeBounds(codec);
+        if (bounds == null) return null;
+        Number min = bounds[0], max = bounds[1];
+        if (inner == Codec.INT) return new Schema.IntRange(min.intValue(), max.intValue());
+        if (inner == Codec.FLOAT) return new Schema.FloatRange(min.floatValue(), max.floatValue());
+        return new Schema.DoubleRange(min.doubleValue(), max.doubleValue());
     }
 
     /**

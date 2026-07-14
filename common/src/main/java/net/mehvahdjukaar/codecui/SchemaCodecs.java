@@ -17,6 +17,7 @@ import net.mehvahdjukaar.codecui.internal.LenientHolderSetCodec;
 import net.mehvahdjukaar.codecui.internal.LenientListCodec;
 import net.mehvahdjukaar.codecui.internal.LenientUnboundedMapCodec;
 import net.mehvahdjukaar.codecui.internal.CodecWithExtra;
+import net.mehvahdjukaar.codecui.internal.MixinDetection;
 import net.mehvahdjukaar.codecui.internal.RecursiveHolderSetCodec;
 import net.mehvahdjukaar.codecui.internal.ReferenceOrDirectCodec;
 import net.mehvahdjukaar.codecui.internal.SchemaResolver;
@@ -57,6 +58,37 @@ import java.util.function.Supplier;
  * {@link SchemaCodec} (or {@link SchemaMapCodec}); the editor reads {@link SchemaCodec#schema()}.</p>
  */
 public final class SchemaCodecs {
+
+    /**
+     * How CodecUI recovers schema metadata from a codec's construction.
+     *
+     * @see #inferenceMode()
+     */
+    public enum Inference {
+        /**
+         * Codec construction is intercepted by mixins: numeric bounds ({@code intRange}…),
+         * optional-field defaults and transform links are captured losslessly at build time.
+         * The normal mode on Fabric.
+         */
+        MIXIN,
+        /**
+         * The construction mixins did not weave, so schemas are recovered by best-effort
+         * reflection. Structure, field names and numeric ranges survive; optional-field default
+         * values do not. This is <b>always</b> the mode on NeoForge (DFU isn't on the transforming
+         * classloader) and <b>occasionally</b> on Fabric (a DFU type was classloaded before Mixin
+         * could weave it).
+         */
+        REFLECTION
+    }
+
+    /**
+     * Whether codec-construction interception is active. {@link Inference#REFLECTION} means schema
+     * inference is running in reduced-fidelity fallback (see the enum) - always on NeoForge, and on
+     * Fabric when a DFU type loaded too early. Valid after CodecUI has initialized.
+     */
+    public static Inference inferenceMode() {
+        return MixinDetection.constructionInterceptionActive() ? Inference.MIXIN : Inference.REFLECTION;
+    }
 
     /**
      * Manually register a schema for a codec that can't be auto-introspected (opaque
