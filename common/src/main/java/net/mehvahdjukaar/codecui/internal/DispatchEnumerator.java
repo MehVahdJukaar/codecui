@@ -282,6 +282,91 @@ final class DispatchEnumerator {
         return variants;
     }
 
+    /**
+     * Resolves an {@code ExtraCodecs.dispatchOptionalValue} codec (detected by
+     * {@link CodecReflection#detectOptionalValueDispatch}) to a {@link Schema.OneOf} that carries a
+     * {@code valueField} - so the variant body encodes nested under that key (e.g. a criterion's
+     * {@code "conditions"}) instead of flattened. Returns null when no variants can be recovered, so
+     * the caller falls through to its normal fallbacks rather than committing to a dead picker.
+     */
+    @Nullable Schema<?> resolveOptionalValueDispatch(CodecReflection.OptionalValueDispatch dispatch,
+                                                     IdentityHashMap<Object, Schema<?>> cache) {
+        LinkedHashMap<String, Schema<?>> variants = enumerateOptionalValueVariants(dispatch, cache);
+        if (variants.isEmpty()) return null;
+        return new Schema.OneOf<>(dispatch.typeKey(), variants, dispatch.valueKey());
+    }
+
+    /**
+     * The key codec identifies the dispatch's key set. For criteria it's a registry {@code
+     * byNameCodec} (TRIGGER_TYPES) resolving to a {@link Schema.ResourceId}; each registry entry's
+     * VALUE fed to the codec-getter yields that variant's body codec. Only registry-keyed dispatches
+     * are enumerated (the sole vanilla shape); anything else returns empty and the caller falls back.
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private LinkedHashMap<String, Schema<?>> enumerateOptionalValueVariants(
+            CodecReflection.OptionalValueDispatch dispatch, IdentityHashMap<Object, Schema<?>> cache) {
+        LinkedHashMap<String, Schema<?>> variants = new LinkedHashMap<>();
+
+        Schema<?> keySchema = resolver.resolveCodec((Codec) dispatch.keyCodec(), new IdentityHashMap<>());
+        if (!(keySchema instanceof Schema.ResourceId rid) || rid.registry() == null) return variants;
+
+        Registry<?> registry;
+        try {
+            registry = BuiltInRegistries.REGISTRY.get(rid.registry().location());
+        } catch (Throwable t) {
+            return variants;
+        }
+        if (registry == null || registry.size() > 512) return variants;
+
+        List<ResourceLocation> ids = new ArrayList<>(registry.keySet());
+        ids.sort(Comparator.comparing(ResourceLocation::toString));
+
+        Function<Object, Object> codecGetter = pickCodecGetter(dispatch.getters(), registry, ids);
+        if (codecGetter == null) return variants;
+
+        for (ResourceLocation id : ids) {
+            Object value = registry.get(id);
+            if (value == null) continue;
+            Codec<?> body;
+            try {
+                body = asCodec(codecGetter.apply(value));
+            } catch (Throwable t) {
+                body = null;
+            }
+            if (body == null) continue;
+            variants.put(id.toString(), resolver.resolveCodec((Codec) body, cache));
+        }
+        return variants;
+    }
+
+    /** Of the two captured getters (keyGetter V→K, codecGetter K→Codec), the codec-getter is the one
+     *  that returns a {@code Codec} when applied to a registry value; the other throws or returns a
+     *  non-codec. One probe per getter is enough. */
+    private static @Nullable Function<Object, Object> pickCodecGetter(
+            List<Function<Object, Object>> getters, Registry<?> registry, List<ResourceLocation> ids) {
+        for (Function<Object, Object> g : getters) {
+            for (ResourceLocation id : ids) {
+                Object value = registry.get(id);
+                if (value == null) continue;
+                try {
+                    if (asCodec(g.apply(value)) != null) return g;
+                } catch (Throwable ignored) {
+                }
+                break;
+            }
+        }
+        return null;
+    }
+
+    private static @Nullable Codec<?> asCodec(@Nullable Object o) {
+        if (o instanceof Codec<?> c) return c;
+        if (o instanceof DataResult<?> dr) {
+            Object r = dr.result().orElse(null);
+            if (r instanceof Codec<?> c) return c;
+        }
+        return null;
+    }
+
     private static String extractFirstKey(MapCodec<?> keyCodec) {
         try {
             return keyCodec.keys(com.mojang.serialization.JsonOps.INSTANCE)

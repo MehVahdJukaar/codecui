@@ -404,6 +404,14 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
                 }
             } catch (Throwable ignored) {}
         }
+        // ExtraCodecs.dispatchOptionalValue (advancement criteria etc.): an anonymous MapCodec that
+        // nests its dispatched body under a value key. Not a KeyDispatchCodec, so it must be matched
+        // structurally before tier-3 mistakes it for a scalar wrapper around the key codec.
+        CodecReflection.OptionalValueDispatch ovd = CodecReflection.detectOptionalValueDispatch(codec);
+        if (ovd != null) {
+            Schema<?> dispatched = dispatchEnumerator.resolveOptionalValueDispatch(ovd, cache);
+            if (dispatched != null) return dispatched;
+        }
         return null;
     }
 
@@ -507,7 +515,17 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
                     }
                     continue;
                 }
-                fieldSchema = mapSchema;
+                // A grouped MapCodec that spans several flat keys but can't be spread into static
+                // named fields - a dispatch (OneOf), pair, map, or either-of-maps (AnyOf). It still
+                // flattens into the parent, so mark it inline and let the backend merge its object
+                // flat (see Schema.Field.inline). Anything else (an Opaque that swallowed the whole
+                // object, a lone scalar) keeps the old nested-under-name behavior.
+                boolean flattenable = mapSchema instanceof Schema.OneOf<?>
+                        || mapSchema instanceof Schema.PairOf<?, ?>
+                        || mapSchema instanceof Schema.MapOf<?, ?>
+                        || mapSchema instanceof Schema.AnyOf<?>;
+                addField(fields, new Schema.Field(e.name(), mapSchema, false, null, flattenable));
+                continue;
             } else {
                 fieldSchema = resolveCodec((Codec) e.elementCodec(), cache);
             }
@@ -630,7 +648,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
                 changed |= e != en.getValue();
                 out.put(en.getKey(), e);
             }
-            return changed ? new Schema.OneOf(one.typeField(), out) : schema;
+            return changed ? new Schema.OneOf(one.typeField(), out, one.valueField()) : schema;
         }
         // Ref (cycle guard) + all leaf schemas (Bool, ranges, Str, ResourceId, Color, Enum,
         // Custom) are returned unchanged.

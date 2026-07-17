@@ -13,6 +13,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.function.Function;
 
 
 final class CodecReflection {
@@ -22,6 +23,60 @@ final class CodecReflection {
 
 
     record FieldOfEntry(String name, Codec<?> elementCodec) {}
+
+    /** The captured pieces of {@code ExtraCodecs.dispatchOptionalValue}'s anonymous MapCodec: the
+     *  two JSON keys (type + nested value), the key Codec, and the two getter Functions (one of
+     *  which is the codec-getter - the caller probes to tell them apart). */
+    record OptionalValueDispatch(String typeKey, String valueKey, Codec<?> keyCodec,
+                                 List<Function<Object, Object>> getters) {}
+
+    /**
+     * Detects {@code ExtraCodecs.dispatchOptionalValue(typeKey, valueKey, keyCodec, keyGetter,
+     * codecGetter)} - the anonymous {@code MapCodec} behind advancement criteria and similar
+     * "{@code {type: id, valueKey: {...}}}" shapes. It is not a {@code KeyDispatchCodec}, so the
+     * normal dispatch path misses it and tier-3 would collapse it to the key codec's scalar schema.
+     *
+     * <p>Matched structurally (field NAMES are unreliable across loaders/obfuscation): a MapCodec
+     * whose {@code keys()} yields exactly two string keys and which captures exactly one key Codec
+     * and exactly two getter Functions. A wrong match self-corrects - the enumerator fails to find a
+     * codec-getter and the caller falls through.</p>
+     */
+    @SuppressWarnings("unchecked")
+    static @Nullable OptionalValueDispatch detectOptionalValueDispatch(MapCodec<?> codec) {
+        List<String> keys;
+        try {
+            keys = codec.keys(JsonOps.INSTANCE).map(CodecReflection::jsonKeyString).toList();
+        } catch (Throwable t) {
+            return null;
+        }
+        if (keys.size() != 2) return null;
+
+        Codec<?> keyCodec = null;
+        int codecCount = 0;
+        List<Function<Object, Object>> getters = new ArrayList<>(2);
+        for (Class<?> cls = codec.getClass(); cls != null && cls != Object.class; cls = cls.getSuperclass()) {
+            for (Field f : cls.getDeclaredFields()) {
+                if (Modifier.isStatic(f.getModifiers())) continue;
+                Class<?> t = f.getType();
+                if (MapCodec.class.isAssignableFrom(t)) return null; // dispatchOptionalValue's key is a plain Codec
+                Object v = getFieldValue(f, codec);
+                if (v == null) continue;
+                if (Codec.class.isAssignableFrom(t)) {
+                    keyCodec = (Codec<?>) v;
+                    codecCount++;
+                } else if (v instanceof Function<?, ?> fn) {
+                    getters.add((Function<Object, Object>) fn);
+                }
+            }
+        }
+        if (keyCodec == null || codecCount != 1 || getters.size() != 2) return null;
+        return new OptionalValueDispatch(keys.get(0), keys.get(1), keyCodec, getters);
+    }
+
+    private static String jsonKeyString(Object o) {
+        if (o instanceof com.google.gson.JsonPrimitive p && p.isString()) return p.getAsString();
+        return String.valueOf(o);
+    }
 
     static List<ScannedInner> scanInnerCodecs(Object codec) {
         ArrayList<ScannedInner> inners = new ArrayList<>();

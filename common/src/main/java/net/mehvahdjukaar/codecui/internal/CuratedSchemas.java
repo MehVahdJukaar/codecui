@@ -235,7 +235,7 @@ public final class CuratedSchemas {
                         new Schema.Field<>("item", new Schema.ResourceId(Registries.ITEM), false, null)));
         Schema<Ingredient> ingredientTag = new Schema.Record<>(Ingredient.class,
                 List.<Schema.Field<Ingredient, ?>>of(
-                        new Schema.Field<>("tag", new Schema.TagId(Registries.ITEM), false, null)));
+                        new Schema.Field<>("tag", new Schema.TagId(Registries.ITEM, false), false, null)));
         Schema<Ingredient> ingredientValue = Schema.anyOf(
                 Schema.option("item", ingredientItem), Schema.option("tag", ingredientTag));
         Schema<Ingredient> ingredient = Schema.anyOf(

@@ -22,7 +22,8 @@ public class TagKeyCodecMixin {
     @SuppressWarnings({"unchecked", "rawtypes"})
     @ModifyReturnValue(method = "codec", at = @At("RETURN"))
     private static Codec codecui$tagCodec(Codec original, ResourceKey<? extends Registry<?>> registry) {
-        SchemaTags.tag(original, (Schema) new Schema.TagId(registry));
+        // TagKey.codec writes a bare "namespace:path"; hashedCodec (below) writes "#namespace:path".
+        SchemaTags.tag(original, (Schema) new Schema.TagId(registry, false));
         return original;
     }
 

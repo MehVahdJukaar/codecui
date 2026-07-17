@@ -382,7 +382,7 @@ public final class SchemaCodecs {
      * {@code TagKey.codec(...)} yields the same result — this is just the explicit spelling.
      */
     public static <T> SchemaCodec<TagKey<T>> tag(ResourceKey<? extends Registry<T>> registryKey) {
-        Schema<TagKey<T>> schema = castSchema(new Schema.TagId(registryKey));
+        Schema<TagKey<T>> schema = castSchema(new Schema.TagId(registryKey, false)); // TagKey.codec is bare, no '#'
         return SchemaCodec.of(TagKey.codec(registryKey), schema);
     }
 

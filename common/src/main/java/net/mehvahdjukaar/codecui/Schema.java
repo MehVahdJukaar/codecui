@@ -8,6 +8,7 @@ import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -38,19 +39,38 @@ public sealed interface Schema<A> {
     record ResourceId(@Nullable ResourceKey<? extends Registry<?>> registry) implements Schema<ResourceLocation> {}
 
     /**
-     * A tag id for {@code registry} — the on-disk form is a {@code "namespace:path"} string
-     * (some codecs {@code #}-prefix it). The twin of {@link ResourceId}: instead of one registry
+     * A tag id for {@code registry}. The twin of {@link ResourceId}: instead of one registry
      * entry it picks one {@link net.minecraft.tags.TagKey}. Backends render a tag picker whose
      * candidates come from the registry's loaded tags (see {@link SchemaCodecs#availableTagIds}),
      * degrading to a plain text field when {@code registry} is null or no tags are loaded.
+     * {@code hashed} is the on-disk form: {@code true} writes the {@code "#namespace:path"} string
+     * ({@code TagKey.hashedCodec}, the tag-reference form used inside HolderSets and tag files),
+     * {@code false} writes a bare {@code "namespace:path"} ({@code TagKey.codec}, e.g. a recipe
+     * ingredient's {@code "tag"} field). Writing the wrong one makes the game codec reject it.
      */
-    record TagId(@Nullable ResourceKey<? extends Registry<?>> registry) implements Schema<ResourceLocation> {}
+    record TagId(@Nullable ResourceKey<? extends Registry<?>> registry, boolean hashed) implements Schema<ResourceLocation> {
+        public TagId(@Nullable ResourceKey<? extends Registry<?>> registry) {
+            this(registry, true);
+        }
+    }
 
     record Enum<A>(List<A> options, Function<A, String> label) implements Schema<A> {}
 
     record Record<A>(Class<A> type, List<Field<A, ?>> fields) implements Schema<A> {}
 
-    record Field<A, F>(String name, Schema<F> schema, boolean optional, @Nullable F defaultValue) {}
+    /**
+     * One field of a {@link Record}. {@code inline} marks a field whose grouped MapCodec spans
+     * the parent's own keys rather than nesting under {@code name} - a dispatch ({@link OneOf}),
+     * pair, or map included via {@code RecordCodecBuilder.of(getter, MapCodec)}. DFU never nests
+     * these, so backends must merge such a field's object flat into the parent (and feed it the
+     * whole parent object back on load). {@code name} is still the primary key it reads.
+     */
+    record Field<A, F>(String name, Schema<F> schema, boolean optional, @Nullable F defaultValue,
+                       boolean inline) {
+        public Field(String name, Schema<F> schema, boolean optional, @Nullable F defaultValue) {
+            this(name, schema, optional, defaultValue, false);
+        }
+    }
 
     record ListOf<E>(Schema<E> element, int min, int max) implements Schema<List<E>> {}
 
@@ -69,7 +89,21 @@ public sealed interface Schema<A> {
 
     record PairOf<F, S>(Schema<F> first, Schema<S> second) implements Schema<Pair<F, S>> {}
 
-    record OneOf<A>(String typeField, Map<String, Schema<? extends A>> variants) implements Schema<A> {}
+    /**
+     * A type-dispatched object: a {@code typeField} key selects one of {@code variants}.
+     *
+     * <p>{@code valueField} controls where the selected variant's body sits. When null (the common
+     * case, a plain {@code KeyDispatchCodec}) the body is merged flat at the same level as the type
+     * field. When set (e.g. vanilla {@code ExtraCodecs.dispatchOptionalValue}, where an advancement
+     * criterion is {@code {"trigger": id, "conditions": {...}}}) the body is nested under that key
+     * and omitted entirely when empty.</p>
+     */
+    record OneOf<A>(String typeField, Map<String, Schema<? extends A>> variants,
+                    @Nullable String valueField) implements Schema<A> {
+        public OneOf(String typeField, Map<String, Schema<? extends A>> variants) {
+            this(typeField, variants, null);
+        }
+    }
 
     /**
      * Recursive back-reference: produced by the resolver when a codec's schema refers to a
@@ -122,7 +156,7 @@ public sealed interface Schema<A> {
 
     static Color colorArgb() { return new Color(true); }
 
-    /** Unlabeled alternative — receives an auto {@code "#N kind"} label in {@link #anyOf}. */
+    /** Unlabeled alternative — receives an auto kind-name label in {@link #anyOf}. */
     static AnyOf.Option option(Schema<?> schema) {
         return new AnyOf.Option(null, schema);
     }
@@ -138,7 +172,8 @@ public sealed interface Schema<A> {
     /**
      * Flattening factory for {@link AnyOf}: options that are themselves AnyOf are spliced
      * in-place (their more-specific labels survive), a single surviving option collapses to
-     * its own schema, and unlabeled options get {@code "#N kind"} labels.
+     * its own schema, and unlabeled options get kind-name labels ({@code "object"}, {@code "id"},
+     * ...), numbered ({@code "text #2"}) only when the same kind appears more than once.
      */
     @SuppressWarnings("unchecked")
     static <A> Schema<A> anyOf(List<AnyOf.Option> options) {
@@ -148,11 +183,17 @@ public sealed interface Schema<A> {
             else flat.add(o);
         }
         if (flat.size() == 1) return (Schema<A>) flat.getFirst().schema();
+        Map<String, Integer> kindTotals = new HashMap<>();
+        for (AnyOf.Option o : flat) {
+            if (o.label() == null) kindTotals.merge(kindName(o.schema()), 1, Integer::sum);
+        }
+        Map<String, Integer> kindSeen = new HashMap<>();
         for (int i = 0; i < flat.size(); i++) {
             AnyOf.Option o = flat.get(i);
-            if (o.label() == null) {
-                flat.set(i, new AnyOf.Option("#" + (i + 1) + " " + kindName(o.schema()), o.schema()));
-            }
+            if (o.label() != null) continue;
+            String kind = kindName(o.schema());
+            int n = kindSeen.merge(kind, 1, Integer::sum);
+            flat.set(i, new AnyOf.Option(kindTotals.get(kind) == 1 ? kind : kind + " #" + n, o.schema()));
         }
         return new AnyOf<>(List.copyOf(flat));
     }
