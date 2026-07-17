@@ -17,6 +17,7 @@ import net.mehvahdjukaar.codecui.internal.LenientHolderSetCodec;
 import net.mehvahdjukaar.codecui.internal.LenientListCodec;
 import net.mehvahdjukaar.codecui.internal.LenientUnboundedMapCodec;
 import net.mehvahdjukaar.codecui.internal.CodecWithExtra;
+import net.mehvahdjukaar.codecui.internal.McCompat;
 import net.mehvahdjukaar.codecui.internal.MixinDetection;
 import net.mehvahdjukaar.codecui.internal.RecursiveHolderSetCodec;
 import net.mehvahdjukaar.codecui.internal.ReferenceOrDirectCodec;
@@ -409,9 +410,8 @@ public final class SchemaCodecs {
      */
     public static List<Identifier> availableTagIds(ResourceKey<? extends Registry<?>> registryKey) {
         if (registryKey == null) return List.of();
-        var holder = BuiltInRegistries.REGISTRY./*? >1.21.1 {*/get/*?} <=1.21.1 {*//*getHolder*//*?}*/(registryKey./*? >=1.21.11 {*/identifier/*?} <1.21.11 {*//*location*//*?}*/());
-        if (holder.isEmpty()) return List.of();
-        Registry<?> registry = holder.get().value();
+        Registry<?> registry = McCompat.getValue(BuiltInRegistries.REGISTRY, McCompat.keyId(registryKey));
+        if (registry == null) return List.of();
         return registry.getTags()
                 //? >1.21.1 {
                 .flatMap(named -> named.unwrapKey().stream())
@@ -594,7 +594,7 @@ public final class SchemaCodecs {
 
     private static final Codec<Supplier<List<ItemStack>>> ITEMSTACK_HOLDER_SET = RegistryCodecs.homogeneousList(Registries.ITEM)
             .xmap(l -> () -> l.stream().map(Holder::value).map(ItemStack::new).toList(),
-                    s -> HolderSet.direct(s.get().stream().map(ItemStack::/*? >=26.1 {*/typeHolder/*?} <26.1 {*//*getItemHolder*//*?}*/).toList()));
+                    s -> HolderSet.direct(s.get().stream().map(McCompat::itemHolder).toList()));
 
     /** A single item/stack, a list of them, or an item tag/holder-set - all as a {@code Supplier<List<ItemStack>>}. */
     public static final Codec<Supplier<List<ItemStack>>> ITEMSTACK_OR_LIST_OR_HOLDER_SET =

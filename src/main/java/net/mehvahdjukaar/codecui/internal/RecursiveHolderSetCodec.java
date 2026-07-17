@@ -42,7 +42,7 @@ public final class RecursiveHolderSetCodec<E> implements Codec<HolderSet<E>> {
 
     public static <E> Codec<HolderSet<E>> create(ResourceKey<? extends Registry<E>> registryKey, Codec<Holder<E>> elementCodec) {
         return Codec.recursive(
-                "RecursiveHolderSet[" + registryKey./*? >=1.21.11 {*/identifier/*?} <1.21.11 {*//*location*//*?}*/() + "]",
+                "RecursiveHolderSet[" + McCompat.keyId(registryKey) + "]",
                 self -> new RecursiveHolderSetCodec<>(registryKey, elementCodec, self));
     }
 
@@ -122,11 +122,11 @@ public final class RecursiveHolderSetCodec<E> implements Codec<HolderSet<E>> {
         return (DataResult<HolderSet<E>>) (Object) holderGetter.get(tagKey)
                 .map(DataResult::success)
                 .orElseGet(() -> DataResult.error(
-                        () -> "Missing tag: '" + tagKey.location() + "' in '" + tagKey.registry()./*? >=1.21.11 {*/identifier/*?} <1.21.11 {*//*location*//*?}*/() + "'"));
+                        () -> "Missing tag: '" + tagKey.location() + "' in '" + McCompat.keyId(tagKey.registry()) + "'"));
     }
 
     @Override
     public String toString() {
-        return "RecursiveHolderSetCodec[" + this.registryKey./*? >=1.21.11 {*/identifier/*?} <1.21.11 {*//*location*//*?}*/() + "]";
+        return "RecursiveHolderSetCodec[" + McCompat.keyId(this.registryKey) + "]";
     }
 }

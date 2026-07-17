@@ -269,7 +269,7 @@ public final class CuratedSchemas {
                 Schema.option("list", new Schema.ListOf<>(ingredientValue, 1, Integer.MAX_VALUE)));
         SchemaCodecs.registerCompanion(Ingredient.CODEC, ingredient);
         // By 1.21.11, Ingredient.CODEC_NONEMPTY was removed as Ingredient.CODEC enforces being non-empty now
-        //? <=1.21.11
+        //? <1.21.11
         //SchemaCodecs.registerCompanion(Ingredient.CODEC_NONEMPTY, ingredient);
 
         // DimensionType.DIRECT_CODEC wraps fields via ExtraCodecs.catchDecoderException

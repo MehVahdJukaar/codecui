@@ -243,7 +243,7 @@ final class DispatchEnumerator {
         if (rid == null) return variants;
 
         try {
-            Registry<?> registry = BuiltInRegistries.REGISTRY./*? >1.21.1 {*/getValue/*?} <=1.21.1 {*//*get*//*?}*/(rid.registry()./*? >=1.21.11 {*/identifier/*?} <1.21.11 {*//*location*//*?}*/());
+            Registry<?> registry = McCompat.getValue(BuiltInRegistries.REGISTRY, McCompat.keyId(rid.registry()));
             if (registry == null) {
                 CodecUI.LOGGER.warn("registry {} not found in BuiltInRegistries", rid.registry());
                 return variants;
@@ -259,7 +259,7 @@ final class DispatchEnumerator {
             for (var id : ids) {
                 Schema<?> body = new Schema.Opaque<>(null, null);
                 if (decoderFn instanceof Function<?, ?> fn) {
-                    Object value = registry./*? >1.21.1 {*/getValue/*?} <=1.21.1 {*//*get*//*?}*/(id);
+                    Object value = McCompat.getValue(registry, id);
                     MapCodec<?> variantCodec = value == null ? null : applyDecoder((Function) fn, value);
                     if (variantCodec != null) {
                         body = resolver.resolveMapCodec(variantCodec, cache);
@@ -269,7 +269,7 @@ final class DispatchEnumerator {
                 variants.put(id.toString(), body);
             }
             CodecUI.LOGGER.debug("registry-backed dispatch: populated {} variants ({} with real bodies) from {}",
-                    variants.size(), bodies, rid.registry()./*? >=1.21.11 {*/identifier/*?} <1.21.11 {*//*location*//*?}*/());
+                    variants.size(), bodies, McCompat.keyId(rid.registry()));
         } catch (Throwable t) {
             CodecUI.LOGGER.warn("Failed to enumerate registry {}: {}", rid.registry(), t.toString());
         }
@@ -319,7 +319,7 @@ final class DispatchEnumerator {
 
         Registry<?> registry;
         try {
-            registry = BuiltInRegistries.REGISTRY./*? >1.21.1 {*/getValue/*?} <=1.21.1 {*//*get*//*?}*/(rid.registry()./*? >=1.21.11 {*/identifier/*?} <1.21.11 {*//*location*//*?}*/());
+            registry = McCompat.getValue(BuiltInRegistries.REGISTRY, McCompat.keyId(rid.registry()));
         } catch (Throwable t) {
             return variants;
         }
@@ -332,7 +332,7 @@ final class DispatchEnumerator {
         if (codecGetter == null) return variants;
 
         for (Identifier id : ids) {
-            Object value = registry./*? >1.21.1 {*/getValue/*?} <=1.21.1 {*//*get*//*?}*/(id);
+            Object value = McCompat.getValue(registry, id);
             if (value == null) continue;
             Codec<?> body;
             try {
@@ -353,7 +353,7 @@ final class DispatchEnumerator {
             List<Function<Object, Object>> getters, Registry<?> registry, List<Identifier> ids) {
         for (Function<Object, Object> g : getters) {
             for (Identifier id : ids) {
-                Object value = registry./*? >1.21.1 {*/getValue/*?} <=1.21.1 {*//*get*//*?}*/(id);
+                Object value = McCompat.getValue(registry, id);
                 if (value == null) continue;
                 try {
                     if (asCodec(g.apply(value)) != null) return g;
