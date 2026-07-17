@@ -115,13 +115,10 @@ final class CodecReflection {
         return inner == null ? null : new FieldOfEntry(name, inner);
     }
 
-    // Best-effort recovery of Codec.intRange/floatRange/doubleRange bounds when the
-    // construction mixin didn't apply. DFU builds these as PRIMITIVE.flatXmap(checker, checker)
-    // where checker = checkRange(min, max) is a lambda capturing the two bounds as its only
-    // fields (Codec.java checkRange). We walk the captured graph of the flatXmapped wrapper for the
-    // single object that captures exactly two Numbers and return them ordered [min, max].
-    // Caller gates this on the wrapper being a flatXmap over a primitive number codec, so the only
-    // two-number capture in the graph is the range checker. Returns null (→ unbounded) if unsure.
+    // DFU builds intRange/floatRange/doubleRange as PRIMITIVE.flatXmap(checkRange(min, max), ...)
+    // where the checker lambda captures the two bounds as its only fields. Walk the captured
+    // graph for the single object capturing exactly two Numbers, ordered [min, max]. The caller
+    // gates on the wrapper being a flatXmap over a primitive, so no other two-number capture exists.
     static Number @Nullable [] recoverRangeBounds(Object flatXmappedCodec) {
         Set<Object> visited = Collections.newSetFromMap(new IdentityHashMap<>());
         Number[] pair = findNumberPairCapture(flatXmappedCodec, visited, 0);
@@ -154,8 +151,8 @@ final class CodecReflection {
         return null;
     }
 
-    //  An object whose only two non-static declared fields both hold Numbers - the shape of
-    //  the checkRange lambda's captured (min, max).
+    // An object whose only two non-static fields both hold Numbers: the shape of the
+    // checkRange lambda's captured (min, max).
     private static Number @Nullable [] twoCapturedNumbers(Object obj) {
         List<Field> fields = new ArrayList<>(2);
         for (Field f : obj.getClass().getDeclaredFields()) {

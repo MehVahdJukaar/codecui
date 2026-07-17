@@ -85,7 +85,6 @@ public abstract class RecordCodecBuilderInstanceMixin {
                             arg instanceof RecordCodecBuilder<?, ?> a ? a : null);
                 }
             } catch (Throwable ignored) {
-                // Best-effort.
             }
             return result;
         };

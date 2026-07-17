@@ -15,21 +15,11 @@ import org.spongepowered.asm.mixin.injection.At;
 
 import java.util.List;
 
-// Captures per-field information on RecordCodecBuilder during construction so the
-// MapCodec returned by RecordCodecBuilder.build(...) can carry a real
-// Schema.Record. Without this mixin, the anonymous MapCodec produced by
-// build is fully opaque to the SchemaResolver.
-//
-// Coverage limitations:
-//
-//   - Only the of(getter, name, codec) and of(getter, MapCodec) entry
-//       points are tagged. RCBs created via dependent(...) or point/stable/deprecated
-//       carry empty tag lists; their fields will fall through to Opaque.
-//   - The Instance.lift1 / Instance.map fast-paths are not tagged. In practice
-//       all real vanilla and mod record codecs go through ap2/ap3/ap4 which we cover.
-//   - Field optionality is best-effort: only the of(getter, MapCodec) form carries
-//       it (resolver introspects the MapCodec via the existing tier-2 OptionalFieldCodec path).
-//       The 3-arg of(getter, name, codec) marks fields as required.
+// Captures per-field information during RecordCodecBuilder construction so the MapCodec
+// returned by build(...) can carry a real Schema.Record; without this the anonymous MapCodec
+// is fully opaque. Coverage: only the of(...) entry points are tagged - dependent(...) and
+// point/stable carry empty tag lists and fall through to Opaque. Optionality is best-effort:
+// only the of(getter, MapCodec) form carries it; of(getter, name, codec) marks fields required.
 @Mixin(RecordCodecBuilder.class)
 public abstract class RecordCodecBuilderMixin {
 
@@ -54,9 +44,9 @@ public abstract class RecordCodecBuilderMixin {
         return result;
     }
 
-    // On build, transfer the accumulated field tags to the OUTPUT MapCodec via
-    // RecordFieldTags#onBuilt. Resolver rebuilds the schema FRESH at lookup time so
-    // companions registered later still win. We do NOT eagerly populate SchemaTags.
+    // Transfers the accumulated field tags to the OUTPUT MapCodec. Deliberately does not
+    // populate SchemaTags: the resolver rebuilds the schema fresh at lookup time so
+    // companions registered later still win.
     @SuppressWarnings({"unchecked", "rawtypes"})
     @ModifyReturnValue(method = "build", at = @At("RETURN"))
     private static MapCodec<?> codecui$tagBuild(

@@ -48,22 +48,13 @@ import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
 // THE hand-maintained list of schema registrations for codecs that auto-inspection can't
-// (or shouldn't) handle. Deliberately separate from the inference machinery in
-// SchemaResolver: everything here goes through the exact same public API a
-// third-party mod would use (SchemaCodecs.registerCompanion / registerHandler /
-// registerDispatchKeys), so this class doubles as the reference example for external
-// curation of "weird" codecs.
+// (or shouldn't) handle. Everything here goes through the same public API a third-party mod
+// would use, so this class doubles as the reference example for curating "weird" codecs.
 //
-// Ground rules for adding entries:
-//
-//   - First try to make inference handle the CLASS of codec (new tier-2 handler,
-//       EnumerableCodec, mixin tag). Curate here only when that's impossible
-//       (opaque lambdas, shape-changing xmaps we want a nicer surface for) or not worth it.
-//   - Schemas describe the ON-DISK JSON shape, not the runtime type - widgets edit JSON.
-//   - Comment WHY inference fails for each entry.
-//
-// Bootstrapped lazily by the resolver on first resolve; safe because companions are
-// looked up fresh each resolve (never baked into cached schemas at construction time).
+// Ground rules: first try to make inference handle the CLASS of codec (tier-2 handler,
+// EnumerableCodec, mixin tag); curate here only when that's impossible or not worth it.
+// Schemas describe the ON-DISK JSON shape, not the runtime type. Comment WHY inference
+// fails for each entry.
 public final class CuratedSchemas {
 
     private static volatile boolean bootstrapped = false;
@@ -79,9 +70,8 @@ public final class CuratedSchemas {
         } catch (Throwable t) {
             CodecUI.LOGGER.warn("curated schema registration failed", t);
         }
-        // Separate block: these reference classes that need the game bootstrap (Blocks,
-        // ItemStack components). On a bare JVM they fail without taking down the safe
-        // registrations above.
+        // These need the game bootstrap (Blocks, ItemStack components); on a bare JVM they
+        // fail without taking down the registrations above.
         try {
             registerBootstrapDependent();
         } catch (Throwable t) {
@@ -126,21 +116,14 @@ public final class CuratedSchemas {
         SchemaCodecs.registerCompanion(ExtraCodecs.ARGB_COLOR_CODEC, new Schema.Color(true, false));
     }
 
-    // Dispatch key sets for vanilla Codec.dispatch(...) families keyed on a "type" object
-    // from a registry (e.g. RuleTestType). A KeyDispatchCodec hides its valid key
-    // set inside a closure, so the resolver can't enumerate variants without this side channel; it
-    // feeds each key back through the dispatch's own decoder to recover the variant body.
+    // Dispatch key sets for vanilla Codec.dispatch(...) families keyed on a "type" object from
+    // a registry. A KeyDispatchCodec hides its valid key set inside a closure, so the resolver
+    // can't enumerate variants without this side channel.
     //
-    // These are hand-listed rather than derived from "all registries" because only type
-    // registries (whose elements carry a per-element MapCodec) are dispatch-backed - plain
-    // value registries (Block, Item, …) enumerate through the Schema.ResourceId id-picker
-    // path instead - and nothing reflectively distinguishes the two. Add more the same way.
-    //
-    // Only registries of concrete "type" objects belong here - ones whose dispatch decoder
-    // casts the key to a specific class (so a foreign key fails fast, letting the resolver's probe
-    // tell hooks apart). Registries whose elements are bare MapCodec<? extends X>
-    // (DENSITY_FUNCTION_TYPE, MATERIAL_RULE/CONDITION, ENTITY_SUB_PREDICATE_TYPE, the ENCHANTMENT_*
-    // effect registries, …) are deliberately excluded: their dispatch decoder is identity, so every
+    // Only registries of concrete "type" objects belong here - ones whose dispatch decoder casts
+    // the key to a specific class, so a foreign key fails fast and the resolver's probe can tell
+    // hooks apart. Registries whose elements are bare MapCodec<? extends X> (DENSITY_FUNCTION_TYPE,
+    // MATERIAL_RULE, ...) are deliberately excluded: their dispatch decoder is identity, so every
     // such registry would accept every other's keys and cross-contaminate the variant lists.
     private static void registerVanillaDispatches() {
         // Value providers (used all over worldgen configs).
@@ -202,15 +185,13 @@ public final class CuratedSchemas {
     }
 
     private static void registerBootstrapDependent() {
-        // BlockState.CODEC is built during *very early* MC bootstrap (Blocks init), before
-        // our codec_ui mixins are applied to Codec.fieldOf - so the internal keyCodec never
-        // gets the ResourceId tag and the registry-tag dropdown fallback finds nothing.
-        // Manual Record matching the on-disk shape: {"Name": id, "Properties": {prop: value}}
-        // (Properties is lenientOptionalFieldOf in vanilla, so omitting it is fine).
+        // BlockState.CODEC is built during very early MC bootstrap, before our mixins apply, so
+        // the internal keyCodec never gets its ResourceId tag. On-disk shape:
+        // {"Name": id, "Properties": {prop: value}} (Properties optional in vanilla).
         Schema.Str anyStr = new Schema.Str(0, Integer.MAX_VALUE, null);
         SchemaCodecs.registerCompanion(BlockState.CODEC,
                 new Schema.Record<>(BlockState.class,
-                        List.<Schema.Field<net.minecraft.world.level.block.state.BlockState, ?>>of(
+                        List.<Schema.Field<BlockState, ?>>of(
                         new Schema.Field<>("Name", new Schema.ResourceId(Registries.BLOCK), false, null),
                         new Schema.Field<>("Properties", new Schema.MapOf<>(anyStr, anyStr), true, null))));
 
@@ -218,15 +199,14 @@ public final class CuratedSchemas {
         // round-tripping shape for plain stacks.
         SchemaCodecs.registerCompanion(ItemStack.CODEC,
                 new Schema.Record<>(ItemStack.class,
-                        List.<Schema.Field<net.minecraft.world.item.ItemStack, ?>>of(
+                        List.<Schema.Field<ItemStack, ?>>of(
                         new Schema.Field<>("id", new Schema.ResourceId(Registries.ITEM), false, null),
                         new Schema.Field<>("count", new Schema.IntRange(1, 99), true, 1))));
 
-        // Ingredient.CODEC is either(list(Value), Value) with Value = xor(ItemValue, TagValue) -
-        // and on NeoForge a custom-ingredient type dispatch too. Structurally that resolves to an
-        // unlabeled AnyOf: both Value records surface as bare "object" and the custom dispatch as a
-        // "raw" opaque. Curate the on-disk shape with real labels - {"item": id} / {"tag": id}, or a
-        // list mixing the two. (The NeoForge {"type": ...} custom form falls outside this surface.)
+        // Ingredient.CODEC is either(list(Value), Value) with Value = xor(ItemValue, TagValue);
+        // structurally that resolves to an unlabeled AnyOf. Curate the on-disk shape with real
+        // labels: {"item": id} / {"tag": id}, or a list mixing the two. (The NeoForge
+        // {"type": ...} custom form falls outside this surface.)
         Schema<Ingredient> ingredientItem = new Schema.Record<>(Ingredient.class,
                 List.<Schema.Field<Ingredient, ?>>of(
                         new Schema.Field<>("item", new Schema.ResourceId(Registries.ITEM), false, null)));
@@ -242,9 +222,8 @@ public final class CuratedSchemas {
         SchemaCodecs.registerCompanion(Ingredient.CODEC, ingredient);
         SchemaCodecs.registerCompanion(Ingredient.CODEC_NONEMPTY, ingredient);
 
-        // DimensionType.DIRECT_CODEC wraps fields via ExtraCodecs.catchDecoderException
-        // (a raw Codec.of with anonymous decoder) - no mixin point. Companion describes the
-        // standard vanilla on-disk shape.
+        // DimensionType.DIRECT_CODEC wraps fields via ExtraCodecs.catchDecoderException (a raw
+        // Codec.of with anonymous decoder) - no mixin point.
         SchemaCodecs.registerCompanion(DimensionType.DIRECT_CODEC,
                 new Schema.Record<>(DimensionType.class,
                         List.of(

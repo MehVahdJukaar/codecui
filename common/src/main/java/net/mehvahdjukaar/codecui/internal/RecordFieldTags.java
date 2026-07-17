@@ -8,38 +8,28 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 
-// Side-channel storage tracking the ordered list of (fieldName, fieldCodec) pairs that have
-// been accumulated for a given RecordCodecBuilder. Populated by the RCB-construction
-// mixins (RecordCodecBuilder.of, Instance.apN, point/stable).
-//
-// WeakHashMap by builder identity so transient builders don't leak. The list is read on
-// build(...) to synthesise a net.mehvahdjukaar.codecui.Schema.Record.
+// Side-channel storage for the ordered (fieldName, fieldCodec) pairs accumulated per
+// RecordCodecBuilder, populated by the RCB-construction mixins. WeakHashMap by builder
+// identity so transient builders don't leak.
 public final class RecordFieldTags {
 
     private static final Map<RecordCodecBuilder<?, ?>, List<Entry>> TAGS =
             Collections.synchronizedMap(new WeakHashMap<>());
 
-    // A single tracked field. Exactly one of elementCodec or mapCodec is
-    // non-null. elementCodec is used when we observed the simpler
-    // RecordCodecBuilder.of(getter, name, codec) form; the resolver then synthesises a
-    // required-field Schema.Field. mapCodec carries the entire MapCodec from the
-    // of(getter, MapCodec) form (optional / default / lenient variants); the resolver
-    // delegates to SchemaResolver#resolveMap
-    // which can introspect OptionalFieldCodec and friends.
+    // Exactly one of elementCodec / mapCodec is non-null: elementCodec from the
+    // of(getter, name, codec) form, mapCodec carrying the whole MapCodec from the
+    // of(getter, MapCodec) form (optional / default / lenient variants).
     public record Entry(String name,
                         @Nullable Codec<?> elementCodec,
                         @Nullable MapCodec<?> mapCodec) {}
 
-    // Records a single field tag on a freshly constructed RCB from
-    // RecordCodecBuilder.of(getter, name, fieldCodec).
     public static void single(RecordCodecBuilder<?, ?> builder, String name, Codec<?> fieldCodec) {
         if (builder == null) return;
         TAGS.put(builder, List.of(new Entry(name, fieldCodec, null)));
     }
 
-    // Records a single field tag from RecordCodecBuilder.of(getter, MapCodec). We try
-    // to extract the on-disk field name from the MapCodec's keys(); if none is available we
-    // skip tagging (the result is just an Opaque field).
+    // The on-disk field name comes from the MapCodec's keys(); without one we skip tagging
+    // (the field just resolves Opaque).
     public static void singleMap(RecordCodecBuilder<?, ?> builder, MapCodec<?> mapCodec) {
         if (builder == null || mapCodec == null) return;
         String name = extractFirstKey(mapCodec);
@@ -58,8 +48,7 @@ public final class RecordFieldTags {
         }
     }
 
-    // Propagates the tag list of one builder to a derived builder unchanged. Used by the
-    // Instance.map hook - the Applicative ap5..ap16 defaults pipe the accumulated
+    // Used by the Instance.map hook: the Applicative ap5..ap16 defaults pipe the accumulated
     // function position through map, which must not lose the fields gathered so far.
     public static void copy(RecordCodecBuilder<?, ?> from, RecordCodecBuilder<?, ?> to) {
         if (from == null || to == null || from == to) return;
@@ -67,9 +56,6 @@ public final class RecordFieldTags {
         if (v != null && !v.isEmpty()) TAGS.put(to, v);
     }
 
-    // Concatenates the tags from the given input builders onto the result builder. Called
-    // from Instance.apN(...) mixins. Any missing/empty input simply contributes
-    // nothing; the result is the merged ordering of all inputs in left-to-right order.
     public static void concat(RecordCodecBuilder<?, ?> result, RecordCodecBuilder<?, ?>... inputs) {
         if (result == null) return;
         ArrayList<Entry> merged = new ArrayList<>();
@@ -89,13 +75,8 @@ public final class RecordFieldTags {
         return v == null ? List.of() : v;
     }
 
-    // ===== Output side: tags by built MapCodec for LAZY resolution =====
-    //
-    // The RCB build mixin transfers the accumulated entries to this map keyed by the OUTPUT
-    // MapCodec. The resolver consults it at lookup time and rebuilds the Schema.Record FRESH
-    // each call - so a companion registered after the RCB.build() ran (e.g. BlockState.CODEC
-    // registered after RandomBlockStateMatchTest's clinit) still wins, because we never cache
-    // a stale resolved schema.
+    // Output side: entries re-keyed by the built MapCodec. The resolver rebuilds the
+    // Schema.Record FRESH each lookup, so a companion registered after RCB.build() still wins.
 
     private static final Map<MapCodec<?>, List<Entry>> BUILT_TAGS =
             Collections.synchronizedMap(new WeakHashMap<>());

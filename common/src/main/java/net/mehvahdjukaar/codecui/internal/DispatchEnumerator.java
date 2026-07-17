@@ -24,10 +24,8 @@ import static net.mehvahdjukaar.codecui.internal.CodecFieldHandles.KEY_DISPATCH_
 import static net.mehvahdjukaar.codecui.internal.CodecFieldHandles.KEY_DISPATCH_KEYCODEC;
 import static net.mehvahdjukaar.codecui.internal.CodecFieldHandles.KEY_DISPATCH_TYPEKEY;
 
-// Enumerates the variants of a KeyDispatchCodec into a Schema.OneOf. Split out
-// from SchemaResolver: the dispatch-key machinery (reading the private decoder/keyCodec,
-// probing hooks, registry-backed fallback) is a self-contained subsystem that only touches
-// dispatch codecs and calls back into the resolver for inner-codec resolution.
+// Enumerates the variants of a KeyDispatchCodec into a Schema.OneOf. Split out from
+// SchemaResolver; calls back into the resolver for inner-codec resolution.
 final class DispatchEnumerator {
 
     private final SchemaResolver resolver;
@@ -36,22 +34,14 @@ final class DispatchEnumerator {
         this.resolver = resolver;
     }
 
-    // Resolves a KeyDispatchCodec to a Schema.OneOf of its variants, or a raw-JSON
-    // Schema.Opaque when no variants can be recovered (an empty OneOf renders as a dead
-    // picker, so raw JSON is strictly more useful and keeps tier 3 from mis-guessing on the key
-    // codec field). Assumes KEY_DISPATCH_KEYCODEC is non-null (guarded by the caller).
+    // Falls back to raw-JSON Opaque when no variants can be recovered: an empty OneOf renders
+    // as a dead picker. Assumes KEY_DISPATCH_KEYCODEC is non-null (guarded by the caller).
     Schema<?> resolve(KeyDispatchCodec<?, ?> dispatch, MapCodec<?> fullCodec,
                       IdentityHashMap<Object, Schema<?>> cache) {
         Object keyCodec = KEY_DISPATCH_KEYCODEC.get(dispatch);
-        // typeKey is the JSON field name driving the dispatch. On DFU 8 it's a plain field;
-        // on DFU 9 it lives inside the fieldOf-wrapped keyCodec, read via keys(). Else "type".
         String typeKey = dispatchTypeKey(dispatch, keyCodec);
         LinkedHashMap<String, Schema<?>> variants = enumerateDispatchVariants(dispatch, cache);
 
-        // Generic fallback: if no registered hook matched, check whether the keyCodec is a
-        // registry-backed codec (tagged with a single-field Record carrying a ResourceId).
-        // If so, populate variants directly from that registry. Bodies stay Opaque since
-        // resolving 1000+ per-variant codecs (e.g. every Block) is impractical.
         if (variants.isEmpty()) {
             variants = enumerateFromRegistryTag(keyCodec, dispatch, cache);
         }
@@ -61,9 +51,8 @@ final class DispatchEnumerator {
         return new Schema.OneOf<>(typeKey, variants);
     }
 
-    // The JSON field name driving a dispatch. DFU 8 exposes it as a typeKey String field;
-    // DFU 9 folds it into the fieldOf-wrapped keyCodec, recovered via keys(). Defaults to
-    // "type".
+    // The JSON field name driving the dispatch. DFU 8 exposes it as a typeKey String field;
+    // DFU 9 folds it into the fieldOf-wrapped keyCodec, recovered via keys(). Defaults to "type".
     private String dispatchTypeKey(KeyDispatchCodec<?, ?> dispatch, @Nullable Object keyCodec) {
         if (KEY_DISPATCH_TYPEKEY != null) {
             try {
@@ -74,9 +63,8 @@ final class DispatchEnumerator {
         return "type";
     }
 
-    // The dispatch's raw key Codec (the registry byNameCodec / StringRepresentable codec).
-    // DFU 9 stores it fieldOf-wrapped as a MapCodec (unwrapped through FieldOfTags);
-    // DFU 8 stores the raw Codec directly. Returns null when it can't be recovered.
+    // The dispatch's raw key Codec: DFU 9 stores it fieldOf-wrapped as a MapCodec (unwrapped
+    // through FieldOfTags), DFU 8 stores the raw Codec directly.
     private static @Nullable Codec<?> innerKeyCodec(@Nullable Object keyCodec) {
         if (keyCodec instanceof MapCodec<?> mc) {
             FieldOfTags.Entry foe = FieldOfTags.get(mc);
@@ -86,15 +74,10 @@ final class DispatchEnumerator {
         return null;
     }
 
-    // Enumerates variants for a KeyDispatchCodec. Reads the private decoder field -
-    // a Function<K, DataResult<MapDecoder<V>>> (in practice MapCodec<V>, since the
-    // public ctor stores the user's codec function directly as the decoder) - and applies it to
-    // candidate keys. Any successful DataResult contributes a variant.
-    //
-    // The reason for trying every hook (rather than picking one by K's class) is that the
-    // dispatch doesn't expose K's runtime class - closures hide the type. We rely on
-    // decoder.apply(K) failing fast for the wrong K type and returning a successful
-    // DataResult only when K matches.
+    // Applies the dispatch's private decoder function to candidate keys; any successful
+    // DataResult contributes a variant. Every hook is tried (rather than picked by K's class)
+    // because closures hide K's runtime type - decoder.apply(K) fails fast for a wrong K and
+    // succeeds only on a match.
     @SuppressWarnings({"unchecked", "rawtypes"})
     private LinkedHashMap<String, Schema<?>> enumerateDispatchVariants(KeyDispatchCodec<?, ?> dispatch,
                                                                        IdentityHashMap<Object, Schema<?>> cache) {
@@ -115,11 +98,9 @@ final class DispatchEnumerator {
             return variants;
         }
 
-        // Path 0: ask the key codec itself. The stored keyCodec is the user codec wrapped in
-        // fieldOf(typeKey); FieldOfTags gives us the inner codec back. If it implements
-        // EnumerableCodec (custom registries like MapRegistry) or resolves to a Schema.Enum
-        // (StringRepresentable codecs), we know the exact key set of THIS dispatch - feed
-        // each key through the decoder and get real variant bodies.
+        // Path 0: ask the key codec itself. If it implements EnumerableCodec or resolves to a
+        // Schema.Enum, we know the exact key set of THIS dispatch - feed each key through the
+        // decoder for real variant bodies.
         if (KEY_DISPATCH_KEYCODEC != null) {
             Codec<?> innerKey = innerKeyCodec(KEY_DISPATCH_KEYCODEC.get(dispatch));
             if (innerKey instanceof EnumerableCodec en) {
@@ -143,13 +124,10 @@ final class DispatchEnumerator {
             }
         }
 
-        // Probe each registered hook. A hook whose registry ISN'T this dispatch's fails on EVERY
-        // key (a foreign K makes the dispatch's decoder throw ClassCastException -> null), so once
-        // the first few keys all miss we reject the hook in O(1) instead of iterating its whole
-        // (possibly large) registry. Only the matching hook is enumerated in full - this keeps the
-        // cost independent of how many/large the other registries are, so the list can grow freely.
-        // Trade-off: a hook whose first MAX_MISS entries all *legitimately* fail to decode would be
-        // skipped - not a concern for the vanilla type registries registered here.
+        // Probe each registered hook. A hook for the wrong registry fails on EVERY key (foreign K
+        // -> ClassCastException -> null), so after MAX_MISS early misses we reject it cheaply
+        // instead of iterating its whole registry. Trade-off: a hook whose first entries all
+        // legitimately fail to decode would be skipped - not a concern for the vanilla registries.
         final int MAX_MISS = 4;
         for (DispatchRegistry.Hook<?> hook : DispatchRegistry.all()) {
             List<?> keys = hook.keys().get();
@@ -171,20 +149,16 @@ final class DispatchEnumerator {
             }
         }
 
-        // (Old name-only fallback removed: it picked the WRONG hook for unknown-K dispatches
-        // because a per-hook variant-codec lookup succeeds for any registered K regardless of
-        // whether the dispatch's actual K matches. Result: BlockState's dispatch got IntProvider
-        // variants. That lookup is now gone entirely - hooks only carry keys + names, and the
-        // dispatch's own decoder is the sole way a variant body is recovered.)
+        // Deliberately no name-only fallback: a per-hook lookup succeeds for any registered K
+        // regardless of the dispatch's actual K (BlockState once got IntProvider variants), so the
+        // dispatch's own decoder is the sole way a variant body is recovered.
 
         CodecUI.LOGGER.debug("final variant count: {}", variants.size());
         return variants;
     }
 
-    // Applies the dispatch's decoder function to a candidate key and unwraps the resulting
-    // DataResult<MapDecoder<? extends V>> into a MapCodec (which is the concrete
-    // type stored in practice by the public KeyDispatchCodec constructor).
-    // Returns null on any failure: ClassCastException from a wrong-K hook, error DataResult, etc.
+    // Unwraps decoder.apply(key) into a MapCodec; null on any failure (wrong-K
+    // ClassCastException, error DataResult, non-MapCodec decoder).
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static @Nullable MapCodec<?> applyDecoder(Function fn, Object key) {
         try {
@@ -198,23 +172,13 @@ final class DispatchEnumerator {
         }
     }
 
-    // Registry-backed dispatch fallback. When the dispatch's keyCodec is itself a
-    // single-field Schema.Record whose field schema is a Schema.ResourceId,
-    // we know the dispatch is keyed on an identifier from a known registry. Populate the
-    // variants dropdown with every entry in that registry (label = identifier), using a placeholder
-    // Opaque schema for the variant body.
-    //
-    // Bodies stay opaque on purpose - for large registries (Block, Item, etc.) resolving each
-    // variant's MapCodec would be expensive and rarely useful in this MVP. The user can still
-    // edit the body as raw JSON.
+    // Registry-backed fallback: when the keyCodec resolves to a ResourceId of a known registry,
+    // populate the variant dropdown from that registry's entries.
     @SuppressWarnings({"unchecked", "rawtypes"})
     private LinkedHashMap<String, Schema<?>> enumerateFromRegistryTag(Object keyCodec, KeyDispatchCodec<?, ?> dispatch,
                                                                       IdentityHashMap<Object, Schema<?>> cache) {
         LinkedHashMap<String, Schema<?>> variants = new LinkedHashMap<>();
 
-        // Resolve the dispatch's raw key Codec and check whether it's a registry id (BLOCK/RECIPE_
-        // SERIALIZER/... byNameCodec, tagged ResourceId). On DFU 9 the key is fieldOf-wrapped
-        // (unwrapped via FieldOfTags); on DFU 8 it's the raw tagged Codec.
         Schema.ResourceId rid = null;
         Codec<?> innerKey = innerKeyCodec(keyCodec);
         if (innerKey != null) {
@@ -241,9 +205,9 @@ final class DispatchEnumerator {
                 CodecUI.LOGGER.warn("registry {} not found in BuiltInRegistries", rid.registry());
                 return variants;
             }
-            // For small registries (rule tests, height providers, ...) the registry VALUES are
-            // the dispatch keys themselves - feed each through the decoder for a real variant
-            // body. Large registries (Block, Item, ...) stay name-only with opaque bodies.
+            // For small registries the registry VALUES are the dispatch keys themselves - feed each
+            // through the decoder for a real body. Large ones (Block, Item) stay opaque: resolving
+            // 1000+ variant codecs is expensive and rarely useful.
             boolean resolveBodies = registry.size() <= 128 && KEY_DISPATCH_DECODER != null;
             Object decoderFn = resolveBodies ? KEY_DISPATCH_DECODER.get(dispatch) : null;
             List<ResourceLocation> ids = new ArrayList<>(registry.keySet());
@@ -269,11 +233,9 @@ final class DispatchEnumerator {
         return variants;
     }
 
-    // Resolves an ExtraCodecs.dispatchOptionalValue codec (detected by
-    // CodecReflection.detectOptionalValueDispatch) to a Schema.OneOf carrying a valueField, so the
-    // variant body encodes nested under that key (e.g. a criterion's "conditions") instead of
-    // flattened. Returns null when no variants can be recovered, so the caller falls through to its
-    // normal fallbacks rather than committing to a dead picker.
+    // ExtraCodecs.dispatchOptionalValue: a OneOf carrying a valueField, so the variant body
+    // nests under that key (e.g. a criterion's "conditions") instead of flattening. Null when no
+    // variants can be recovered, so the caller falls through instead of committing to a dead picker.
     @Nullable Schema<?> resolveOptionalValueDispatch(CodecReflection.OptionalValueDispatch dispatch,
                                                      IdentityHashMap<Object, Schema<?>> cache) {
         LinkedHashMap<String, Schema<?>> variants = enumerateOptionalValueVariants(dispatch, cache);
@@ -281,10 +243,9 @@ final class DispatchEnumerator {
         return new Schema.OneOf<>(dispatch.typeKey(), variants, dispatch.valueKey());
     }
 
-    // The key codec identifies the dispatch's key set. For criteria it's a registry byNameCodec
-    // (TRIGGER_TYPES) resolving to a Schema.ResourceId; each registry entry's VALUE fed to the
-    // codec-getter yields that variant's body codec. Only registry-keyed dispatches are enumerated
-    // (the sole vanilla shape); anything else returns empty and the caller falls back.
+    // Only registry-keyed dispatches (the sole vanilla shape) are enumerated: the key codec
+    // resolves to a ResourceId, and each registry entry's VALUE fed to the codec-getter yields
+    // that variant's body codec. Anything else returns empty and the caller falls back.
     @SuppressWarnings({"unchecked", "rawtypes"})
     private LinkedHashMap<String, Schema<?>> enumerateOptionalValueVariants(
             CodecReflection.OptionalValueDispatch dispatch, IdentityHashMap<Object, Schema<?>> cache) {

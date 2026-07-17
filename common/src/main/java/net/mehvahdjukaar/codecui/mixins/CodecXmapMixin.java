@@ -172,9 +172,8 @@ public interface CodecXmapMixin {
     private void codecui$inheritInner(Codec<?> wrapped) {
         if (wrapped == null || wrapped == (Object) this) return;
         try {
-            // LAZY: just record (wrapped -> inner). Resolver resolves inner fresh at lookup time.
-            // Previously we eagerly called SchemaResolver.resolve here, which captured stale
-            // (empty) schemas during MC bootstrap before companions were registered.
+            // LAZY: just record (wrapped -> inner); the resolver resolves the inner fresh at
+            // lookup time (eager resolution here used to capture stale schemas during bootstrap).
             net.mehvahdjukaar.codecui.internal.XmapTags.putCodec(
                     wrapped, (Codec<?>) (Object) this);
         } catch (Throwable ignored) {

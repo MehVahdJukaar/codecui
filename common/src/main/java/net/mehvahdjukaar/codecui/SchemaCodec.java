@@ -5,6 +5,8 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.DynamicOps;
 
+import net.mehvahdjukaar.codecui.internal.SchemaResolver;
+
 import java.util.function.Supplier;
 
 /**
@@ -32,7 +34,7 @@ public sealed interface SchemaCodec<A> extends Codec<A> {
     @SuppressWarnings("unchecked")
     static <A> SchemaCodec<A> wrap(Codec<A> codec) {
         if (codec instanceof SchemaCodec<?> sc) return (SchemaCodec<A>) sc;
-        return lazy(codec, () -> net.mehvahdjukaar.codecui.internal.SchemaResolver.get().resolve(codec));
+        return lazy(codec, () -> SchemaResolver.get().resolve(codec));
     }
 
     static <A> SchemaCodec<A> of(Codec<A> codec, Schema<A> schema) {

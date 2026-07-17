@@ -1,6 +1,7 @@
 package net.mehvahdjukaar.codecui.internal;
 
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.Keyable;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.CompoundListCodec;
 import com.mojang.serialization.codecs.EitherMapCodec;
@@ -16,15 +17,11 @@ import java.lang.invoke.VarHandle;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-// VarHandles for the private fields of the concrete DFU/MC codec classes the resolver
-// introspects. Split out from SchemaResolver so the resolver reads as tier logic
-// rather than reflection plumbing; consumed via import static so call sites are
-// unchanged. Every handle is nullable - a failed lookup (DFU version drift, module access)
-// leaves it null and the corresponding tier branch is skipped.
-//
-// net.minecraft.* registry/holder codecs are NOT here: they are read via their
-// (access-widened) fields directly, since string field names would not survive Fabric's
-// intermediary remap.
+// VarHandles for the private fields of the DFU codec classes the resolver introspects.
+// Every handle is nullable: a failed lookup (DFU version drift, module access) leaves it
+// null and the corresponding tier branch is skipped. net.minecraft.* codecs are NOT here -
+// they are read via access-widened fields, since string field names would not survive
+// Fabric's intermediary remap.
 final class CodecFieldHandles {
 
     static final @Nullable VarHandle PAIR_CODEC_FIRST;
@@ -82,21 +79,17 @@ final class CodecFieldHandles {
         } catch (Throwable ignored) {}
         try {
             var lookup = MethodHandles.privateLookupIn(KeyDispatchCodec.class, MethodHandles.lookup());
-            // keyCodec's declared type differs across DFU versions: 1.21.11's DFU 9 stores the
-            // already-fieldOf-wrapped MapCodec, 1.21.1's DFU 8 stores the raw key Codec. Try both;
-            // this lookup must NOT abort the sibling lookups below (a shared try that failed here
-            // left `decoder` null on DFU 8, killing all dispatch enumeration).
+            // keyCodec's declared type differs across DFU versions (DFU 9: fieldOf-wrapped
+            // MapCodec, DFU 8: raw Codec). Try both, and don't let a miss abort the sibling
+            // lookups below - that once left `decoder` null on DFU 8, killing all dispatch enumeration.
             try {
                 kdk = lookup.findVarHandle(KeyDispatchCodec.class, "keyCodec", MapCodec.class);
             } catch (Throwable e) {
                 kdk = lookup.findVarHandle(KeyDispatchCodec.class, "keyCodec", Codec.class);
             }
-            // KeyDispatchCodec field is named "type" (Function<? super V, ...>), used for the type field name.
             kdt = lookup.findVarHandle(KeyDispatchCodec.class, "type", Function.class);
-            // "decoder" Function<? super K, DataResult<? extends MapDecoder<? extends V>>> - the
-            // public constructor uses the same `codec` function as both decoder and source for the
-            // (lazily-wrapped) encoder, so applying decoder to a candidate K yields the variant
-            // MapCodec wrapped in DataResult. We use this for variant enumeration.
+            // The public constructor stores the user's codec function as `decoder`, so applying it
+            // to a candidate K yields that variant's MapCodec - the basis of variant enumeration.
             kdd = lookup.findVarHandle(KeyDispatchCodec.class, "decoder", Function.class);
             // DFU 8 (1.21.1) keeps the JSON type field name in a `typeKey` String field; DFU 9
             // dropped it (the name lives inside the fieldOf-wrapped keyCodec instead).
@@ -108,7 +101,7 @@ final class CodecFieldHandles {
             var lookup = MethodHandles.privateLookupIn(SimpleMapCodec.class, MethodHandles.lookup());
             smk = lookup.findVarHandle(SimpleMapCodec.class, "keyCodec", Codec.class);
             sme = lookup.findVarHandle(SimpleMapCodec.class, "elementCodec", Codec.class);
-            sms = lookup.findVarHandle(SimpleMapCodec.class, "keys", com.mojang.serialization.Keyable.class);
+            sms = lookup.findVarHandle(SimpleMapCodec.class, "keys", Keyable.class);
         } catch (Throwable ignored) {}
         try {
             var lookup = MethodHandles.privateLookupIn(Codec.RecursiveCodec.class, MethodHandles.lookup());

@@ -8,12 +8,9 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.WeakHashMap;
 
-// Side-channel storage for schema info attached at codec construction time by the
-// codec-construction mixins. Lookups are O(1) WeakHashMap reads. The maps are weak by key
-// so codecs that get GC'd don't leak their tags.
-//
-// Tagging is best-effort: a missing tag just means the resolver falls back to its
-// tier-1/tier-2 reflection-based logic.
+// Side-channel storage for schemas attached at codec construction time, weak by key so
+// GC'd codecs don't leak their tags. Best-effort: a missing tag just means the resolver
+// falls back to its structural tiers.
 public final class SchemaTags {
     private static final Map<Codec<?>, Schema<?>> CODEC_SCHEMAS =
             Collections.synchronizedMap(new WeakHashMap<>());
