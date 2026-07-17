@@ -1,52 +1,45 @@
 package net.mehvahdjukaar.codecui.internal;
 
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.JsonOps;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 
-/**
- * Side-channel storage tracking the ordered list of (fieldName, fieldCodec) pairs that have
- * been accumulated for a given {@link RecordCodecBuilder}. Populated by the RCB-construction
- * mixins (RecordCodecBuilder.of, Instance.apN, point/stable).
- *
- * <p>WeakHashMap by builder identity so transient builders don't leak. The list is read on
- * {@code build(...)} to synthesise a {@link net.mehvahdjukaar.codecui.Schema.Record}.</p>
- */
+// Side-channel storage tracking the ordered list of (fieldName, fieldCodec) pairs that have
+// been accumulated for a given RecordCodecBuilder. Populated by the RCB-construction
+// mixins (RecordCodecBuilder.of, Instance.apN, point/stable).
+//
+// WeakHashMap by builder identity so transient builders don't leak. The list is read on
+// build(...) to synthesise a net.mehvahdjukaar.codecui.Schema.Record.
 public final class RecordFieldTags {
 
     private static final Map<RecordCodecBuilder<?, ?>, List<Entry>> TAGS =
             Collections.synchronizedMap(new WeakHashMap<>());
 
-    /**
-     * A single tracked field. Exactly one of {@code elementCodec} or {@code mapCodec} is
-     * non-null. {@code elementCodec} is used when we observed the simpler
-     * {@code RecordCodecBuilder.of(getter, name, codec)} form; the resolver then synthesises a
-     * required-field Schema.Field. {@code mapCodec} carries the entire MapCodec from the
-     * {@code of(getter, MapCodec)} form (optional / default / lenient variants); the resolver
-     * delegates to {@link SchemaResolver#resolveMap}
-     * which can introspect {@code OptionalFieldCodec} and friends.
-     */
+    // A single tracked field. Exactly one of elementCodec or mapCodec is
+    // non-null. elementCodec is used when we observed the simpler
+    // RecordCodecBuilder.of(getter, name, codec) form; the resolver then synthesises a
+    // required-field Schema.Field. mapCodec carries the entire MapCodec from the
+    // of(getter, MapCodec) form (optional / default / lenient variants); the resolver
+    // delegates to SchemaResolver#resolveMap
+    // which can introspect OptionalFieldCodec and friends.
     public record Entry(String name,
                         @Nullable Codec<?> elementCodec,
                         @Nullable MapCodec<?> mapCodec) {}
 
-    /**
-     * Records a single field tag on a freshly constructed RCB from
-     * {@code RecordCodecBuilder.of(getter, name, fieldCodec)}.
-     */
+    // Records a single field tag on a freshly constructed RCB from
+    // RecordCodecBuilder.of(getter, name, fieldCodec).
     public static void single(RecordCodecBuilder<?, ?> builder, String name, Codec<?> fieldCodec) {
         if (builder == null) return;
         TAGS.put(builder, List.of(new Entry(name, fieldCodec, null)));
     }
 
-    /**
-     * Records a single field tag from {@code RecordCodecBuilder.of(getter, MapCodec)}. We try
-     * to extract the on-disk field name from the MapCodec's keys(); if none is available we
-     * skip tagging (the result is just an Opaque field).
-     */
+    // Records a single field tag from RecordCodecBuilder.of(getter, MapCodec). We try
+    // to extract the on-disk field name from the MapCodec's keys(); if none is available we
+    // skip tagging (the result is just an Opaque field).
     public static void singleMap(RecordCodecBuilder<?, ?> builder, MapCodec<?> mapCodec) {
         if (builder == null || mapCodec == null) return;
         String name = extractFirstKey(mapCodec);
@@ -56,8 +49,8 @@ public final class RecordFieldTags {
 
     private static @Nullable String extractFirstKey(MapCodec<?> mapCodec) {
         try {
-            return mapCodec.keys(com.mojang.serialization.JsonOps.INSTANCE)
-                    .map(RecordFieldTags::unwrapJsonKey)
+            return mapCodec.keys(JsonOps.INSTANCE)
+                    .map(CodecReflection::jsonKeyString)
                     .findFirst()
                     .orElse(null);
         } catch (Throwable ignored) {
@@ -65,29 +58,18 @@ public final class RecordFieldTags {
         }
     }
 
-    // JsonOps emits keys as JsonPrimitive(String); toString() would return the QUOTED form
-    // ("\"name\""), which then never matches the on-disk field name in the editor.
-    private static String unwrapJsonKey(Object o) {
-        if (o instanceof com.google.gson.JsonPrimitive prim && prim.isString()) return prim.getAsString();
-        return String.valueOf(o);
-    }
-
-    /**
-     * Propagates the tag list of one builder to a derived builder unchanged. Used by the
-     * {@code Instance.map} hook — the Applicative ap5..ap16 defaults pipe the accumulated
-     * function position through {@code map}, which must not lose the fields gathered so far.
-     */
+    // Propagates the tag list of one builder to a derived builder unchanged. Used by the
+    // Instance.map hook - the Applicative ap5..ap16 defaults pipe the accumulated
+    // function position through map, which must not lose the fields gathered so far.
     public static void copy(RecordCodecBuilder<?, ?> from, RecordCodecBuilder<?, ?> to) {
         if (from == null || to == null || from == to) return;
         List<Entry> v = TAGS.get(from);
         if (v != null && !v.isEmpty()) TAGS.put(to, v);
     }
 
-    /**
-     * Concatenates the tags from the given input builders onto the result builder. Called
-     * from {@code Instance.apN(...)} mixins. Any missing/empty input simply contributes
-     * nothing; the result is the merged ordering of all inputs in left-to-right order.
-     */
+    // Concatenates the tags from the given input builders onto the result builder. Called
+    // from Instance.apN(...) mixins. Any missing/empty input simply contributes
+    // nothing; the result is the merged ordering of all inputs in left-to-right order.
     public static void concat(RecordCodecBuilder<?, ?> result, RecordCodecBuilder<?, ?>... inputs) {
         if (result == null) return;
         ArrayList<Entry> merged = new ArrayList<>();
@@ -111,7 +93,7 @@ public final class RecordFieldTags {
     //
     // The RCB build mixin transfers the accumulated entries to this map keyed by the OUTPUT
     // MapCodec. The resolver consults it at lookup time and rebuilds the Schema.Record FRESH
-    // each call — so a companion registered after the RCB.build() ran (e.g. BlockState.CODEC
+    // each call - so a companion registered after the RCB.build() ran (e.g. BlockState.CODEC
     // registered after RandomBlockStateMatchTest's clinit) still wins, because we never cache
     // a stale resolved schema.
 

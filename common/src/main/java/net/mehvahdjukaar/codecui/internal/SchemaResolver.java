@@ -29,14 +29,12 @@ import java.util.function.Supplier;
 
 import static net.mehvahdjukaar.codecui.internal.CodecFieldHandles.*;
 
-/**
- * Walks a Codec graph and produces an introspected Schema. Falls back to {@link Schema.Opaque}
- * for anything we can't statically introspect (xmap, flatXmap, RecordCodecBuilder outputs, etc.).
- *
- * <p>Internal — external code goes through {@code SchemaCodec.wrap(...)} /
- * {@code SchemaResolvers}, and extends resolution via the public SPIs
- * ({@code SchemaHandler}, {@code EnumerableCodec}, companions, dispatch key hooks).</p>
- */
+// Walks a Codec graph and produces an introspected Schema. Falls back to Schema.Opaque
+// for anything we can't statically introspect (xmap, flatXmap, RecordCodecBuilder outputs, etc.).
+//
+// Internal - external code goes through SchemaCodec.wrap(...) /
+// SchemaResolvers, and extends resolution via the public SPIs
+// (SchemaHandler, EnumerableCodec, companions, dispatch key hooks).
 public final class SchemaResolver implements SchemaHandler.Resolver {
 
     private static final SchemaResolver INSTANCE = new SchemaResolver();
@@ -99,7 +97,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
             return tagged;
         }
 
-        // Tier 0d: lazy xmap/stable/etc. wrapper tag — delegate to inner FRESH.
+        // Tier 0d: lazy xmap/stable/etc. wrapper tag - delegate to inner FRESH.
         Codec<?> innerWrapped = XmapTags.getCodec(codec);
         if (innerWrapped != null) {
             Schema<?> innerSchema = resolveCodec((Codec) innerWrapped, cache);
@@ -108,7 +106,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         }
 
         // Insert a Ref placeholder so cycles short-circuit: a recursive lookup gets the Ref,
-        // which we bind to the finished schema below — recursive fields render as lazily
+        // which we bind to the finished schema below - recursive fields render as lazily
         // expanded sub-editors instead of raw JSON.
         Schema.Ref<A> ref = new Schema.Ref<>();
         cache.put(codec, ref);
@@ -134,7 +132,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         Schema<?> cached = cache.get(codec);
         if (cached != null) return (Schema<A>) cached;
 
-        // Tier 0a: lazy fieldOf tag — resolve inner FRESH so companions registered after the
+        // Tier 0a: lazy fieldOf tag - resolve inner FRESH so companions registered after the
         // fieldOf mixin fired still take effect.
         FieldOfTags.Entry foe =
                 FieldOfTags.get(codec);
@@ -146,7 +144,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
             return rec;
         }
 
-        // Tier 0b: lazy RecordCodecBuilder.build tag — rebuild the Schema.Record fresh from
+        // Tier 0b: lazy RecordCodecBuilder.build tag - rebuild the Schema.Record fresh from
         // the accumulated field entries. Cached only in the per-resolve cache (not SchemaTags),
         // so a companion registered after RCB.build() still affects the next resolve.
         List<RecordFieldTags.Entry> built = RecordFieldTags.getBuilt(codec);
@@ -163,7 +161,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
             return tagged;
         }
 
-        // Tier 0d: lazy MapCodec xmap wrapper tag — delegate to inner FRESH.
+        // Tier 0d: lazy MapCodec xmap wrapper tag - delegate to inner FRESH.
         MapCodec<?> innerWrappedMap = XmapTags.getMap(codec);
         if (innerWrappedMap != null) {
             Schema<?> innerSchema = resolveMapCodec((MapCodec) innerWrappedMap, cache);
@@ -229,10 +227,10 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
     @SuppressWarnings({"unchecked", "rawtypes"})
     private Schema<?> tierTwoStructural(Codec<?> codec, IdentityHashMap<Object, Schema<?>> cache) {
         // Authored schema-carrying codecs know their own schema. (Lazy variants re-enter the
-        // resolver for inner codecs — the placeholder already in the cache guards cycles.)
+        // resolver for inner codecs - the placeholder already in the cache guards cycles.)
         // A codecui SchemaCodec built by a mod WITHOUT our resolver (codecui standalone has no
         // inference engine) freezes any raw inner codec as Schema.Opaque. Since that Opaque still
-        // carries the codec, we re-resolve those leaves here through the full pipeline — so a
+        // carries the codec, we re-resolve those leaves here through the full pipeline - so a
         // third-party declaration's plain float/id/registry fields render as richly as our own.
         if (codec instanceof net.mehvahdjukaar.codecui.SchemaCodec<?> sc) {
             return enrichOpaques(sc.schema(), cache);
@@ -259,7 +257,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         }
         // Unbounded map-style Codec<Map<K,V>>. DFU's UnboundedMapCodec, vanilla's
         // ExtraCodecs.StrictUnboundedMapCodec and our own LenientUnboundedMapCodec all implement
-        // BaseMapCodec, which publicly exposes the key/element codecs — so one branch covers every
+        // BaseMapCodec, which publicly exposes the key/element codecs - so one branch covers every
         // present and future variant without per-type reflection. (SimpleMapCodec also implements
         // BaseMapCodec but is a MapCodec, handled on the map path; it never reaches here.)
         if (codec instanceof BaseMapCodec<?, ?> bm) {
@@ -339,7 +337,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
                 : codec instanceof LenientHolderSetCodec<?> lhs ? lhs.elementCodec() : null;
         if (holderSetElement != null) {
             Schema<?> element = resolveCodec(holderSetElement, cache);
-            // The element schema is the registry's ResourceId — reuse its key so the tag side
+            // The element schema is the registry's ResourceId - reuse its key so the tag side
             // gets a real tag picker instead of a raw text box. Falls back to text if unknown.
             ResourceKey<? extends Registry<?>> registry =
                     element instanceof Schema.ResourceId r ? r.registry() : null;
@@ -351,7 +349,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
                     Schema.option("single", element),
                     Schema.option("list", new Schema.ListOf(element, 0, Integer.MAX_VALUE)));
         }
-        // Custom registries etc. that expose their value set — a dropdown of registered names.
+        // Custom registries etc. that expose their value set - a dropdown of registered names.
         if (codec instanceof EnumerableCodec en) {
             List<String> names = new ArrayList<>(en.codecUiValues().keySet());
             return new Schema.Enum<>(names, Function.identity());
@@ -394,7 +392,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
             Schema<?> s = resolveMapCodec((MapCodec<?>) EITHER_MAP_SECOND.get(em), cache);
             return Schema.anyOf(Schema.option(f), Schema.option(s));
         }
-        // MapCodec.recursive — mirror of the RecursiveCodec handler above.
+        // MapCodec.recursive - mirror of the RecursiveCodec handler above.
         if (RECURSIVE_MAP_CLASS != null && RECURSIVE_MAP_WRAPPED != null && RECURSIVE_MAP_CLASS.isInstance(codec)) {
             try {
                 Supplier<?> sup = (Supplier<?>) RECURSIVE_MAP_WRAPPED.get(codec);
@@ -417,20 +415,18 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
 
     // ---- Tier 3: reflective last resort over unknown (typically hand-rolled) codec classes ----
 
-    /**
-     * Scans the instance fields of an unknown Codec/MapCodec class for inner
-     * {@code Codec}/{@code MapCodec} values (including {@code Codec[]} arrays) and guesses
-     * the shape from what it finds:
-     * <ul>
-     *   <li>one inner codec → assume a shape-preserving wrapper, inherit its schema;</li>
-     *   <li>a (key, element/value) field pair → assume a map codec, produce {@code MapOf};</li>
-     *   <li>several inner codecs → assume "try each in order" alternatives (the dominant
-     *       hand-rolled pattern: reference-or-inline, multi-format unions) and produce a
-     *       flat {@code AnyOf} picker in declaration order.</li>
-     * </ul>
-     * Heuristic by design — a wrong guess is overridden by registering a tier-0 companion
-     * for that codec. Only runs after every exact tier has passed.
-     */
+    // Scans the instance fields of an unknown Codec/MapCodec class for inner
+    // Codec/MapCodec values (including Codec[] arrays) and guesses
+    // the shape from what it finds:
+    //
+    //   - one inner codec → assume a shape-preserving wrapper, inherit its schema;
+    //   - a (key, element/value) field pair → assume a map codec, produce MapOf;
+    //   - several inner codecs → assume "try each in order" alternatives (the dominant
+    //       hand-rolled pattern: reference-or-inline, multi-format unions) and produce a
+    //       flat AnyOf picker in declaration order.
+    //
+    // Heuristic by design - a wrong guess is overridden by registering a tier-0 companion
+    // for that codec. Only runs after every exact tier has passed.
     @SuppressWarnings({"unchecked", "rawtypes"})
     private @Nullable Schema<?> tierThreeReflective(Object codec,
                                                                               IdentityHashMap<Object, Schema<?>> cache) {
@@ -477,8 +473,8 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
     // returns a MapCodec.of(FieldEncoder, FieldDecoder). Tier-3's Codec-typed field scan can't see
     // through those wrappers, so without a tag they'd fall back to raw JSON. On Fabric the
     // construction mixins tag these first (tiers 0a/0d) and none of this runs; on NeoForge the
-    // mixins can't apply (DFU isn't on the transforming classloader), so this reflective recovery —
-    // built on the same private-field reflection the structural tiers already use — is what keeps
+    // mixins can't apply (DFU isn't on the transforming classloader), so this reflective recovery -
+    // built on the same private-field reflection the structural tiers already use - is what keeps
     // those leaves editable. Conservative and companion-overridable, exactly like tier 3.
 
     private @Nullable Schema<?> unwrapRecordCodec(MapCodec<?> codec, IdentityHashMap<Object, Schema<?>> cache) {
@@ -499,12 +495,12 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
             Object defaultValue = null;
             if (e.mapCodec() != null) {
                 Schema<?> mapSchema = resolveMapCodec((MapCodec) e.mapCodec(), cache);
-                // A raw MapCodec included in a group — of(getter, MapCodec) — flattens its keys
+                // A raw MapCodec included in a group - of(getter, MapCodec) - flattens its keys
                 // straight into the parent record (DFU never nests it). Only fieldOf("x") wraps a
                 // value into a single-key map. So a single-field Record is the fieldOf form
                 // (unwrap to one named field), while a multi-field Record is a grouped sub-codec
                 // like ClimateSettings / MobSpawnSettings whose fields must be SPREAD into the
-                // parent — nesting them under the sub-codec's first key produced malformed JSON
+                // parent - nesting them under the sub-codec's first key produced malformed JSON
                 // (e.g. spawners/spawn_costs buried inside a phantom creature_spawn_probability).
                 if (mapSchema instanceof Schema.Record<?> rec) {
                     if (rec.fields().size() == 1) {
@@ -535,9 +531,9 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         return new Schema.Record(Object.class, List.copyOf(fields));
     }
 
-    /** Appends a field unless one with the same name is already present (mirrors the NeoForge
-     *  decoder-tree walk's name dedup). Guards against a spread sub-record colliding with a
-     *  sibling field of the same key. */
+    //  Appends a field unless one with the same name is already present (mirrors the NeoForge
+    //  decoder-tree walk's name dedup). Guards against a spread sub-record colliding with a
+    //  sibling field of the same key.
     private static void addField(List<Schema.Field<?, ?>> fields, Schema.Field<?, ?> field) {
         for (Schema.Field<?, ?> existing : fields) {
             if (existing.name().equals(field.name())) return;
@@ -545,8 +541,8 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         fields.add(field);
     }
 
-    /** Required {@code Codec.fieldOf(name)} → {@code MapCodec.of(FieldEncoder, FieldDecoder, …)}:
-     *  recover the field name + element codec and rebuild the single-field record (mirrors tier 0a). */
+    //  Required Codec.fieldOf(name) → MapCodec.of(FieldEncoder, FieldDecoder, …):
+    //  recover the field name + element codec and rebuild the single-field record (mirrors tier 0a).
     @SuppressWarnings({"unchecked", "rawtypes"})
     private @Nullable Schema<?> unwrapFieldOf(MapCodec<?> codec, IdentityHashMap<Object, Schema<?>> cache) {
         CodecReflection.FieldOfEntry field = CodecReflection.unwrapFieldOf(codec);
@@ -556,21 +552,21 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         return new Schema.Record(Object.class, List.of(f));
     }
 
-    /** Follow {@code Encoder}/{@code Decoder}/{@code MapEncoder}/{@code MapDecoder}-typed fields into
-     *  the anonymous classes DFU builds for xmap/map/comap/validate/… to recover the single inner
-     *  codec, then inherit its schema (shape-preserving-wrapper assumption, same as the mixin's
-     *  inheritInner). Fires only when exactly one distinct inner codec is reachable. */
+    //  Follow Encoder/Decoder/MapEncoder/MapDecoder-typed fields into
+    //  the anonymous classes DFU builds for xmap/map/comap/validate/… to recover the single inner
+    //  codec, then inherit its schema (shape-preserving-wrapper assumption, same as the mixin's
+    //  inheritInner). Fires only when exactly one distinct inner codec is reachable.
     private @Nullable Schema<?> unwrapCapturedInner(Object codec, IdentityHashMap<Object, Schema<?>> cache) {
         Object inner = CodecReflection.singleCapturedInner(codec);
         return inner == null ? null : resolveAny(inner, cache);
     }
 
-    /** Reflective fallback for {@code Codec.intRange/floatRange/doubleRange} when the construction
-     *  mixin didn't apply (Tier 0 {@code SchemaTags} absent). DFU builds these as
-     *  {@code PRIMITIVE.flatXmap(checkRange(min,max), …)} — a {@code [flatXmapped]} wrapper over a
-     *  primitive number codec — so we recover the bounds from the checker lambda's captures. Gated
-     *  on both the flatXmap marker and the inner being exactly INT/FLOAT/DOUBLE, so an unrelated
-     *  flatXmap can't be misread as a range; falls through to the unbounded primitive if unsure. */
+    //  Reflective fallback for Codec.intRange/floatRange/doubleRange when the construction
+    //  mixin didn't apply (Tier 0 SchemaTags absent). DFU builds these as
+    //  PRIMITIVE.flatXmap(checkRange(min,max), …) - a [flatXmapped] wrapper over a
+    //  primitive number codec - so we recover the bounds from the checker lambda's captures. Gated
+    //  on both the flatXmap marker and the inner being exactly INT/FLOAT/DOUBLE, so an unrelated
+    //  flatXmap can't be misread as a range; falls through to the unbounded primitive if unsure.
     private @Nullable Schema<?> recoverPrimitiveRange(Object codec) {
         if (!(codec instanceof Codec<?>) || !codec.toString().endsWith("[flatXmapped]")) return null;
         Object inner = CodecReflection.singleCapturedInner(codec);
@@ -584,16 +580,14 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         return new Schema.DoubleRange(min.doubleValue(), max.doubleValue());
     }
 
-    /**
-     * Walks a schema declared by a codecui {@code SchemaCodec} and replaces every
-     * {@code Schema.Opaque} leaf that still carries a codec with the result of resolving that
-     * codec through the full pipeline — but only when resolution yields something better than
-     * raw JSON. This gives a third-party declaration's raw inner codecs (plain {@code Codec.FLOAT},
-     * {@code ResourceLocation.CODEC}, registry/dispatch codecs, RCB records…) the same live
-     * inference our own codecs get, instead of the Opaque fallback codecui bakes in without an
-     * engine. Container schemas are rebuilt structurally; {@code Ref} nodes are left untouched
-     * (recursion is already handled by the per-resolve cache).
-     */
+    // Walks a schema declared by a codecui SchemaCodec and replaces every
+    // Schema.Opaque leaf that still carries a codec with the result of resolving that
+    // codec through the full pipeline - but only when resolution yields something better than
+    // raw JSON. This gives a third-party declaration's raw inner codecs (plain Codec.FLOAT,
+    // ResourceLocation.CODEC, registry/dispatch codecs, RCB records…) the same live
+    // inference our own codecs get, instead of the Opaque fallback codecui bakes in without an
+    // engine. Container schemas are rebuilt structurally; Ref nodes are left untouched
+    // (recursion is already handled by the per-resolve cache).
     @SuppressWarnings({"unchecked", "rawtypes"})
     private Schema<?> enrichOpaques(Schema<?> schema, IdentityHashMap<Object, Schema<?>> cache) {
         if (schema instanceof Schema.Opaque<?> op) {

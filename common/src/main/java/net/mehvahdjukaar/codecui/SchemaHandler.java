@@ -12,15 +12,15 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>Handlers run for every codec being resolved, <em>after</em> the per-instance tag tiers
  * (companions registered with {@link SchemaResolvers#registerCompanion} and mixin-attached tags
- * always win) but <em>before</em> the built-in structural tiers and the reflective fallback —
+ * always win) but <em>before</em> the built-in structural tiers and the reflective fallback -
  * so a handler can override a built-in guess for a whole class of codecs. Return {@code null}
  * to pass ("not mine"); the first handler returning non-null wins. Handlers should be fast:
  * typically an {@code instanceof} check followed by schema construction.</p>
  *
- * <p>Use the supplied {@link Resolver} to resolve inner codecs — never recurse into
+ * <p>Use the supplied {@link Resolver} to resolve inner codecs - never recurse into
  * schema resolution any other way, or per-resolve cycle detection is lost.</p>
  *
- * <p>Example — a handler for a custom "list or single element" codec:</p>
+ * <p>Example - a handler for a custom "list or single element" codec:</p>
  * <pre>{@code
  * SchemaCodecs.registerHandler((codec, resolver) -> {
  *     if (!(codec instanceof MySingleOrListCodec<?> sol)) return null;

@@ -10,9 +10,11 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.ExtraCodecs;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.util.valueproviders.FloatProviderType;
 import net.minecraft.util.valueproviders.IntProviderType;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.levelgen.blockpredicates.BlockPredicateType;
 import net.minecraft.world.level.levelgen.carver.WorldCarver;
@@ -45,26 +47,23 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
-/**
- * THE hand-maintained list of schema registrations for codecs that auto-inspection can't
- * (or shouldn't) handle. Deliberately separate from the inference machinery in
- * {@link SchemaResolver}: everything here goes through the exact same public API a
- * third-party mod would use ({@code SchemaCodecs.registerCompanion / registerHandler /
- * registerDispatchKeys}), so this class doubles as the reference example for external
- * curation of "weird" codecs.
- *
- * <p>Ground rules for adding entries:</p>
- * <ul>
- *   <li>First try to make inference handle the CLASS of codec (new tier-2 handler,
- *       {@code EnumerableCodec}, mixin tag). Curate here only when that's impossible
- *       (opaque lambdas, shape-changing xmaps we want a nicer surface for) or not worth it.</li>
- *   <li>Schemas describe the ON-DISK JSON shape, not the runtime type — widgets edit JSON.</li>
- *   <li>Comment WHY inference fails for each entry.</li>
- * </ul>
- *
- * <p>Bootstrapped lazily by the resolver on first resolve; safe because companions are
- * looked up fresh each resolve (never baked into cached schemas at construction time).</p>
- */
+// THE hand-maintained list of schema registrations for codecs that auto-inspection can't
+// (or shouldn't) handle. Deliberately separate from the inference machinery in
+// SchemaResolver: everything here goes through the exact same public API a
+// third-party mod would use (SchemaCodecs.registerCompanion / registerHandler /
+// registerDispatchKeys), so this class doubles as the reference example for external
+// curation of "weird" codecs.
+//
+// Ground rules for adding entries:
+//
+//   - First try to make inference handle the CLASS of codec (new tier-2 handler,
+//       EnumerableCodec, mixin tag). Curate here only when that's impossible
+//       (opaque lambdas, shape-changing xmaps we want a nicer surface for) or not worth it.
+//   - Schemas describe the ON-DISK JSON shape, not the runtime type - widgets edit JSON.
+//   - Comment WHY inference fails for each entry.
+//
+// Bootstrapped lazily by the resolver on first resolve; safe because companions are
+// looked up fresh each resolve (never baked into cached schemas at construction time).
 public final class CuratedSchemas {
 
     private static volatile boolean bootstrapped = false;
@@ -110,7 +109,7 @@ public final class CuratedSchemas {
                 "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"));
         SchemaCodecs.registerCompanion(UUIDUtil.STRING_CODEC, uuidString);
 
-        // BlockPos.CODEC is INT_STREAM.comapFlatMap — INT_STREAM is opaque. On disk: [x, y, z].
+        // BlockPos.CODEC is INT_STREAM.comapFlatMap - INT_STREAM is opaque. On disk: [x, y, z].
         Schema intAll = new Schema.IntRange(Integer.MIN_VALUE, Integer.MAX_VALUE);
         Schema floatAll = new Schema.FloatRange(-Float.MAX_VALUE, Float.MAX_VALUE);
         SchemaCodecs.registerCompanion(BlockPos.CODEC, (Schema) new Schema.ListOf<>(intAll, 3, 3));
@@ -127,24 +126,22 @@ public final class CuratedSchemas {
         SchemaCodecs.registerCompanion(ExtraCodecs.ARGB_COLOR_CODEC, new Schema.Color(true, false));
     }
 
-    /**
-     * Dispatch key sets for vanilla {@code Codec.dispatch(...)} families keyed on a "type" object
-     * from a registry (e.g. {@link RuleTestType}). A {@code KeyDispatchCodec} hides its valid key
-     * set inside a closure, so the resolver can't enumerate variants without this side channel; it
-     * feeds each key back through the dispatch's own decoder to recover the variant body.
-     *
-     * <p>These are hand-listed rather than derived from "all registries" because only <i>type</i>
-     * registries (whose elements carry a per-element {@code MapCodec}) are dispatch-backed — plain
-     * value registries (Block, Item, …) enumerate through the {@link Schema.ResourceId} id-picker
-     * path instead — and nothing reflectively distinguishes the two. Add more the same way.</p>
-     *
-     * <p><b>Only registries of concrete "type" objects belong here</b> — ones whose dispatch decoder
-     * casts the key to a specific class (so a foreign key fails fast, letting the resolver's probe
-     * tell hooks apart). Registries whose elements are bare {@code MapCodec<? extends X>}
-     * (DENSITY_FUNCTION_TYPE, MATERIAL_RULE/CONDITION, ENTITY_SUB_PREDICATE_TYPE, the ENCHANTMENT_*
-     * effect registries, …) are deliberately excluded: their dispatch decoder is identity, so every
-     * such registry would accept every other's keys and cross-contaminate the variant lists.</p>
-     */
+    // Dispatch key sets for vanilla Codec.dispatch(...) families keyed on a "type" object
+    // from a registry (e.g. RuleTestType). A KeyDispatchCodec hides its valid key
+    // set inside a closure, so the resolver can't enumerate variants without this side channel; it
+    // feeds each key back through the dispatch's own decoder to recover the variant body.
+    //
+    // These are hand-listed rather than derived from "all registries" because only type
+    // registries (whose elements carry a per-element MapCodec) are dispatch-backed - plain
+    // value registries (Block, Item, …) enumerate through the Schema.ResourceId id-picker
+    // path instead - and nothing reflectively distinguishes the two. Add more the same way.
+    //
+    // Only registries of concrete "type" objects belong here - ones whose dispatch decoder
+    // casts the key to a specific class (so a foreign key fails fast, letting the resolver's probe
+    // tell hooks apart). Registries whose elements are bare MapCodec<? extends X>
+    // (DENSITY_FUNCTION_TYPE, MATERIAL_RULE/CONDITION, ENTITY_SUB_PREDICATE_TYPE, the ENCHANTMENT_*
+    // effect registries, …) are deliberately excluded: their dispatch decoder is identity, so every
+    // such registry would accept every other's keys and cross-contaminate the variant lists.
     private static void registerVanillaDispatches() {
         // Value providers (used all over worldgen configs).
         registerRegistryDispatch(IntProviderType.class, BuiltInRegistries.INT_PROVIDER_TYPE);
@@ -206,29 +203,29 @@ public final class CuratedSchemas {
 
     private static void registerBootstrapDependent() {
         // BlockState.CODEC is built during *very early* MC bootstrap (Blocks init), before
-        // our codec_ui mixins are applied to Codec.fieldOf — so the internal keyCodec never
+        // our codec_ui mixins are applied to Codec.fieldOf - so the internal keyCodec never
         // gets the ResourceId tag and the registry-tag dropdown fallback finds nothing.
         // Manual Record matching the on-disk shape: {"Name": id, "Properties": {prop: value}}
         // (Properties is lenientOptionalFieldOf in vanilla, so omitting it is fine).
         Schema.Str anyStr = new Schema.Str(0, Integer.MAX_VALUE, null);
-        SchemaCodecs.registerCompanion(net.minecraft.world.level.block.state.BlockState.CODEC,
-                new Schema.Record<>(net.minecraft.world.level.block.state.BlockState.class,
+        SchemaCodecs.registerCompanion(BlockState.CODEC,
+                new Schema.Record<>(BlockState.class,
                         List.<Schema.Field<net.minecraft.world.level.block.state.BlockState, ?>>of(
                         new Schema.Field<>("Name", new Schema.ResourceId(Registries.BLOCK), false, null),
                         new Schema.Field<>("Properties", new Schema.MapOf<>(anyStr, anyStr), true, null))));
 
-        // ItemStack.CODEC routes through data components — opaque to inference. Minimal
+        // ItemStack.CODEC routes through data components - opaque to inference. Minimal
         // round-tripping shape for plain stacks.
-        SchemaCodecs.registerCompanion(net.minecraft.world.item.ItemStack.CODEC,
-                new Schema.Record<>(net.minecraft.world.item.ItemStack.class,
+        SchemaCodecs.registerCompanion(ItemStack.CODEC,
+                new Schema.Record<>(ItemStack.class,
                         List.<Schema.Field<net.minecraft.world.item.ItemStack, ?>>of(
                         new Schema.Field<>("id", new Schema.ResourceId(Registries.ITEM), false, null),
                         new Schema.Field<>("count", new Schema.IntRange(1, 99), true, 1))));
 
-        // Ingredient.CODEC is either(list(Value), Value) with Value = xor(ItemValue, TagValue) —
+        // Ingredient.CODEC is either(list(Value), Value) with Value = xor(ItemValue, TagValue) -
         // and on NeoForge a custom-ingredient type dispatch too. Structurally that resolves to an
         // unlabeled AnyOf: both Value records surface as bare "object" and the custom dispatch as a
-        // "raw" opaque. Curate the on-disk shape with real labels — {"item": id} / {"tag": id}, or a
+        // "raw" opaque. Curate the on-disk shape with real labels - {"item": id} / {"tag": id}, or a
         // list mixing the two. (The NeoForge {"type": ...} custom form falls outside this surface.)
         Schema<Ingredient> ingredientItem = new Schema.Record<>(Ingredient.class,
                 List.<Schema.Field<Ingredient, ?>>of(
@@ -246,7 +243,7 @@ public final class CuratedSchemas {
         SchemaCodecs.registerCompanion(Ingredient.CODEC_NONEMPTY, ingredient);
 
         // DimensionType.DIRECT_CODEC wraps fields via ExtraCodecs.catchDecoderException
-        // (a raw Codec.of with anonymous decoder) — no mixin point. Companion describes the
+        // (a raw Codec.of with anonymous decoder) - no mixin point. Companion describes the
         // standard vanilla on-disk shape.
         SchemaCodecs.registerCompanion(DimensionType.DIRECT_CODEC,
                 new Schema.Record<>(DimensionType.class,

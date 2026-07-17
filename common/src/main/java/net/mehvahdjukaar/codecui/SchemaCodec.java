@@ -40,7 +40,7 @@ public sealed interface SchemaCodec<A> extends Codec<A> {
     }
 
     /**
-     * Wrap a raw codec with a lazily computed schema — the supplier runs fresh on each
+     * Wrap a raw codec with a lazily computed schema - the supplier runs fresh on each
      * {@link #schema()} call. Use when the schema references other codecs' schemas (e.g.
      * a labeled {@code SchemaCodecs.anyOf} over alternatives) from a static initializer:
      * resolution is deferred instead of being frozen at class load.

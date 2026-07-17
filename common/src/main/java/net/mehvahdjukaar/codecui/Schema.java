@@ -8,6 +8,7 @@ import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -77,7 +78,7 @@ public sealed interface Schema<A> {
     record MapOf<K, V>(Schema<K> key, Schema<V> value) implements Schema<Map<K, V>> {}
 
     /**
-     * A flat N-way "one of these alternative shapes" choice — for codecs that try several
+     * A flat N-way "one of these alternative shapes" choice - for codecs that try several
      * formats in order ({@code Codec.either}/{@code withAlternative} chains, hand-rolled
      * alternative codecs, reference-or-inline). Always build via {@link #anyOf}: it splices
      * nested AnyOf options flat and auto-labels unlabeled ones ({@code "#N kind"}), so the
@@ -110,7 +111,7 @@ public sealed interface Schema<A> {
      * codec that is still being resolved (self-recursive types like text components,
      * "not"/"and" predicates, {@code hidden_effect}). The resolver {@link #bind}s the target
      * once the outer resolve completes, so by the time an editor walks the schema the ref is
-     * bound. UI backends MUST materialize the target lazily (on expand / on data load) —
+     * bound. UI backends MUST materialize the target lazily (on expand / on data load) -
      * eager materialization of a cyclic schema would recurse forever.
      */
     final class Ref<A> implements Schema<A> {
@@ -133,7 +134,7 @@ public sealed interface Schema<A> {
     /**
      * Binds an arbitrary domain-specific widget to a codec. The {@code widgetDef} is
      * opaque to this ADT (so the core schema layer stays UI-backend-agnostic); it is
-     * populated by a backend-specific combinator — e.g. {@code SwingWidgetDef.bind(codec)}
+     * populated by a backend-specific combinator - e.g. {@code SwingWidgetDef.bind(codec)}
      * for Swing. Backends pattern-match on the runtime type of {@code widgetDef} to dispatch.
      */
     record Custom<A>(Object widgetDef) implements Schema<A> {}
@@ -156,7 +157,7 @@ public sealed interface Schema<A> {
 
     static Color colorArgb() { return new Color(true); }
 
-    /** Unlabeled alternative — receives an auto kind-name label in {@link #anyOf}. */
+    /** Unlabeled alternative - receives an auto kind-name label in {@link #anyOf}. */
     static AnyOf.Option option(Schema<?> schema) {
         return new AnyOf.Option(null, schema);
     }
@@ -166,7 +167,7 @@ public sealed interface Schema<A> {
     }
 
     static <A> Schema<A> anyOf(AnyOf.Option... options) {
-        return anyOf(java.util.Arrays.asList(options));
+        return anyOf(Arrays.asList(options));
     }
 
     /**

@@ -10,12 +10,10 @@ import net.minecraft.tags.TagKey;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
-/**
- * Tags the {@link Codec} returned by {@link TagKey#codec} (and {@code hashedCodec}) with a
- * {@link Schema.TagId} carrying the target registry key — the tag twin of
- * {@link RegistryByNameCodecMixin}. The resolver then routes any {@code TagKey.codec(reg)} field
- * to a tag picker instead of the inherited {@code Identifier}-string schema.
- */
+// Tags the Codec returned by TagKey#codec (and hashedCodec) with a
+// Schema.TagId carrying the target registry key - the tag twin of
+// RegistryByNameCodecMixin. The resolver then routes any TagKey.codec(reg) field
+// to a tag picker instead of the inherited Identifier-string schema.
 @Mixin(TagKey.class)
 public class TagKeyCodecMixin {
 

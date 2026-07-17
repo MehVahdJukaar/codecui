@@ -11,16 +11,14 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.BiFunction;
 
-/**
- * Decodes a base object, then decodes zero or more EXTRA map-fields off the same input and folds
- * them into the base via {@code merge}. Encoding ignores the extras and delegates straight to the
- * base codec — the extras are decode-only "post-process" inputs (validation, cross-field
- * derivation) that don't round-trip back out on their own.
- *
- * <p>A single {@code List<MapCodec<?>>} of extras covers every arity, so there's no need for a
- * per-arity ladder of classes: the merge function receives the decoded base plus the decoded extra
- * values in declaration order. Zero extras degenerates to a passthrough of {@code base}.</p>
- */
+// Decodes a base object, then decodes zero or more EXTRA map-fields off the same input and folds
+// them into the base via merge. Encoding ignores the extras and delegates straight to the
+// base codec - the extras are decode-only "post-process" inputs (validation, cross-field
+// derivation) that don't round-trip back out on their own.
+//
+// A single List<MapCodec<?>> of extras covers every arity, so there's no need for a
+// per-arity ladder of classes: the merge function receives the decoded base plus the decoded extra
+// values in declaration order. Zero extras degenerates to a passthrough of base.
 public final class CodecWithExtra<A> implements Codec<A> {
     private final Codec<A> base;
     private final List<MapCodec<?>> extras;
@@ -32,7 +30,7 @@ public final class CodecWithExtra<A> implements Codec<A> {
         this.merge = Objects.requireNonNull(merge);
     }
 
-    /** The base codec — exposed so the schema resolver can render the primary shape. */
+    //  The base codec - exposed so the schema resolver can render the primary shape.
     public Codec<A> base() {
         return base;
     }

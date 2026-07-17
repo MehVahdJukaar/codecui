@@ -7,33 +7,29 @@ import net.mehvahdjukaar.codecui.CodecUI;
 
 import java.util.function.Function;
 
-/**
- * Runtime detection of whether CodecUI's codec-construction mixins actually wove.
- *
- * <p>The construction mixins target DFU types ({@code Codec}, {@code MapCodec},
- * {@code RecordCodecBuilder}). They can fail to apply in two situations:
- * <ul>
- *   <li><b>NeoForge</b> - always. DFU isn't on the transforming classloader, so Mixin never
- *       gets to weave these classes.</li>
- *   <li><b>Fabric</b> - occasionally. If a DFU type is classloaded before Mixin prepares its
- *       configs ("target loaded too early"), that mixin is silently skipped (its config is
- *       {@code required:false}).</li>
- * </ul>
- * When they don't weave, schema resolution falls back to best-effort reflection. We detect the
- * state by exercising an intercepted call and checking whether the side-channel tag appeared,
- * then expose it through {@code SchemaCodecs.inferenceMode()}.
- */
+// Runtime detection of whether CodecUI's codec-construction mixins actually wove.
+//
+// The construction mixins target DFU types (Codec, MapCodec,
+// RecordCodecBuilder). They can fail to apply in two situations:
+//
+//   - NeoForge - always. DFU isn't on the transforming classloader, so Mixin never
+//       gets to weave these classes.
+//   - Fabric - occasionally. If a DFU type is classloaded before Mixin prepares its
+//       configs ("target loaded too early"), that mixin is silently skipped (its config is
+//       required:false).
+//
+// When they don't weave, schema resolution falls back to best-effort reflection. We detect the
+// state by exercising an intercepted call and checking whether the side-channel tag appeared,
+// then expose it through SchemaCodecs.inferenceMode().
 public final class MixinDetection {
-
-    private MixinDetection() {}
 
     private static volatile boolean detected = false;
     private static volatile boolean codecActive = false;
     private static volatile boolean mapCodecActive = false;
     private static volatile boolean recordBuilderActive = false;
 
-    /** True once construction interception is confirmed fully active (all construction mixins wove).
-     *  Before {@link #run} completes this is optimistic-false; callers use it after init. */
+    //  True once construction interception is confirmed fully active (all construction mixins wove).
+    //  Before #run completes this is optimistic-false; callers use it after init.
     public static boolean constructionInterceptionActive() {
         return codecActive && mapCodecActive && recordBuilderActive;
     }

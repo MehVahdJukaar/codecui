@@ -34,6 +34,8 @@ import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -49,8 +51,8 @@ import java.util.function.Supplier;
  * with its {@link Schema}, so a mod can declare an editable surface for its own codecs and
  * have a CodecUI-aware editor render it.
  *
- * <p>Schemas may be stated explicitly — here, via {@link SchemaCodec#of}, or via
- * {@link SchemaRecord}/{@link SchemaRecordBuilder} — or inferred: {@link SchemaCodec#wrap}
+ * <p>Schemas may be stated explicitly - here, via {@link SchemaCodec#of}, or via
+ * {@link SchemaRecord}/{@link SchemaRecordBuilder} - or inferred: {@link SchemaCodec#wrap}
  * runs the bundled inference engine (structural walk + construction-mixin tags + registered
  * companions/handlers). Anything the engine can't resolve degrades to {@link Schema.Opaque}
  * (a raw-JSON editor). Extend the engine via {@link #registerCompanion}, {@link #registerHandler}
@@ -65,19 +67,7 @@ public final class SchemaCodecs {
      * @see #inferenceMode()
      */
     public enum Inference {
-        /**
-         * Codec construction is intercepted by mixins: numeric bounds ({@code intRange}…),
-         * optional-field defaults and transform links are captured losslessly at build time.
-         * The normal mode on Fabric.
-         */
         MIXIN,
-        /**
-         * The construction mixins did not weave, so schemas are recovered by best-effort
-         * reflection. Structure, field names and numeric ranges survive; optional-field default
-         * values do not. This is <b>always</b> the mode on NeoForge (DFU isn't on the transforming
-         * classloader) and <b>occasionally</b> on Fabric (a DFU type was classloaded before Mixin
-         * could weave it).
-         */
         REFLECTION
     }
 
@@ -93,7 +83,7 @@ public final class SchemaCodecs {
     /**
      * Manually register a schema for a codec that can't be auto-introspected (opaque
      * {@code Codec.of(enc, dec)} wrappers, etc.). After registration, any resolution of this
-     * codec — including nested inside another — finds the hand-crafted schema first.
+     * codec - including nested inside another - finds the hand-crafted schema first.
      */
     public static <A> void registerCompanion(Codec<A> codec, Schema<A> schema) {
         SchemaTags.tag(codec, schema);
@@ -164,7 +154,7 @@ public final class SchemaCodecs {
 
     /**
      * Best-effort schema for any codec: its own schema when it already is a {@link SchemaCodec},
-     * otherwise a raw {@link Schema.Opaque}. No structural inference is performed — this only
+     * otherwise a raw {@link Schema.Opaque}. No structural inference is performed - this only
      * unwraps schema-carrying codecs and provides a raw fallback for the rest.
      */
     public static <A> Schema<A> resolve(Codec<A> codec) {
@@ -251,7 +241,7 @@ public final class SchemaCodecs {
 
     /**
      * Labeled {@link Codec#withAlternative}: builds the codec AND a lazy {@link Schema.AnyOf}
-     * from the same two declarations — each alternative stated once. Prefer passing
+     * from the same two declarations - each alternative stated once. Prefer passing
      * {@link SchemaCodec}s as the alternatives so their schemas render structurally; a raw
      * codec alternative falls back to {@link Schema.Opaque}.
      */
@@ -276,7 +266,7 @@ public final class SchemaCodecs {
             return SchemaCodec.lazy(codec, () -> resolve(codec));
         }
         return SchemaCodec.lazy(codec, () -> {
-            List<Schema.AnyOf.Option> options = new java.util.ArrayList<>(alternatives.length);
+            List<Schema.AnyOf.Option> options = new ArrayList<>(alternatives.length);
             for (Alt<?> alt : alternatives) {
                 options.add(Schema.option(alt.label(), resolve(alt.codec())));
             }
@@ -286,7 +276,7 @@ public final class SchemaCodecs {
 
     /**
      * N-ary labeled alternatives: builds a "try each" wire codec (see {@link AlternativeCodec})
-     * AND a lazy flat {@link Schema.AnyOf} from the same declarations — each alternative stated
+     * AND a lazy flat {@link Schema.AnyOf} from the same declarations - each alternative stated
      * once. Unlike {@link #withAlternative} (a 2-way {@link Codec#withAlternative} fold that always
      * encodes with the primary), every alternative is tried for both decode and encode. Prefer
      * passing {@link SchemaCodec}s so their schemas render structurally; a raw codec alternative
@@ -304,7 +294,7 @@ public final class SchemaCodecs {
         }
         Codec<A> codec = new AlternativeCodec<>(codecs);
         return SchemaCodec.lazy(codec, () -> {
-            List<Schema.AnyOf.Option> options = new java.util.ArrayList<>(alternatives.length);
+            List<Schema.AnyOf.Option> options = new ArrayList<>(alternatives.length);
             for (Alt<? extends A> alt : alternatives) {
                 options.add(Schema.option(alt.label(), resolve(alt.codec())));
             }
@@ -313,7 +303,7 @@ public final class SchemaCodecs {
     }
 
     /**
-     * Unlabeled n-ary "try each" alternatives over raw codecs — a flat {@link Schema.AnyOf} with
+     * Unlabeled n-ary "try each" alternatives over raw codecs - a flat {@link Schema.AnyOf} with
      * auto-derived option names. Use the {@code (label, codec)} overloads or {@link #alt} when you
      * want to name the picker options.
      */
@@ -324,7 +314,7 @@ public final class SchemaCodecs {
         }
         Codec<A> codec = new AlternativeCodec<>(codecs);
         return SchemaCodec.lazy(codec, () -> {
-            List<Schema.AnyOf.Option> options = new java.util.ArrayList<>(codecs.length);
+            List<Schema.AnyOf.Option> options = new ArrayList<>(codecs.length);
             for (Codec<? extends A> c : codecs) {
                 options.add(Schema.option(resolve(c)));
             }
@@ -379,7 +369,7 @@ public final class SchemaCodecs {
      * {@code registryKey}. Uses {@link TagKey#codec} for the wire form and a {@link Schema.TagId}
      * so the editor shows a tag picker. Note {@code TagKey.codec} is already tagged with the same
      * schema on construction (see {@code TagKeyCodecMixin}), so {@code SchemaCodec.wrap} of a bare
-     * {@code TagKey.codec(...)} yields the same result — this is just the explicit spelling.
+     * {@code TagKey.codec(...)} yields the same result - this is just the explicit spelling.
      */
     public static <T> SchemaCodec<TagKey<T>> tag(ResourceKey<? extends Registry<T>> registryKey) {
         Schema<TagKey<T>> schema = castSchema(new Schema.TagId(registryKey, false)); // TagKey.codec is bare, no '#'
@@ -397,11 +387,11 @@ public final class SchemaCodecs {
     }
 
     /**
-     * Enumerates the currently loaded tag ids of {@code registryKey}, sorted — the candidate list
+     * Enumerates the currently loaded tag ids of {@code registryKey}, sorted - the candidate list
      * a UI backend feeds into a {@link Schema.TagId} picker (the tag analogue of iterating a
      * registry's {@code keySet()} for {@link Schema.ResourceId}). Tags are data-driven, so this is
      * only meaningful once tags have been loaded/synced (i.e. with a world open); it returns an
-     * empty list — never throws — for an unknown registry or before tags bind, letting the backend
+     * empty list - never throws - for an unknown registry or before tags bind, letting the backend
      * fall back to a free-text field.
      */
     public static List<ResourceLocation> availableTagIds(ResourceKey<? extends Registry<?>> registryKey) {
@@ -410,7 +400,7 @@ public final class SchemaCodecs {
         if (registry == null) return List.of();
         return registry.getTags()
                 .map(pair -> pair.getFirst().location())
-                .sorted(java.util.Comparator.comparing(ResourceLocation::toString))
+                .sorted(Comparator.comparing(ResourceLocation::toString))
                 .toList();
     }
 
@@ -465,7 +455,7 @@ public final class SchemaCodecs {
         return SchemaCodec.lazy(raw, () -> castSchema(resolve(leftCodec)));
     }
 
-    /** A single element OR a list of them — rendered as a "single / list" picker. */
+    /** A single element OR a list of them - rendered as a "single / list" picker. */
     public static <A> SchemaCodec<List<A>> singleOrList(Codec<A> elementCodec) {
         Codec<List<A>> raw = Codec.withAlternative(elementCodec.listOf(), elementCodec, List::of);
         return SchemaCodec.lazy(raw, () -> singleOrListSchema(elementCodec));
@@ -587,7 +577,7 @@ public final class SchemaCodecs {
             .xmap(l -> () -> l.stream().map(Holder::value).map(ItemStack::new).toList(),
                     s -> HolderSet.direct(s.get().stream().map(ItemStack::getItemHolder).toList()));
 
-    /** A single item/stack, a list of them, or an item tag/holder-set — all as a {@code Supplier<List<ItemStack>>}. */
+    /** A single item/stack, a list of them, or an item tag/holder-set - all as a {@code Supplier<List<ItemStack>>}. */
     public static final Codec<Supplier<List<ItemStack>>> ITEMSTACK_OR_LIST_OR_HOLDER_SET =
             Codec.withAlternative(
                     ITEMSTACK_OR_ITEMSTACK_LIST.xmap(l -> () -> l, Supplier::get),

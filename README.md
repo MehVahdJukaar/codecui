@@ -1,7 +1,7 @@
 # CodecUI
 
-Turn any DataFixerUpper **`Codec`** into an editable **`Schema`** — declare the edit surface
-explicitly, or let the bundled inference engine derive one from an existing codec — then render
+Turn any DataFixerUpper **`Codec`** into an editable **`Schema`** - declare the edit surface
+explicitly, or let the bundled inference engine derive one from an existing codec - then render
 your own editor UI from it. Ships the schema vocabulary **and** the resolver; the UI is yours.
 
 Multi-loader (Fabric + NeoForge), Minecraft **1.21.11** (also a `1.21.1` line). Depends on
@@ -30,7 +30,7 @@ dependencies {
 
 ## Quick start
 
-**Infer a schema from any codec** — the engine walks the codec graph (records, lists, dispatch,
+**Infer a schema from any codec** - the engine walks the codec graph (records, lists, dispatch,
 registries, enums, …); anything it can't introspect degrades to a raw-JSON `Schema.Opaque`:
 
 ```java
@@ -38,7 +38,7 @@ SchemaCodec<Biome> wrapped = SchemaCodec.wrap(Biome.DIRECT_CODEC);
 Schema<Biome> schema = wrapped.schema();   // feed this to your own editor UI
 ```
 
-**Or declare the edit surface explicitly** — `CODEC` stays a real `Codec<MyThing>` (wire format
+**Or declare the edit surface explicitly** - `CODEC` stays a real `Codec<MyThing>` (wire format
 unchanged) and also carries its schema:
 
 ```java
@@ -64,23 +64,23 @@ SchemaCodecs.registerDispatchKeys(MyType.class, keys, MyType::codec, MyType::nam
 
 ## What a consuming mod uses
 
-- **`Schema<A>`** — the sealed ADT describing an edit surface (Bool, IntRange, Str,
+- **`Schema<A>`** - the sealed ADT describing an edit surface (Bool, IntRange, Str,
   ResourceId, Enum, Record, ListOf, MapOf, AnyOf, OneOf, PairOf, plus `Opaque`/`Custom`
   escape hatches).
-- **`SchemaCodec<A> extends Codec<A>`** — a codec paired with its `Schema`. Drop-in for an
+- **`SchemaCodec<A> extends Codec<A>`** - a codec paired with its `Schema`. Drop-in for an
   existing `Codec` field; the editor reads `.schema()` off it. `SchemaCodec.wrap(anyCodec)`
   runs the inference engine.
-- **`SchemaMapCodec<A>`** — the `MapCodec` counterpart (dispatch sub-codecs).
-- **`SchemaRecord` / `SchemaRecordBuilder`** — `RecordCodecBuilder`-shaped DSLs that build a
+- **`SchemaMapCodec<A>`** - the `MapCodec` counterpart (dispatch sub-codecs).
+- **`SchemaRecord` / `SchemaRecordBuilder`** - `RecordCodecBuilder`-shaped DSLs that build a
   codec and its record schema together.
-- **`SchemaCodecs`** — primitives, combinators, and the engine extension points
+- **`SchemaCodecs`** - primitives, combinators, and the engine extension points
   (`registerCompanion` / `registerHandler` / `registerDispatchKeys`).
 
 ## A complete example
 
 A datapack-driven **spell** config that pulls in most of the library at once: a record with
 optional/defaulted fields, a bounded number slider, a color picker, a registry dropdown, and a
-**list of a sum type** (`Effect`) whose variants are picked from a dropdown — each variant a
+**list of a sum type** (`Effect`) whose variants are picked from a dropdown - each variant a
 schema-carrying `MapCodec` declared exactly once. The result is a plain `Codec<Spell>` (unchanged
 wire format) that *also* hands your editor a fully structural `Schema<Spell>`.
 
@@ -107,7 +107,7 @@ public record Spell(String name, Rarity rarity, int manaCost, int glowColor,
 ```java
 public final class SpellCodecs {
 
-    // Each dispatch variant is a schema-carrying MapCodec — declared once, fields + schema together.
+    // Each dispatch variant is a schema-carrying MapCodec - declared once, fields + schema together.
     private static SchemaMapCodec<Damage> damage() {
         var b = SchemaRecordBuilder.of(Damage.class);
         return b.buildMapCodec2(Damage::new,
@@ -152,7 +152,7 @@ public final class SpellCodecs {
 }
 ```
 
-`SpellCodecs.CODEC` is a real `Codec<Spell>` — serialize with it as usual:
+`SpellCodecs.CODEC` is a real `Codec<Spell>` - serialize with it as usual:
 
 ```java
 Spell fireball = new Spell("Fireball", Rarity.RARE, 20, 0xFF5500,
@@ -172,8 +172,8 @@ Schema<Spell> editable = SpellCodecs.CODEC.schema();   // feed this to your edit
 ```
 
 **Didn't declare it?** `SchemaCodec.wrap(SpellCodecs.CODEC)` would infer the same structure from a
-plain codec. When inference hits a codec it can't introspect — a third-party `Codec.of(enc, dec)`,
-say — teach the engine once at init and every schema that nests it (declared *or* inferred) resolves
+plain codec. When inference hits a codec it can't introspect - a third-party `Codec.of(enc, dec)`,
+say - teach the engine once at init and every schema that nests it (declared *or* inferred) resolves
 structurally instead of degrading to raw JSON:
 
 ```java

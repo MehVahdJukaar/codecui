@@ -15,8 +15,6 @@ public final class FieldOfTags {
 
     private static final Map<MapCodec<?>, Entry> ENTRIES = Collections.synchronizedMap(new WeakHashMap<>());
 
-    private FieldOfTags() {}
-
     public static void put(MapCodec<?> wrapped, String name, Codec<?> innerCodec, boolean optional, @Nullable Object defaultValue) {
         if (wrapped == null) return;
         ENTRIES.put(wrapped, new Entry(name, innerCodec, optional, defaultValue));

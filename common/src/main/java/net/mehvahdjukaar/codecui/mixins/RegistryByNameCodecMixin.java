@@ -9,14 +9,12 @@ import net.minecraft.resources.ResourceKey;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
-/**
- * Tags the {@link Codec} returned by {@link Registry#byNameCodec()} with a
- * {@link Schema.ResourceId} carrying this registry's key. The resolver then routes the codec
- * to a {@code ResourceIdWidget} (dropdown / picker) instead of the inherited String schema.
- *
- * <p>Because {@code byNameCodec()} is a default method on {@code Registry}, this mixin fires
- * for every concrete registry implementation — vanilla, mod registries, custom ones.</p>
- */
+// Tags the Codec returned by Registry#byNameCodec() with a
+// Schema.ResourceId carrying this registry's key. The resolver then routes the codec
+// to a ResourceIdWidget (dropdown / picker) instead of the inherited String schema.
+//
+// Because byNameCodec() is a default method on Registry, this mixin fires
+// for every concrete registry implementation - vanilla, mod registries, custom ones.
 @Mixin(Registry.class)
 public interface RegistryByNameCodecMixin<T> {
 
@@ -27,7 +25,7 @@ public interface RegistryByNameCodecMixin<T> {
         return wrapped;
     }
 
-    // Holder<T>-typed twin (MobEffect.CODEC, etc.) — same id-string on-disk form.
+    // Holder<T>-typed twin (MobEffect.CODEC, etc.) - same id-string on-disk form.
     @SuppressWarnings("rawtypes")
     @ModifyReturnValue(method = "holderByNameCodec", at = @At("RETURN"))
     private Codec codecui$tagHolderByNameCodec(Codec wrapped) {

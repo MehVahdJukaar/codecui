@@ -18,14 +18,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Like vanilla {@code HolderSetCodec} a value is a tag ({@code "#c:ingots"}), a single entry
- * ({@code "minecraft:iron_ingot"}) or a list of entries. Unlike vanilla the list is <b>recursive</b>:
- * every element may itself be any of those forms - a tag, an entry or a nested list. All of them are
- * flattened into a single {@link HolderSet}, so tags can be mixed with entries inside one list:
- * <pre>["#c:ingots", "minecraft:stick", ["#minecraft:planks", "minecraft:iron_ingot"]]</pre>
- * Build one with {@link #create}; the recursion is closed over {@link Codec#recursive}.
- */
+// Like vanilla HolderSetCodec a value is a tag ("#c:ingots"), a single entry
+// ("minecraft:iron_ingot") or a list of entries. Unlike vanilla the list is recursive:
+// every element may itself be any of those forms - a tag, an entry or a nested list. All of them are
+// flattened into a single HolderSet, so tags can be mixed with entries inside one list:
+// ["#c:ingots", "minecraft:stick", ["#minecraft:planks", "minecraft:iron_ingot"]]
+// Build one with #create; the recursion is closed over Codec#recursive.
 public final class RecursiveHolderSetCodec<E> implements Codec<HolderSet<E>> {
     private final ResourceKey<? extends Registry<E>> registryKey;
     private final Codec<Holder<E>> elementCodec;
@@ -105,7 +103,7 @@ public final class RecursiveHolderSetCodec<E> implements Codec<HolderSet<E>> {
         return input.unwrap().map(
                 Either::left,
                 list -> list.size() == 1
-                        ? Either.right(Either.left(list.get(0)))
+                        ? Either.right(Either.left(list.getFirst()))
                         : Either.right(Either.right(list.stream().map(h -> (HolderSet<E>) HolderSet.direct(h)).toList())));
     }
 

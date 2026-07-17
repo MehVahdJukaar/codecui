@@ -6,6 +6,6 @@ common {
     accessWidener()
 }
 
-// Declarative schema + codec API only — depends on nothing beyond Minecraft + DataFixerUpper.
+// Declarative schema + codec API only - depends on nothing beyond Minecraft + DataFixerUpper.
 dependencies {
 }

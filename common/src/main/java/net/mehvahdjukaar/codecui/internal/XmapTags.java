@@ -8,15 +8,13 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.WeakHashMap;
 
-/**
- * Lazy side-channel for {@code Codec.xmap}/{@code flatXmap}/{@code validate}/{@code stable}/...
- * (and the {@code MapCodec} mirrors). The mixin records {@code wrapper → innerCodec} at
- * construction time. The resolver consults this at lookup time and resolves the inner FRESH —
- * so a companion registered after construction still wins.
- *
- * <p>Eager resolution at the mixin layer used to capture stale (empty) schemas during MC
- * bootstrap before companions / registries were populated.</p>
- */
+// Lazy side-channel for Codec.xmap/flatXmap/validate/stable/...
+// (and the MapCodec mirrors). The mixin records wrapper → innerCodec at
+// construction time. The resolver consults this at lookup time and resolves the inner FRESH -
+// so a companion registered after construction still wins.
+//
+// Eager resolution at the mixin layer used to capture stale (empty) schemas during MC
+// bootstrap before companions / registries were populated.
 public final class XmapTags {
 
     private static final Map<Codec<?>, Codec<?>> CODEC_INNER =

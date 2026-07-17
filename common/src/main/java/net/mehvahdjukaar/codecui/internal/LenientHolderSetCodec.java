@@ -19,11 +19,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * A copy of vanilla {@code HolderSetCodec} whose list of entries is lenient: elements that fail to
- * decode are skipped rather than failing the whole set (see {@link LenientListCodec}). Otherwise
- * identical - a value is a tag, a single entry, or a list of entries.
- */
+// A copy of vanilla HolderSetCodec whose list of entries is lenient: elements that fail to
+// decode are skipped rather than failing the whole set (see LenientListCodec). Otherwise
+// identical - a value is a tag, a single entry, or a list of entries.
 public final class LenientHolderSetCodec<E> implements Codec<HolderSet<E>> {
     private final ResourceKey<? extends Registry<E>> registryKey;
     private final Codec<Holder<E>> elementCodec;

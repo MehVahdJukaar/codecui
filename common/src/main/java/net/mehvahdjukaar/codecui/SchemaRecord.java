@@ -42,7 +42,7 @@ public final class SchemaRecord {
     }
 
     /**
-     * Field backed by an already-built {@link MapCodec} — e.g. a lenient wrapper that embeds
+     * Field backed by an already-built {@link MapCodec} - e.g. a lenient wrapper that embeds
      * its own key and default and recovers from malformed input. The map codec is used
      * verbatim, so decode/encode semantics (including lenient fallback) are preserved exactly;
      * {@code elementSchema} only supplies the schema the editor renders for the value. Treated
@@ -66,7 +66,7 @@ public final class SchemaRecord {
         return optional(name, SchemaCodec.wrap(codec), defaultValue, getter);
     }
 
-    /** Optional field with NO default — round-trips as {@code Optional<F>}, mirroring
+    /** Optional field with NO default - round-trips as {@code Optional<F>}, mirroring
      *  {@code codec.optionalFieldOf(name).forGetter(...)}. */
     public static <A, F> FieldRef<A, java.util.Optional<F>> optional(String name, SchemaCodec<F> codec,
                                                                      Function<A, java.util.Optional<F>> getter) {
@@ -95,7 +95,7 @@ public final class SchemaRecord {
         }
 
         /**
-         * Field backed by an already-built {@link MapCodec} — e.g. a lenient wrapper that embeds
+         * Field backed by an already-built {@link MapCodec} - e.g. a lenient wrapper that embeds
          * its own key and default and recovers from malformed input. The map codec is used
          * verbatim, so decode/encode semantics (including lenient fallback) are preserved exactly;
          * {@code elementSchema} only supplies the schema the editor renders for the value. Treated
@@ -119,7 +119,7 @@ public final class SchemaRecord {
             return SchemaRecord.optional(name, codec, defaultValue, getter);
         }
 
-        /** Optional field with NO default — round-trips as {@code Optional<F>}, mirroring
+        /** Optional field with NO default - round-trips as {@code Optional<F>}, mirroring
          *  {@code codec.optionalFieldOf(name).forGetter(...)}. */
         public <F> FieldRef<A, java.util.Optional<F>> optional(String name, SchemaCodec<F> codec,
                                                                Function<A, java.util.Optional<F>> getter) {

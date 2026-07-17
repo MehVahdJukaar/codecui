@@ -6,12 +6,10 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 
-/**
- * Mirror of {@link CodecXmapMixin} for {@code MapCodec.xmap} / {@code flatXmap}.
- * Many vanilla CODECs are built like {@code something.fieldOf("x").xmap(ctor, getter)} — the
- * xmap is on the MapCodec, not the Codec. Without this mixin, those outputs are opaque to the
- * resolver and the entire record falls to a raw JSON editor.
- */
+// Mirror of CodecXmapMixin for MapCodec.xmap / flatXmap.
+// Many vanilla CODECs are built like something.fieldOf("x").xmap(ctor, getter) - the
+// xmap is on the MapCodec, not the Codec. Without this mixin, those outputs are opaque to the
+// resolver and the entire record falls to a raw JSON editor.
 @Mixin(MapCodec.class)
 public abstract class MapCodecXmapMixin {
 

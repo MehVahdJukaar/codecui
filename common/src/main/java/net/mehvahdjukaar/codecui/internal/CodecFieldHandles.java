@@ -16,20 +16,16 @@ import java.lang.invoke.VarHandle;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-/**
- * VarHandles for the private fields of the concrete DFU/MC codec classes the resolver
- * introspects. Split out from {@link SchemaResolver} so the resolver reads as tier logic
- * rather than reflection plumbing; consumed via {@code import static} so call sites are
- * unchanged. Every handle is nullable — a failed lookup (DFU version drift, module access)
- * leaves it null and the corresponding tier branch is skipped.
- *
- * <p>net.minecraft.* registry/holder codecs are NOT here: they are read via their
- * (access-widened) fields directly, since string field names would not survive Fabric's
- * intermediary remap.</p>
- */
+// VarHandles for the private fields of the concrete DFU/MC codec classes the resolver
+// introspects. Split out from SchemaResolver so the resolver reads as tier logic
+// rather than reflection plumbing; consumed via import static so call sites are
+// unchanged. Every handle is nullable - a failed lookup (DFU version drift, module access)
+// leaves it null and the corresponding tier branch is skipped.
+//
+// net.minecraft.* registry/holder codecs are NOT here: they are read via their
+// (access-widened) fields directly, since string field names would not survive Fabric's
+// intermediary remap.
 final class CodecFieldHandles {
-
-    private CodecFieldHandles() {}
 
     static final @Nullable VarHandle PAIR_CODEC_FIRST;
     static final @Nullable VarHandle PAIR_CODEC_SECOND;
@@ -97,7 +93,7 @@ final class CodecFieldHandles {
             }
             // KeyDispatchCodec field is named "type" (Function<? super V, ...>), used for the type field name.
             kdt = lookup.findVarHandle(KeyDispatchCodec.class, "type", Function.class);
-            // "decoder" Function<? super K, DataResult<? extends MapDecoder<? extends V>>> — the
+            // "decoder" Function<? super K, DataResult<? extends MapDecoder<? extends V>>> - the
             // public constructor uses the same `codec` function as both decoder and source for the
             // (lazily-wrapped) encoder, so applying decoder to a candidate K yields the variant
             // MapCodec wrapped in DataResult. We use this for variant enumeration.

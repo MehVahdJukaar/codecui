@@ -1,5 +1,6 @@
 package net.mehvahdjukaar.codecui.internal;
 
+import com.google.gson.JsonPrimitive;
 import com.mojang.serialization.*;
 import com.mojang.serialization.codecs.OptionalFieldCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
@@ -24,23 +25,19 @@ final class CodecReflection {
 
     record FieldOfEntry(String name, Codec<?> elementCodec) {}
 
-    /** The captured pieces of {@code ExtraCodecs.dispatchOptionalValue}'s anonymous MapCodec: the
-     *  two JSON keys (type + nested value), the key Codec, and the two getter Functions (one of
-     *  which is the codec-getter - the caller probes to tell them apart). */
+    // The captured pieces of ExtraCodecs.dispatchOptionalValue's anonymous MapCodec: the two JSON
+    // keys (type + nested value), the key Codec, and the two getter Functions (one of which is the
+    // codec-getter; the caller probes to tell them apart).
     record OptionalValueDispatch(String typeKey, String valueKey, Codec<?> keyCodec,
                                  List<Function<Object, Object>> getters) {}
 
-    /**
-     * Detects {@code ExtraCodecs.dispatchOptionalValue(typeKey, valueKey, keyCodec, keyGetter,
-     * codecGetter)} - the anonymous {@code MapCodec} behind advancement criteria and similar
-     * "{@code {type: id, valueKey: {...}}}" shapes. It is not a {@code KeyDispatchCodec}, so the
-     * normal dispatch path misses it and tier-3 would collapse it to the key codec's scalar schema.
-     *
-     * <p>Matched structurally (field NAMES are unreliable across loaders/obfuscation): a MapCodec
-     * whose {@code keys()} yields exactly two string keys and which captures exactly one key Codec
-     * and exactly two getter Functions. A wrong match self-corrects - the enumerator fails to find a
-     * codec-getter and the caller falls through.</p>
-     */
+    // Detects ExtraCodecs.dispatchOptionalValue(typeKey, valueKey, keyCodec, keyGetter, codecGetter),
+    // the anonymous MapCodec behind advancement criteria and similar {type: id, valueKey: {...}}
+    // shapes. It is not a KeyDispatchCodec, so the normal dispatch path misses it and tier-3 would
+    // collapse it to the key codec's scalar schema. Matched structurally, since field names are
+    // unreliable across loaders/obfuscation: a MapCodec whose keys() yields exactly two string keys
+    // and which captures exactly one key Codec and exactly two getter Functions. A wrong match
+    // self-corrects; the enumerator fails to find a codec-getter and the caller falls through.
     @SuppressWarnings("unchecked")
     static @Nullable OptionalValueDispatch detectOptionalValueDispatch(MapCodec<?> codec) {
         List<String> keys;
@@ -73,8 +70,10 @@ final class CodecReflection {
         return new OptionalValueDispatch(keys.get(0), keys.get(1), keyCodec, getters);
     }
 
-    private static String jsonKeyString(Object o) {
-        if (o instanceof com.google.gson.JsonPrimitive p && p.isString()) return p.getAsString();
+    // JsonOps emits keys as JsonPrimitive(String), whose toString() is the quoted form ("\"type\"");
+    // unwrap the underlying string when possible.
+    static String jsonKeyString(Object o) {
+        if (o instanceof JsonPrimitive p && p.isString()) return p.getAsString();
         return String.valueOf(o);
     }
 
@@ -116,15 +115,13 @@ final class CodecReflection {
         return inner == null ? null : new FieldOfEntry(name, inner);
     }
 
-    /**
-     * Best-effort recovery of {@code Codec.intRange/floatRange/doubleRange} bounds when the
-     * construction mixin didn't apply. DFU builds these as {@code PRIMITIVE.flatXmap(checker, checker)}
-     * where {@code checker = checkRange(min, max)} is a lambda capturing the two bounds as its only
-     * fields (Codec.java checkRange). We walk the captured graph of the flatXmapped wrapper for the
-     * single object that captures exactly two {@link Number}s and return them ordered [min, max].
-     * Caller gates this on the wrapper being a flatXmap over a primitive number codec, so the only
-     * two-number capture in the graph is the range checker. Returns null (→ unbounded) if unsure.
-     */
+    // Best-effort recovery of Codec.intRange/floatRange/doubleRange bounds when the
+    // construction mixin didn't apply. DFU builds these as PRIMITIVE.flatXmap(checker, checker)
+    // where checker = checkRange(min, max) is a lambda capturing the two bounds as its only
+    // fields (Codec.java checkRange). We walk the captured graph of the flatXmapped wrapper for the
+    // single object that captures exactly two Numbers and return them ordered [min, max].
+    // Caller gates this on the wrapper being a flatXmap over a primitive number codec, so the only
+    // two-number capture in the graph is the range checker. Returns null (→ unbounded) if unsure.
     static Number @Nullable [] recoverRangeBounds(Object flatXmappedCodec) {
         Set<Object> visited = Collections.newSetFromMap(new IdentityHashMap<>());
         Number[] pair = findNumberPairCapture(flatXmappedCodec, visited, 0);
@@ -157,8 +154,8 @@ final class CodecReflection {
         return null;
     }
 
-    /** An object whose only two non-static declared fields both hold {@link Number}s — the shape of
-     *  the {@code checkRange} lambda's captured (min, max). */
+    //  An object whose only two non-static declared fields both hold Numbers - the shape of
+    //  the checkRange lambda's captured (min, max).
     private static Number @Nullable [] twoCapturedNumbers(Object obj) {
         List<Field> fields = new ArrayList<>(2);
         for (Field f : obj.getClass().getDeclaredFields()) {
