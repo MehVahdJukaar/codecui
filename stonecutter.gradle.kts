@@ -1,3 +1,6 @@
+import org.gradle.api.publish.PublishingExtension
+import org.gradle.api.publish.maven.MavenPublication
+
 plugins {
     id("dev.kikugie.stonecutter")
     id("co.uzzu.dotenv.gradle") version "4.0.0"
@@ -5,6 +8,12 @@ plugins {
     id("net.neoforged.moddev") version "2.0.141" apply false
     id("dev.kikugie.postprocess.jsonlang") version "2.1-beta.4" apply false
     id("me.modmuss50.mod-publish-plugin") version "0.8.+" apply false
+    id("dev.mixinmcp.decompile") version "0.9.0" apply false
+}
+
+subprojects {
+    apply(plugin = "maven-publish")
+    apply(plugin = "dev.mixinmcp.decompile")
 }
 
 stonecutter active "26.1-neoforge"
