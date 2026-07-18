@@ -12,7 +12,11 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.ExtraCodecs;
+import net.minecraft.world.item.ItemStack;
+//? >=26.1
+import net.minecraft.world.item.ItemStackTemplate;
 import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.world.level.block.state.BlockState;
 //? <26.1 {
 /*import net.minecraft.util.valueproviders.FloatProviderType;
 import net.minecraft.util.valueproviders.IntProviderType;
@@ -51,26 +55,14 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
-/**
- * THE hand-maintained list of schema registrations for codecs that auto-inspection can't
- * (or shouldn't) handle. Deliberately separate from the inference machinery in
- * {@link SchemaResolver}: everything here goes through the exact same public API a
- * third-party mod would use ({@code SchemaCodecs.registerCompanion / registerHandler /
- * registerDispatchKeys}), so this class doubles as the reference example for external
- * curation of "weird" codecs.
- *
- * <p>Ground rules for adding entries:</p>
- * <ul>
- *   <li>First try to make inference handle the CLASS of codec (new tier-2 handler,
- *       {@code EnumerableCodec}, mixin tag). Curate here only when that's impossible
- *       (opaque lambdas, shape-changing xmaps we want a nicer surface for) or not worth it.</li>
- *   <li>Schemas describe the ON-DISK JSON shape, not the runtime type - widgets edit JSON.</li>
- *   <li>Comment WHY inference fails for each entry.</li>
- * </ul>
- *
- * <p>Bootstrapped lazily by the resolver on first resolve; safe because companions are
- * looked up fresh each resolve (never baked into cached schemas at construction time).</p>
- */
+// THE hand-maintained list of schema registrations for codecs that auto-inspection can't
+// (or shouldn't) handle. Everything here goes through the same public API a third-party mod
+// would use, so this class doubles as the reference example for curating "weird" codecs.
+//
+// Ground rules: first try to make inference handle the CLASS of codec (tier-2 handler,
+// EnumerableCodec, mixin tag); curate here only when that's impossible or not worth it.
+// Schemas describe the ON-DISK JSON shape, not the runtime type. Comment WHY inference
+// fails for each entry.
 public final class CuratedSchemas {
 
     private static volatile boolean bootstrapped = false;
@@ -86,9 +78,8 @@ public final class CuratedSchemas {
         } catch (Throwable t) {
             CodecUI.LOGGER.warn("curated schema registration failed", t);
         }
-        // Separate block: these reference classes that need the game bootstrap (Blocks,
-        // ItemStack components). On a bare JVM they fail without taking down the safe
-        // registrations above.
+        // These need the game bootstrap (Blocks, ItemStack components); on a bare JVM they
+        // fail without taking down the registrations above.
         try {
             registerBootstrapDependent();
         } catch (Throwable t) {
@@ -119,17 +110,17 @@ public final class CuratedSchemas {
         // BlockPos.CODEC is INT_STREAM.comapFlatMap - INT_STREAM is opaque. On disk: [x, y, z].
         Schema intAll = new Schema.IntRange(Integer.MIN_VALUE, Integer.MAX_VALUE);
         Schema floatAll = new Schema.FloatRange(-Float.MAX_VALUE, Float.MAX_VALUE);
-        SchemaCodecs.registerCompanion(BlockPos.CODEC, (Schema) new Schema.ListOf<>(intAll, 3, 3));
+        SchemaCodecs.registerCompanion(BlockPos.CODEC, new Schema.ListOf<>(intAll, 3, 3));
 
         // JOML vector codecs are FLOAT/INT.listOf().comapFlatMap with an arity check hidden
         // in the lambda; inference sees an unbounded list, curation restores the fixed size.
         // Note: ExtraCodecs.VECTOR2F / VECTOR3I do not exist on 1.21.1 (added in 1.21.11).
         //? >=1.21.11
-        SchemaCodecs.registerCompanion(ExtraCodecs.VECTOR2F, (Schema) new Schema.ListOf<>(floatAll, 2, 2));
-        SchemaCodecs.registerCompanion(ExtraCodecs.VECTOR3F, (Schema) new Schema.ListOf<>(floatAll, 3, 3));
-        SchemaCodecs.registerCompanion(ExtraCodecs.VECTOR4F, (Schema) new Schema.ListOf<>(floatAll, 4, 4));
+        SchemaCodecs.registerCompanion(ExtraCodecs.VECTOR2F, new Schema.ListOf<>(floatAll, 2, 2));
+        SchemaCodecs.registerCompanion(ExtraCodecs.VECTOR3F, new Schema.ListOf<>(floatAll, 3, 3));
+        SchemaCodecs.registerCompanion(ExtraCodecs.VECTOR4F, new Schema.ListOf<>(floatAll, 4, 4));
         //? >=1.21.11
-        SchemaCodecs.registerCompanion(ExtraCodecs.VECTOR3I, (Schema) new Schema.ListOf<>(intAll, 3, 3));
+        SchemaCodecs.registerCompanion(ExtraCodecs.VECTOR3I, new Schema.ListOf<>(intAll, 3, 3));
 
         // Color codecs: inference at best yields AnyOf(integer, text); a color picker is the
         // point of this whole exercise. INT-primary variants emit packed ints, STRING_*
@@ -144,24 +135,15 @@ public final class CuratedSchemas {
         //?}
     }
 
-    /**
-     * Dispatch key sets for vanilla {@code Codec.dispatch(...)} families keyed on a "type" object
-     * from a registry (e.g. {@link RuleTestType}). A {@code KeyDispatchCodec} hides its valid key
-     * set inside a closure, so the resolver can't enumerate variants without this side channel; it
-     * feeds each key back through the dispatch's own decoder to recover the variant body.
-     *
-     * <p>These are hand-listed rather than derived from "all registries" because only <i>type</i>
-     * registries (whose elements carry a per-element {@code MapCodec}) are dispatch-backed - plain
-     * value registries (Block, Item, …) enumerate through the {@link Schema.ResourceId} id-picker
-     * path instead - and nothing reflectively distinguishes the two. Add more the same way.</p>
-     *
-     * <p><b>Only registries of concrete "type" objects belong here</b> - ones whose dispatch decoder
-     * casts the key to a specific class (so a foreign key fails fast, letting the resolver's probe
-     * tell hooks apart). Registries whose elements are bare {@code MapCodec<? extends X>}
-     * (DENSITY_FUNCTION_TYPE, MATERIAL_RULE/CONDITION, ENTITY_SUB_PREDICATE_TYPE, the ENCHANTMENT_*
-     * effect registries, …) are deliberately excluded: their dispatch decoder is identity, so every
-     * such registry would accept every other's keys and cross-contaminate the variant lists.</p>
-     */
+    // Dispatch key sets for vanilla Codec.dispatch(...) families keyed on a "type" object from
+    // a registry. A KeyDispatchCodec hides its valid key set inside a closure, so the resolver
+    // can't enumerate variants without this side channel.
+    //
+    // Only registries of concrete "type" objects belong here - ones whose dispatch decoder casts
+    // the key to a specific class, so a foreign key fails fast and the resolver's probe can tell
+    // hooks apart. Registries whose elements are bare MapCodec<? extends X> (DENSITY_FUNCTION_TYPE,
+    // MATERIAL_RULE, ...) are deliberately excluded: their dispatch decoder is identity, so every
+    // such registry would accept every other's keys and cross-contaminate the variant lists.
     private static void registerVanillaDispatches() {
         // Value providers (used all over worldgen configs).
         registerRegistryDispatch(/*? >=26.1 {*/MapCodec/*?} <26.1 {*//*IntProviderType*//*?}*/.class, BuiltInRegistries.INT_PROVIDER_TYPE);
@@ -222,45 +204,42 @@ public final class CuratedSchemas {
     }
 
     private static void registerBootstrapDependent() {
-        // BlockState.CODEC is built during *very early* MC bootstrap (Blocks init), before
-        // our codec_ui mixins are applied to Codec.fieldOf - so the internal keyCodec never
-        // gets the ResourceId tag and the registry-tag dropdown fallback finds nothing.
-        // Manual Record matching the on-disk shape: {"Name": id, "Properties": {prop: value}}
-        // (Properties is lenientOptionalFieldOf in vanilla, so omitting it is fine).
+        // BlockState.CODEC is built during very early MC bootstrap, before our mixins apply, so
+        // the internal keyCodec never gets its ResourceId tag. On-disk shape:
+        // {"Name": id, "Properties": {prop: value}} (Properties optional in vanilla).
         Schema.Str anyStr = new Schema.Str(0, Integer.MAX_VALUE, null);
-        SchemaCodecs.registerCompanion(net.minecraft.world.level.block.state.BlockState.CODEC,
-                new Schema.Record<>(net.minecraft.world.level.block.state.BlockState.class,
-                        List.<Schema.Field<net.minecraft.world.level.block.state.BlockState, ?>>of(
+        SchemaCodecs.registerCompanion(BlockState.CODEC,
+                new Schema.Record<>(BlockState.class,
+                        List.<Schema.Field<BlockState, ?>>of(
                         new Schema.Field<>("Name", new Schema.ResourceId(Registries.BLOCK), false, null),
                         new Schema.Field<>("Properties", new Schema.MapOf<>(anyStr, anyStr), true, null))));
 
         // ItemStack.CODEC routes through data components - opaque to inference. Minimal
         // round-tripping shape for plain stacks.
-        SchemaCodecs.registerCompanion(net.minecraft.world.item.ItemStack.CODEC,
-                new Schema.Record<>(net.minecraft.world.item.ItemStack.class,
+        SchemaCodecs.registerCompanion(ItemStack.CODEC,
+                new Schema.Record<>(ItemStack.class,
                         List.of(
                         new Schema.Field<>("id", new Schema.ResourceId(Registries.ITEM), false, null),
                         new Schema.Field<>("count", new Schema.IntRange(1, 99), true, 1))));
         // In 26.1 and beyond, ItemStackTemplate is a class that acts as a template for an ItemStack, as such, we handle it the same.
         //? >=26.1 {
-        SchemaCodecs.registerCompanion(net.minecraft.world.item.ItemStackTemplate.CODEC,
-                new Schema.Record<>(net.minecraft.world.item.ItemStackTemplate.class,
+        SchemaCodecs.registerCompanion(ItemStackTemplate.CODEC,
+                new Schema.Record<>(ItemStackTemplate.class,
                         List.of(
                                 new Schema.Field<>("id", new Schema.ResourceId(Registries.ITEM), false, null),
                                 new Schema.Field<>("count", new Schema.IntRange(1, 99), true, 1))));
         //?}
 
-        // Ingredient.CODEC is either(list(Value), Value) with Value = xor(ItemValue, TagValue) -
-        // and on NeoForge a custom-ingredient type dispatch too. Structurally that resolves to an
-        // unlabeled AnyOf: both Value records surface as bare "object" and the custom dispatch as a
-        // "raw" opaque. Curate the on-disk shape with real labels - {"item": id} / {"tag": id}, or a
-        // list mixing the two. (The NeoForge {"type": ...} custom form falls outside this surface.)
+        // Ingredient.CODEC is either(list(Value), Value) with Value = xor(ItemValue, TagValue);
+        // structurally that resolves to an unlabeled AnyOf. Curate the on-disk shape with real
+        // labels: {"item": id} / {"tag": id}, or a list mixing the two. (The NeoForge
+        // {"type": ...} custom form falls outside this surface.)
         Schema<Ingredient> ingredientItem = new Schema.Record<>(Ingredient.class,
                 List.<Schema.Field<Ingredient, ?>>of(
                         new Schema.Field<>("item", new Schema.ResourceId(Registries.ITEM), false, null)));
         Schema<Ingredient> ingredientTag = new Schema.Record<>(Ingredient.class,
                 List.<Schema.Field<Ingredient, ?>>of(
-                        new Schema.Field<>("tag", new Schema.TagId(Registries.ITEM), false, null)));
+                        new Schema.Field<>("tag", new Schema.TagId(Registries.ITEM, false), false, null)));
         Schema<Ingredient> ingredientValue = Schema.anyOf(
                 Schema.option("item", ingredientItem), Schema.option("tag", ingredientTag));
         Schema<Ingredient> ingredient = Schema.anyOf(
@@ -272,9 +251,8 @@ public final class CuratedSchemas {
         //? <1.21.11
         //SchemaCodecs.registerCompanion(Ingredient.CODEC_NONEMPTY, ingredient);
 
-        // DimensionType.DIRECT_CODEC wraps fields via ExtraCodecs.catchDecoderException
-        // (a raw Codec.of with anonymous decoder) - no mixin point. Companion describes the
-        // standard vanilla on-disk shape.
+        // DimensionType.DIRECT_CODEC wraps fields via ExtraCodecs.catchDecoderException (a raw
+        // Codec.of with anonymous decoder) - no mixin point.
         SchemaCodecs.registerCompanion(DimensionType.DIRECT_CODEC,
                 new Schema.Record<>(DimensionType.class,
                         List.of(
