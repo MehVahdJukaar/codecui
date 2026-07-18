@@ -69,19 +69,7 @@ public final class SchemaCodecs {
      * @see #inferenceMode()
      */
     public enum Inference {
-        /**
-         * Codec construction is intercepted by mixins: numeric bounds ({@code intRange}…),
-         * optional-field defaults and transform links are captured losslessly at build time.
-         * The normal mode on Fabric.
-         */
         MIXIN,
-        /**
-         * The construction mixins did not weave, so schemas are recovered by best-effort
-         * reflection. Structure, field names and numeric ranges survive; optional-field default
-         * values do not. This is <b>always</b> the mode on NeoForge (DFU isn't on the transforming
-         * classloader) and <b>occasionally</b> on Fabric (a DFU type was classloaded before Mixin
-         * could weave it).
-         */
         REFLECTION
     }
 

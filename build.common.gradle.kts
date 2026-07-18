@@ -30,6 +30,13 @@ jsonlang {
 
 repositories {
     maven {
+        name = "SpongePowered"
+        url = uri("https://repo.spongepowered.org/repository/maven-public/")
+        content {
+            includeGroup("org.spongepowered")
+        }
+    }
+    maven {
         name = "Jitpack"
         url = uri("https://jitpack.io")
     }
@@ -147,7 +154,7 @@ project.tasks.named("copyAccessTransformersPublications") {
 
 neoForge {
     enable {
-        neoFormVersion = "1.21-20240613.152323"
+        neoFormVersion = property("deps.neoform") as String
         // Disable recompilation for performance reasons.
         isDisableRecompilation = true
     }
@@ -183,7 +190,10 @@ neoForge {
 }
 
 dependencies {
-
+    // The common target compiles against neoform only; mixin and MixinExtras come from the
+    // loader on the platform targets, so they need explicit compile-only deps here.
+    compileOnly("org.spongepowered:mixin:0.8.7")
+    compileOnly("io.github.llamalad7:mixinextras-common:0.4.1")
 }
 
 

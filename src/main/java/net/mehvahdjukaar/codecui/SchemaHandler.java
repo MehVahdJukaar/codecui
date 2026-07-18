@@ -2,7 +2,7 @@ package net.mehvahdjukaar.codecui;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
-import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Extension point for teaching the schema resolver about codec classes it can't introspect
