@@ -1,4 +1,5 @@
 import net.neoforged.nfrtgradle.CreateMinecraftArtifacts
+import org.gradle.api.publish.maven.MavenPublication
 
 plugins {
     id("net.neoforged.moddev")
@@ -252,3 +253,35 @@ val additionalVersions: List<String> = additionalVersionsStr
     ?.map { it.trim() }
     ?.filter { it.isNotEmpty() }
     ?: emptyList()
+
+// Publishing. The old candlelight/GradleHelper upload{}/nexus() DSL was dropped in the Stonecutter
+// migration, so publish had no publications and no-opped. This restores it directly: artifact
+// net.mehvahdjukaar:codecui-common:<mc>-<modversion>. mavenLocal is included so `publish` writes
+// there too; the Nexus repo is only added when NEXUS_USER/NEXUS_TOKEN are set (env or gradle prop).
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            groupId = property("mod.group") as String
+            artifactId = "${property("mod.archives_base")}-common"
+            version = "${property("deps.minecraft")}-${property("mod.version")}"
+            from(components["java"])
+        }
+    }
+    repositories {
+        mavenLocal()
+        val nexusUser = providers.gradleProperty("NEXUS_USER")
+            .orElse(providers.environmentVariable("NEXUS_USER")).orNull
+        val nexusToken = providers.gradleProperty("NEXUS_TOKEN")
+            .orElse(providers.environmentVariable("NEXUS_TOKEN")).orNull
+        if (nexusUser != null && nexusToken != null) {
+            maven {
+                name = "Nexus"
+                url = uri("https://registry.somethingcatchy.net/repository/maven-releases/")
+                credentials {
+                    username = nexusUser
+                    password = nexusToken
+                }
+            }
+        }
+    }
+}
