@@ -256,8 +256,8 @@ val additionalVersions: List<String> = additionalVersionsStr
 
 // Publishing. The old candlelight/GradleHelper upload{}/nexus() DSL was dropped in the Stonecutter
 // migration, so publish had no publications and no-opped. This restores it directly: artifact
-// net.mehvahdjukaar:codecui-common:<mc>-<modversion>. mavenLocal is included so `publish` writes
-// there too; the Nexus repo is only added when NEXUS_USER/NEXUS_TOKEN are set (env or gradle prop).
+// net.mehvahdjukaar:codecui-common:<mc>-<modversion>. Local installs go through publishToMavenLocal;
+// the Nexus repo is only added when NEXUS_USER/NEXUS_TOKEN are set (env or gradle prop).
 publishing {
     publications {
         create<MavenPublication>("maven") {
@@ -268,7 +268,6 @@ publishing {
         }
     }
     repositories {
-        mavenLocal()
         val nexusUser = providers.gradleProperty("NEXUS_USER")
             .orElse(providers.environmentVariable("NEXUS_USER")).orNull
         val nexusToken = providers.gradleProperty("NEXUS_TOKEN")
