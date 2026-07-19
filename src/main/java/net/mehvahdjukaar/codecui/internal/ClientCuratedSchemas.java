@@ -1,9 +1,12 @@
 package net.mehvahdjukaar.codecui.internal;
 
+import com.google.common.collect.BiMap;
 import net.mehvahdjukaar.codecui.SchemaCodecs;
-import net.minecraft.client.renderer.texture.atlas.SpriteSources;
-//? >=1.21.11
+import net.mehvahdjukaar.codecui.mixins.SpriteSourcesAccessor;
+//? >=1.21.11 {
 import com.mojang.serialization.MapCodec;
+import net.mehvahdjukaar.codecui.mixins.LateBoundIdMapperAccessor;
+//?}
 //? <1.21.11
 //import net.minecraft.client.renderer.texture.atlas.SpriteSourceType;
 
@@ -23,14 +26,16 @@ final class ClientCuratedSchemas {
         //? >=1.21.11 {
         // 1.21.11 dropped SpriteSourceType: the dispatch keys are now the MapCodecs themselves, held
         // in a LateBoundIdMapper whose private id<->codec BiMap is the only enumeration handle.
-        var idMap = SpriteSources.ID_MAPPER.idToValue;
+        var mapper = SpriteSourcesAccessor.codecui$getIdMapper();
+        BiMap idMap = ((LateBoundIdMapperAccessor) (Object) mapper).codecui$getIdToValue();
         SchemaCodecs.registerDispatchKeys((Class) MapCodec.class,
                 () -> new ArrayList(idMap.values()),
                 mc -> idMap.inverse().get(mc).toString());
         //?} <1.21.11 {
-        /*SchemaCodecs.registerDispatchKeys(SpriteSourceType.class,
-                () -> new ArrayList<>(SpriteSources.TYPES.values()),
-                type -> SpriteSources.TYPES.inverse().get(type).toString());
+        /*BiMap types = SpriteSourcesAccessor.codecui$getTypes();
+        SchemaCodecs.registerDispatchKeys(SpriteSourceType.class,
+                () -> new ArrayList<>(types.values()),
+                type -> types.inverse().get(type).toString());
         *///?}
     }
 }

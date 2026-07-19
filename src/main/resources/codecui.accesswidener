@@ -9,14 +9,8 @@ accessible	field	net/minecraft/resources/RegistryFileCodec	allowInline	Z
 accessible	field	net/minecraft/resources/RegistryFixedCodec	registryKey	Lnet/minecraft/resources/ResourceKey;
 accessible	field	net/minecraft/resources/HolderSetCodec	elementCodec	Lcom/mojang/serialization/Codec;
 
-# The atlas dispatches on its sprite-source type, whose known keys live only in a private static
-# field (not a registry). ClientCuratedSchemas hands codecui that key set so the atlas form resolves
-# instead of falling to raw JSON; reading the map (not the public fields) picks up modded sources.
-# Loom/MDG reads ONE source access widener (frozen in the active version's state) for every node, so
-# these can't be Stonecutter-toggled per version - both the 1.21.1 shape and the 1.21.11+ shape are
-# listed unconditionally, and each node's loader silently ignores the entry whose target is absent.
-# 1.21.1: dispatch keyed on SpriteSourceType, held in a BiMap<ResourceLocation, SpriteSourceType>.
-accessible	field	net/minecraft/client/renderer/texture/atlas/SpriteSources	TYPES	Lcom/google/common/collect/BiMap;
-# 1.21.11+: SpriteSourceType/TYPES replaced by a LateBoundIdMapper; widen it and its id<->codec BiMap.
-accessible	field	net/minecraft/client/renderer/texture/atlas/SpriteSources	ID_MAPPER	Lnet/minecraft/util/ExtraCodecs$LateBoundIdMapper;
-accessible	field	net/minecraft/util/ExtraCodecs$LateBoundIdMapper	idToValue	Lcom/google/common/collect/BiMap;
+# NOTE: the atlas sprite-source dispatch fields (SpriteSources.TYPES on 1.21.1, SpriteSources.ID_MAPPER
+# + LateBoundIdMapper.idToValue on 1.21.11+) are NOT widened here. Loom's AW validation is strict and
+# rejects an entry whose target field is absent on that version, and a single AW source can't be
+# Stonecutter-toggled - so each version would fail on the other's entries. They're reached via
+# per-version accessor mixins (SpriteSourcesAccessor / LateBoundIdMapperAccessor) instead.
