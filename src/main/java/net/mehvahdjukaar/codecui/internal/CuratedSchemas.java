@@ -86,6 +86,14 @@ public final class CuratedSchemas {
             CodecUI.LOGGER.info("game-dependent curated schemas unavailable (no game bootstrap): {}",
                     String.valueOf(t));
         }
+        // Client-only formats reference net.minecraft.client, absent on a dedicated server - guard
+        // so the NoClassDefFoundError there just skips them instead of failing the whole bootstrap.
+        try {
+            ClientCuratedSchemas.register();
+        } catch (Throwable t) {
+            CodecUI.LOGGER.info("client curated schemas unavailable (dedicated server?): {}",
+                    String.valueOf(t));
+        }
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})

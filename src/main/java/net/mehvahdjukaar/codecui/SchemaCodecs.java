@@ -31,6 +31,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.Identifier;
+import net.minecraft.tags.TagFile;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -376,6 +377,37 @@ public final class SchemaCodecs {
     public static <T> SchemaCodec<TagKey<T>> tag(ResourceKey<? extends Registry<T>> registryKey) {
         Schema<TagKey<T>> schema = castSchema(new Schema.TagId(registryKey, false)); // TagKey.codec is bare, no '#'
         return SchemaCodec.of(TagKey.codec(registryKey), schema);
+    }
+
+    /**
+     * Editor surface for a datapack tag file: the wire form is vanilla {@link TagFile#CODEC} and
+     * each member renders through the registry pickers ({@link Schema.ResourceId} / {@link Schema.TagId})
+     * for {@code registryKey}. Built per registry because a tag's target registry lives in its file
+     * path, not the JSON, so it can't be auto-tagged onto the shared {@code TagFile.CODEC}.
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public static SchemaCodec<TagFile> tagFile(ResourceKey<? extends Registry<?>> registryKey) {
+        Schema<Object> idOf = (Schema) new Schema.ResourceId(registryKey);
+        Schema<Object> tagOf = (Schema) new Schema.TagId(registryKey);
+
+        // A member is an entry id, a #tag reference, or the {id, required} object form.
+        Schema<Object> idOrTag = (Schema) Schema.anyOf(Schema.option("id", idOf), Schema.option("tag", tagOf));
+        List<Schema.Field<Object, ?>> objectFields = List.of(
+                new Schema.Field<>("id", idOrTag, false, null),
+                new Schema.Field<>("required", new Schema.Bool(), true, Boolean.TRUE));
+        Schema<Object> objectMember = new Schema.Record<>(Object.class, objectFields);
+        Schema<Object> member = (Schema) Schema.anyOf(
+                Schema.option("id", idOf),
+                Schema.option("tag", tagOf),
+                Schema.option("object", objectMember));
+
+        Schema<List<Object>> values = new Schema.ListOf<>(member, 0, Integer.MAX_VALUE);
+        List<Schema.Field<TagFile, ?>> fields = List.of(
+                new Schema.Field<>("replace", new Schema.Bool(), true, Boolean.FALSE),
+                new Schema.Field<>("values", values, false, null));
+        Schema<TagFile> schema = (Schema) new Schema.Record<>(TagFile.class, fields);
+
+        return SchemaCodec.of(TagFile.CODEC, schema);
     }
 
     /**
