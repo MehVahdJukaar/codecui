@@ -260,13 +260,19 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         // Codec.recursive / Codec.lazyInitialized. Forcing the memoized supplier is safe:
         // the Ref placeholder already in the cache short-circuits self-references.
         if (codec instanceof Codec.RecursiveCodec<?> rec && RECURSIVE_WRAPPED != null) {
+            Codec<?> inner = null;
             try {
                 Supplier<?> sup = (Supplier<?>) RECURSIVE_WRAPPED.get(rec);
-                Object inner = sup.get();
-                if (inner instanceof Codec<?> c && c != codec) {
-                    return resolveCodec(c, cache);
-                }
-            } catch (Throwable ignored) {}
+                Object got = sup.get();
+                if (got instanceof Codec<?> c && c != codec) inner = c;
+            } catch (Throwable t) {
+                CodecUI.LOGGER.warn("Failed to unwrap recursive codec {}", codec, t);
+            }
+            // Resolve OUTSIDE the catch: a resolution failure of the unwrapped codec must not be
+            // swallowed here (that silently falls through to the reflective tiers, which recover
+            // only simple fields and drop complex ones). Per-field isolation lives in the record
+            // resolver, so a genuine sub-failure degrades to raw JSON rather than crashing.
+            if (inner != null) return resolveCodec(inner, cache);
         }
         // Encodes as a JSON object of key -> value entries, so a map editor is the right surface.
         if (codec instanceof CompoundListCodec<?, ?> cl && COMPOUND_LIST_KEY != null && COMPOUND_LIST_ELEMENT != null) {
@@ -368,13 +374,16 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         }
         // MapCodec.recursive - mirror of the RecursiveCodec handler above.
         if (RECURSIVE_MAP_CLASS != null && RECURSIVE_MAP_WRAPPED != null && RECURSIVE_MAP_CLASS.isInstance(codec)) {
+            MapCodec<?> inner = null;
             try {
                 Supplier<?> sup = (Supplier<?>) RECURSIVE_MAP_WRAPPED.get(codec);
-                Object inner = sup.get();
-                if (inner instanceof MapCodec<?> mc && mc != codec) {
-                    return resolveMapCodec(mc, cache);
-                }
-            } catch (Throwable ignored) {}
+                Object got = sup.get();
+                if (got instanceof MapCodec<?> mc && mc != codec) inner = mc;
+            } catch (Throwable t) {
+                CodecUI.LOGGER.warn("Failed to unwrap recursive map codec {}", codec, t);
+            }
+            // Resolve outside the catch (see RecursiveCodec handler above).
+            if (inner != null) return resolveMapCodec(inner, cache);
         }
         // ExtraCodecs.dispatchOptionalValue (advancement criteria etc.). Not a KeyDispatchCodec, so
         // it must be matched structurally before tier-3 mistakes it for a scalar wrapper.
@@ -450,42 +459,69 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
                                               IdentityHashMap<Object, Schema<?>> cache) {
         List<Schema.Field<?, ?>> fields = new ArrayList<>(entries.size());
         for (var e : entries) {
-            Schema<?> fieldSchema;
-            boolean optional;
-            Object defaultValue = null;
-            if (e.mapCodec() != null) {
-                Schema<?> mapSchema = resolveMapCodec((MapCodec) e.mapCodec(), cache);
-                // A raw MapCodec included in a group - of(getter, MapCodec) - flattens its keys
-                // straight into the parent record; only fieldOf("x") nests. So a single-field
-                // Record is the fieldOf form (unwrap to one named field), while a multi-field
-                // Record is a grouped sub-codec (ClimateSettings etc.) whose fields must be
-                // spread into the parent.
-                if (mapSchema instanceof Schema.Record<?> rec) {
-                    if (rec.fields().size() == 1) {
-                        Schema.Field<?, ?> inner = rec.fields().getFirst();
-                        addField(fields, new Schema.Field(e.name(), inner.schema(), inner.optional(), inner.defaultValue()));
-                    } else {
-                        for (Schema.Field<?, ?> f : rec.fields()) addField(fields, f);
-                    }
-                    continue;
-                }
-                // A grouped MapCodec that spans flat keys but can't be spread into static named
-                // fields - a dispatch (OneOf), pair, map, or either-of-maps (AnyOf). Mark it inline
-                // so the backend merges its object flat (see Schema.Field.inline); anything else
-                // keeps the nested-under-name behavior.
-                boolean flattenable = mapSchema instanceof Schema.OneOf<?>
-                        || mapSchema instanceof Schema.PairOf<?, ?>
-                        || mapSchema instanceof Schema.MapOf<?, ?>
-                        || mapSchema instanceof Schema.AnyOf<?>;
-                addField(fields, new Schema.Field(e.name(), mapSchema, false, null, flattenable));
-                continue;
-            } else {
-                fieldSchema = resolveCodec((Codec) e.elementCodec(), cache);
+            // Isolate each field: a single field that throws (or hits a codec shape we can't
+            // introspect on this game/DFU version) must degrade to a raw-JSON field, never drop
+            // the field or take down the whole record. Dropping silently loses that field's data
+            // on save (e.g. a loot table's "pools", a template pool's "fallback") - the field
+            // vanishes from the form and from the re-encoded JSON. Raw JSON at least round-trips.
+            try {
+                appendRecordField(fields, e, cache);
+            } catch (Throwable t) {
+                CodecUI.LOGGER.warn("Record field '{}' failed to resolve; falling back to raw JSON",
+                        e.name(), t);
+                addField(fields, opaqueField(e));
             }
-            optional = false;
-            addField(fields, new Schema.Field(e.name(), fieldSchema, optional, defaultValue));
         }
         return new Schema.Record(Object.class, List.copyOf(fields));
+    }
+
+    // Resolves one record entry into the growing field list. Extracted so schemaFromRecordEntries
+    // can isolate per-field failures; may throw, which the caller turns into a raw-JSON field.
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private void appendRecordField(List<Schema.Field<?, ?>> fields, RecordFieldTags.Entry e,
+                                   IdentityHashMap<Object, Schema<?>> cache) {
+        if (e.mapCodec() != null) {
+            Schema<?> mapSchema = resolveMapCodec((MapCodec) e.mapCodec(), cache);
+            // A raw MapCodec included in a group - of(getter, MapCodec) - flattens its keys
+            // straight into the parent record; only fieldOf("x") nests. So a single-field
+            // Record is the fieldOf form (unwrap to one named field), while a multi-field
+            // Record is a grouped sub-codec (ClimateSettings etc.) whose fields must be
+            // spread into the parent.
+            if (mapSchema instanceof Schema.Record<?> rec) {
+                if (rec.fields().isEmpty()) {
+                    // Introspected to zero sub-fields: flattening would make this named field
+                    // vanish, so keep it as raw JSON instead of dropping its data.
+                    addField(fields, opaqueField(e));
+                } else if (rec.fields().size() == 1) {
+                    Schema.Field<?, ?> inner = rec.fields().getFirst();
+                    addField(fields, new Schema.Field(e.name(), inner.schema(), inner.optional(), inner.defaultValue()));
+                } else {
+                    for (Schema.Field<?, ?> f : rec.fields()) addField(fields, f);
+                }
+                return;
+            }
+            // A grouped MapCodec that spans flat keys but can't be spread into static named
+            // fields - a dispatch (OneOf), pair, map, or either-of-maps (AnyOf). Mark it inline
+            // so the backend merges its object flat (see Schema.Field.inline); anything else
+            // keeps the nested-under-name behavior.
+            boolean flattenable = mapSchema instanceof Schema.OneOf<?>
+                    || mapSchema instanceof Schema.PairOf<?, ?>
+                    || mapSchema instanceof Schema.MapOf<?, ?>
+                    || mapSchema instanceof Schema.AnyOf<?>;
+            addField(fields, new Schema.Field(e.name(), mapSchema, false, null, flattenable));
+            return;
+        }
+        Schema<?> fieldSchema = resolveCodec((Codec) e.elementCodec(), cache);
+        addField(fields, new Schema.Field(e.name(), fieldSchema, false, null));
+    }
+
+    // Raw-JSON fallback for a field we couldn't introspect: carry the field's own codec so the
+    // Opaque widget still validates and round-trips the value exactly. Optional so a form that
+    // couldn't build the field doesn't spuriously flag it as a required-but-missing error.
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static Schema.Field<?, ?> opaqueField(RecordFieldTags.Entry e) {
+        Codec<?> codec = e.mapCodec() != null ? e.mapCodec().codec() : e.elementCodec();
+        return new Schema.Field(e.name(), new Schema.Opaque(codec, null), true, null);
     }
 
     // Skips duplicate names: guards against a spread sub-record colliding with a sibling field.

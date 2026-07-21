@@ -26,6 +26,8 @@ tasks.named<ProcessResources>("processResources") {
         this["mod_github"] = prop("mod.github")
     }
 
+    inputs.properties(props)
+
     filesMatching(listOf("fabric.mod.json", "META-INF/neoforge.mods.toml", "META-INF/mods.toml")) {
         expand(props)
     }
