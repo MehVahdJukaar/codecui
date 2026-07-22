@@ -138,7 +138,7 @@ public final class CuratedSchemas {
 
     }
 
-    @SuppressWarnings("unused")
+    @SuppressWarnings({"unused", "unchecked", "rawtypes"})
     private static <K> void registerRegistryDispatch(Class<K> type, Registry<? extends K> registry) {
         // LAZY: re-snapshot on each call so we see whatever's in the registry when the editor opens,
         // not at static-init time (avoids any class-loading order race with registry population).
