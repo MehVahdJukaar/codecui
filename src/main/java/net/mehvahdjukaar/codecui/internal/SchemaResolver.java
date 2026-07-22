@@ -459,11 +459,9 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
                                               IdentityHashMap<Object, Schema<?>> cache) {
         List<Schema.Field<?, ?>> fields = new ArrayList<>(entries.size());
         for (var e : entries) {
-            // Isolate each field: a single field that throws (or hits a codec shape we can't
-            // introspect on this game/DFU version) must degrade to a raw-JSON field, never drop
-            // the field or take down the whole record. Dropping silently loses that field's data
-            // on save (e.g. a loot table's "pools", a template pool's "fallback") - the field
-            // vanishes from the form and from the re-encoded JSON. Raw JSON at least round-trips.
+            // Isolate each field: one that throws must degrade to raw JSON, never drop the field or
+            // take down the whole record. Dropping silently loses that field's data on save (e.g. a
+            // loot table's "pools") - raw JSON at least round-trips.
             try {
                 appendRecordField(fields, e, cache);
             } catch (Throwable t) {
