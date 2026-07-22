@@ -57,6 +57,8 @@ public class WrappedEnumerableCodec<A> implements Codec<A>, EnumerableCodec {
         return performOperationOnWrapped(wrapped -> wrapped.withLifecycle(lifecycle));
     }
 
+    // Non-static withAlternative methods added in DFU 9 (1.21.11)
+    //? >=1.21.11 {
     @Override
     public Codec<A> withAlternative(Codec<? extends A> alternative) {
         return performOperationOnWrapped(wrapped -> wrapped.withAlternative(alternative));
@@ -66,6 +68,7 @@ public class WrappedEnumerableCodec<A> implements Codec<A>, EnumerableCodec {
     public <U> Codec<A> withAlternative(Codec<U> alternative, Function<U, A> converter) {
         return performOperationOnWrapped(wrapped -> wrapped.withAlternative(alternative, converter));
     }
+    //?}
 
     @Override
     public Codec<List<A>> listOf() {
