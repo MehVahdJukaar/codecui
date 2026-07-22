@@ -7,6 +7,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Registry;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.ComponentSerialization;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.ExtraCodecs;
 import net.minecraft.world.item.ItemStack;
@@ -119,6 +120,13 @@ public final class CuratedSchemas {
         SchemaCodecs.registerCompanion(ExtraCodecs.STRING_RGB_COLOR, new Schema.Color(false, true));
         SchemaCodecs.registerCompanion(ExtraCodecs.STRING_ARGB_COLOR, new Schema.Color(true, true));
         //?}
+
+        // Text components: ComponentSerialization.CODEC is a Codec.recursive over an Either tree.
+        // Structural inference (especially NeoForge's reflective path) builds a schema whose
+        // re-encode doesn't round-trip, so a valid on-disk component fails to decode from the rebuilt
+        // form. It's also too rich to edit as a form. Curate it as opaque: validated raw JSON that
+        // round-trips exactly.
+        SchemaCodecs.registerCompanion(ComponentSerialization.CODEC, new Schema.Opaque<>(ComponentSerialization.CODEC, null));
     }
 
     // Dispatch key sets for vanilla Codec.dispatch(...) families keyed on a "type" object from
