@@ -15,10 +15,10 @@ public final class McCompat {
         return key./*? >=1.21.11 {*/identifier/*?} <1.21.11 {*//*location*//*?}*/();
     }
 
-    // Registry.get(Identifier) -> Registry.getValue(Identifier) (renamed after 1.21.1);
+    // Registry.get(Identifier) -> Registry.getValue(Identifier) (renamed in 1.21.2);
     // both return the value directly, or null when absent.
     public static <T> @Nullable T getValue(Registry<T> registry, Identifier id) {
-        return registry./*? >1.21.1 {*/getValue/*?} <=1.21.1 {*//*get*//*?}*/(id);
+        return registry./*? >=1.21.2 {*/getValue/*?} <1.21.2 {*//*get*//*?}*/(id);
     }
 
     // ItemStack.getItemHolder() -> ItemStack.typeHolder() (renamed in 26.1)

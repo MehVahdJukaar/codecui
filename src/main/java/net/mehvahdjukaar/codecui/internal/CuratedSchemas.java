@@ -1,14 +1,11 @@
 package net.mehvahdjukaar.codecui.internal;
 
-//? >=26.1
-import com.mojang.serialization.MapCodec;
 import net.mehvahdjukaar.codecui.CodecUI;
 import net.mehvahdjukaar.codecui.Schema;
 import net.mehvahdjukaar.codecui.SchemaCodecs;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Registry;
 import net.minecraft.core.UUIDUtil;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.ExtraCodecs;
@@ -17,37 +14,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemStackTemplate;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.level.block.state.BlockState;
-//? <26.1 {
-/*import net.minecraft.util.valueproviders.FloatProviderType;
-import net.minecraft.util.valueproviders.IntProviderType;
-*///?}
 import net.minecraft.world.level.dimension.DimensionType;
-import net.minecraft.world.level.levelgen.blockpredicates.BlockPredicateType;
-import net.minecraft.world.level.levelgen.carver.WorldCarver;
-import net.minecraft.world.level.levelgen.feature.Feature;
-import net.minecraft.world.level.levelgen.feature.featuresize.FeatureSizeType;
-import net.minecraft.world.level.levelgen.feature.foliageplacers.FoliagePlacerType;
-import net.minecraft.world.level.levelgen.feature.rootplacers.RootPlacerType;
-import net.minecraft.world.level.levelgen.feature.stateproviders.BlockStateProviderType;
-import net.minecraft.world.level.levelgen.feature.treedecorators.TreeDecoratorType;
-import net.minecraft.world.level.levelgen.feature.trunkplacers.TrunkPlacerType;
-import net.minecraft.world.level.levelgen.heightproviders.HeightProviderType;
-import net.minecraft.world.level.levelgen.placement.PlacementModifierType;
-import net.minecraft.world.level.levelgen.structure.StructureType;
-import net.minecraft.world.level.levelgen.structure.placement.StructurePlacementType;
-import net.minecraft.world.level.levelgen.structure.pools.StructurePoolElementType;
-import net.minecraft.world.level.levelgen.structure.templatesystem.PosRuleTestType;
-import net.minecraft.world.level.levelgen.structure.templatesystem.RuleTestType;
-import net.minecraft.world.level.levelgen.structure.templatesystem.StructureProcessorType;
-import net.minecraft.world.level.levelgen.structure.templatesystem.rule.blockentity.RuleBlockEntityModifierType;
-//? <26.1 {
-/*import net.minecraft.world.level.storage.loot.entries.LootPoolEntryType;
-import net.minecraft.world.level.storage.loot.functions.LootItemFunctionType;
-import net.minecraft.world.level.storage.loot.predicates.LootItemConditionType;
-import net.minecraft.world.level.storage.loot.providers.nbt.LootNbtProviderType;
-import net.minecraft.world.level.storage.loot.providers.number.LootNumberProviderType;
-import net.minecraft.world.level.storage.loot.providers.score.LootScoreProviderType;
-*///?}
 
 import java.util.ArrayList;
 import java.util.List;
@@ -122,19 +89,30 @@ public final class CuratedSchemas {
 
         // JOML vector codecs are FLOAT/INT.listOf().comapFlatMap with an arity check hidden
         // in the lambda; inference sees an unbounded list, curation restores the fixed size.
-        // Note: ExtraCodecs.VECTOR2F / VECTOR3I do not exist on 1.21.1 (added in 1.21.11).
-        //? >=1.21.11
-        SchemaCodecs.registerCompanion(ExtraCodecs.VECTOR2F, new Schema.ListOf<>(floatAll, 2, 2));
+        // Note: ExtraCodecs.VECTOR2F / VECTOR3I do not exist on 1.21.1 (added in 1.21.6).
+        //? >=1.21.6 {
+        try {
+            SchemaCodecs.registerCompanion(ExtraCodecs.VECTOR2F, new Schema.ListOf<>(floatAll, 2, 2));
+        } catch (Throwable e) {
+            CodecUI.LOGGER.info("Vector2F codec does not exist, are you on 1.21.5? Error: ", e);
+        }
+        //?}
         SchemaCodecs.registerCompanion(ExtraCodecs.VECTOR3F, new Schema.ListOf<>(floatAll, 3, 3));
         SchemaCodecs.registerCompanion(ExtraCodecs.VECTOR4F, new Schema.ListOf<>(floatAll, 4, 4));
-        //? >=1.21.11
-        SchemaCodecs.registerCompanion(ExtraCodecs.VECTOR3I, new Schema.ListOf<>(intAll, 3, 3));
+        //? >=1.21.6 {
+        try {
+            SchemaCodecs.registerCompanion(ExtraCodecs.VECTOR3I, new Schema.ListOf<>(intAll, 3, 3));
+        } catch (Throwable e) {
+            CodecUI.LOGGER.info("Vector2F codec does not exist, are you on 1.21.5? Error: ", e);
+        }
+        //?}
 
         // Color codecs: inference at best yields AnyOf(integer, text); a color picker is the
         // point of this whole exercise. INT-primary variants emit packed ints, STRING_*
         // variants emit "#RRGGBB"/"#AARRGGBB" strings (hexString flag). On 1.21.1 only ARGB_COLOR_CODEC exists (int-primary);
-        // RGB_COLOR_CODEC and the STRING_* hex-string color codecs were added in 1.21.11.
-        //? >=1.21.11
+        // RGB_COLOR_CODEC was added in 1.21.2.
+        // STRING_* hex-string color codecs were added in 1.21.11.
+        //? >=1.21.2
         SchemaCodecs.registerCompanion(ExtraCodecs.RGB_COLOR_CODEC, new Schema.Color(false, false));
         SchemaCodecs.registerCompanion(ExtraCodecs.ARGB_COLOR_CODEC, new Schema.Color(true, false));
         //? >=1.21.11 {
@@ -152,46 +130,16 @@ public final class CuratedSchemas {
     // hooks apart. Registries whose elements are bare MapCodec<? extends X> (DENSITY_FUNCTION_TYPE,
     // MATERIAL_RULE, ...) are deliberately excluded: their dispatch decoder is identity, so every
     // such registry would accept every other's keys and cross-contaminate the variant lists.
+    //
+    // For most use cases, the RegistryByNameCodecMixin should handle it as it wraps the codecs
+    // for the registry to provide the keys by default. However, this should be used for any registries
+    // which have dispatch codecs not covered by RegistryByNameCodecMixin
     private static void registerVanillaDispatches() {
-        // Value providers (used all over worldgen configs).
-        registerRegistryDispatch(/*? >=26.1 {*/MapCodec/*?} <26.1 {*//*IntProviderType*//*?}*/.class, BuiltInRegistries.INT_PROVIDER_TYPE);
-        registerRegistryDispatch(/*? >=26.1 {*/MapCodec/*?} <26.1 {*//*FloatProviderType*//*?}*/.class, BuiltInRegistries.FLOAT_PROVIDER_TYPE);
-        registerRegistryDispatch(HeightProviderType.class, BuiltInRegistries.HEIGHT_PROVIDER_TYPE);
 
-        // Worldgen features / placement / block-state providers.
-        registerRegistryDispatch(Feature.class, BuiltInRegistries.FEATURE);
-        registerRegistryDispatch(PlacementModifierType.class, BuiltInRegistries.PLACEMENT_MODIFIER_TYPE);
-        registerRegistryDispatch(BlockStateProviderType.class, BuiltInRegistries.BLOCKSTATE_PROVIDER_TYPE);
-        registerRegistryDispatch(BlockPredicateType.class, BuiltInRegistries.BLOCK_PREDICATE_TYPE);
-        registerRegistryDispatch(WorldCarver.class, BuiltInRegistries.CARVER);
-        registerRegistryDispatch(FeatureSizeType.class, BuiltInRegistries.FEATURE_SIZE_TYPE);
-
-        // Tree building blocks (feature sub-configs).
-        registerRegistryDispatch(FoliagePlacerType.class, BuiltInRegistries.FOLIAGE_PLACER_TYPE);
-        registerRegistryDispatch(TrunkPlacerType.class, BuiltInRegistries.TRUNK_PLACER_TYPE);
-        registerRegistryDispatch(RootPlacerType.class, BuiltInRegistries.ROOT_PLACER_TYPE);
-        registerRegistryDispatch(TreeDecoratorType.class, BuiltInRegistries.TREE_DECORATOR_TYPE);
-
-        // Structures, placement, jigsaw pool elements, and the structure-template rule system.
-        registerRegistryDispatch(StructureType.class, BuiltInRegistries.STRUCTURE_TYPE);
-        registerRegistryDispatch(StructurePlacementType.class, BuiltInRegistries.STRUCTURE_PLACEMENT);
-        registerRegistryDispatch(StructurePoolElementType.class, BuiltInRegistries.STRUCTURE_POOL_ELEMENT);
-        registerRegistryDispatch(StructureProcessorType.class, BuiltInRegistries.STRUCTURE_PROCESSOR);
-        registerRegistryDispatch(RuleTestType.class, BuiltInRegistries.RULE_TEST);
-        registerRegistryDispatch(PosRuleTestType.class, BuiltInRegistries.POS_RULE_TEST);
-        registerRegistryDispatch(RuleBlockEntityModifierType.class, BuiltInRegistries.RULE_BLOCK_ENTITY_MODIFIER);
-
-        // Loot tables: entries, functions, conditions, and the number/nbt/score providers.
-        registerRegistryDispatch(/*? >=26.1 {*/MapCodec/*?} <26.1 {*//*LootPoolEntryType*//*?}*/.class, BuiltInRegistries.LOOT_POOL_ENTRY_TYPE);
-        registerRegistryDispatch(/*? >=26.1 {*/MapCodec/*?} <26.1 {*//*LootItemFunctionType*//*?}*/.class, BuiltInRegistries.LOOT_FUNCTION_TYPE);
-        registerRegistryDispatch(/*? >=26.1 {*/MapCodec/*?} <26.1 {*//*LootItemConditionType*//*?}*/.class, BuiltInRegistries.LOOT_CONDITION_TYPE);
-        registerRegistryDispatch(/*? >=26.1 {*/MapCodec/*?} <26.1 {*//*LootNumberProviderType*//*?}*/.class, BuiltInRegistries.LOOT_NUMBER_PROVIDER_TYPE);
-        registerRegistryDispatch(/*? >=26.1 {*/MapCodec/*?} <26.1 {*//*LootNbtProviderType*//*?}*/.class, BuiltInRegistries.LOOT_NBT_PROVIDER_TYPE);
-        registerRegistryDispatch(/*? >=26.1 {*/MapCodec/*?} <26.1 {*//*LootScoreProviderType*//*?}*/.class, BuiltInRegistries.LOOT_SCORE_PROVIDER_TYPE);
     }
 
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    private static <K> void registerRegistryDispatch(Class<? super K> keyType, Registry<? extends K> registry) {
+    @SuppressWarnings("unused")
+    private static <K> void registerRegistryDispatch(Class<K> type, Registry<? extends K> registry) {
         // LAZY: re-snapshot on each call so we see whatever's in the registry when the editor opens,
         // not at static-init time (avoids any class-loading order race with registry population).
         Supplier<List<K>> keys = () -> {
@@ -200,7 +148,7 @@ public final class CuratedSchemas {
                 for (K v : registry) snapshot.add(v);
             } catch (Throwable t) {
                 CodecUI.LOGGER.warn("[codecui] Failed to iterate registry for {}: {}",
-                        keyType.getSimpleName(), t.toString());
+                        type.getSimpleName(), t.toString());
             }
             return snapshot;
         };
@@ -208,7 +156,7 @@ public final class CuratedSchemas {
             Identifier id = ((Registry) registry).getKey(v);
             return id != null ? id.toString() : String.valueOf(v);
         };
-        SchemaCodecs.registerDispatchKeys((Class<K>) keyType, keys, nameOf);
+        SchemaCodecs.registerDispatchKeys(type, keys, nameOf);
     }
 
     private static void registerBootstrapDependent() {
@@ -255,8 +203,8 @@ public final class CuratedSchemas {
                 Schema.option("tag", ingredientTag),
                 Schema.option("list", new Schema.ListOf<>(ingredientValue, 1, Integer.MAX_VALUE)));
         SchemaCodecs.registerCompanion(Ingredient.CODEC, ingredient);
-        // By 1.21.11, Ingredient.CODEC_NONEMPTY was removed as Ingredient.CODEC enforces being non-empty now
-        //? <1.21.11
+        // By 1.21.2, Ingredient.CODEC_NONEMPTY was removed as Ingredient.CODEC enforces being non-empty now
+        //? <1.21.2
         //SchemaCodecs.registerCompanion(Ingredient.CODEC_NONEMPTY, ingredient);
 
         // DimensionType.DIRECT_CODEC wraps fields via ExtraCodecs.catchDecoderException (a raw

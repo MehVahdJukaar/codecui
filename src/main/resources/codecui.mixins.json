@@ -11,8 +11,7 @@
     "TagKeyCodecMixin"
   ],
   "client": [
-    "SpriteSourcesAccessor",
-    "LateBoundIdMapperAccessor"
+    "SpriteSourcesAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

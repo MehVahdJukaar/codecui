@@ -3,11 +3,19 @@ package net.mehvahdjukaar.codecui.mixins;
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.mojang.serialization.Codec;
 import net.mehvahdjukaar.codecui.Schema;
+import net.mehvahdjukaar.codecui.internal.McCompat;
 import net.mehvahdjukaar.codecui.internal.SchemaTags;
+import net.mehvahdjukaar.codecui.internal.WrappedEnumerableCodec;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceKey;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 
 // Tags the Codec returned by Registry#byNameCodec() with a
 // Schema.ResourceId carrying this registry's key. The resolver then routes the codec
@@ -18,7 +26,9 @@ import org.spongepowered.asm.mixin.injection.At;
 @Mixin(Registry.class)
 public interface RegistryByNameCodecMixin<T> {
 
-    @SuppressWarnings({"unchecked", "rawtypes"})
+    @Shadow
+    Set<Map.Entry<ResourceKey<T>, T>> entrySet();
+
     @ModifyReturnValue(method = "byNameCodec", at = @At("RETURN"))
     private Codec<T> codecui$tagByNameCodec(Codec<T> wrapped) {
         codecui$tagWithKey(wrapped);
@@ -33,8 +43,18 @@ public interface RegistryByNameCodecMixin<T> {
         return wrapped;
     }
 
+    @ModifyReturnValue(method = "referenceHolderWithLifecycle", at = @At("RETURN"))
+    private Codec<T> codecui$tagReferenceHolderWithLifecycle(Codec<T> wrapped) {
+        codecui$tagWithKey(wrapped);
+        return new WrappedEnumerableCodec<>(wrapped, () -> {
+            Map<String, T> idToValues = new HashMap<>();
+            this.entrySet().forEach(entry -> idToValues.put(McCompat.keyId(entry.getKey()).toString(), entry.getValue()));
+            return idToValues;
+        });
+    }
+
     @SuppressWarnings({"unchecked", "rawtypes"})
-    @org.spongepowered.asm.mixin.Unique
+    @Unique
     private void codecui$tagWithKey(Codec<?> wrapped) {
         try {
             ResourceKey<? extends Registry<T>> key = ((Registry<T>) this).key();

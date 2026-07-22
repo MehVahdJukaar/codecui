@@ -11,11 +11,12 @@ val isUnobfuscated = stonecutter.eval(stonecutter.current.version, ">=26")
 
 tasks.named<ProcessResources>("processResources") {
     fun prop(name: String) = project.property(name) as String
+    fun hasProp(name: String) = project.hasProperty(name)
 
     val props = HashMap<String, String>().apply {
         this["version"] = "${prop("deps.minecraft")}-${prop("mod.version")}"
         this["minecraft"] = prop("mod.mc_dep_forgelike")
-        this["neoforge_version"] = prop("deps.neoforge")
+        this["neoforge_version"] = if (hasProp("deps.min-neoforge")) prop("deps.min-neoforge") else prop("deps.neoforge")
         this["mod_id"] = prop("mod.id")
         this["mod_name"] = prop("mod.name")
         this["mod_description"] = prop("mod.description")
