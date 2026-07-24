@@ -9,8 +9,8 @@ accessible	field	net/minecraft/resources/RegistryFileCodec	allowInline	Z
 accessible	field	net/minecraft/resources/RegistryFixedCodec	registryKey	Lnet/minecraft/resources/ResourceKey;
 accessible	field	net/minecraft/resources/HolderSetCodec	elementCodec	Lcom/mojang/serialization/Codec;
 
-# NOTE: the atlas sprite-source dispatch fields (SpriteSources.TYPES on 1.21.1, SpriteSources.ID_MAPPER
-# + LateBoundIdMapper.idToValue on 1.21.11+) are NOT widened here. Loom's AW validation is strict and
+# NOTE: the atlas sprite-source dispatch field (SpriteSources.TYPES on 1.21.1-1.21.4)
+# is NOT widened here. Loom's AW validation is strict and
 # rejects an entry whose target field is absent on that version, and a single AW source can't be
 # Stonecutter-toggled - so each version would fail on the other's entries. They're reached via
-# per-version accessor mixins (SpriteSourcesAccessor / LateBoundIdMapperAccessor) instead.
+# per-version accessor mixins (SpriteSourcesAccessor) instead.

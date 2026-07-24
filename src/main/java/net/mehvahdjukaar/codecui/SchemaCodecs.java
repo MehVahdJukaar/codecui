@@ -433,13 +433,13 @@ public final class SchemaCodecs {
         Registry<?> registry = McCompat.getValue(BuiltInRegistries.REGISTRY, McCompat.keyId(registryKey));
         if (registry == null) return List.of();
         return registry.getTags()
-                //? >1.21.1 {
+                //? >=1.21.2 {
                 .flatMap(named -> named.unwrapKey().stream())
                 .map(TagKey::location)
-                //?} <=1.21.1 {
+                //?} <1.21.2 {
                 /*.map(pair -> pair.getFirst().location())
                 *///?}
-                .sorted(java.util.Comparator.comparing(Identifier::toString))
+                .sorted(Comparator.comparing(Identifier::toString))
                 .toList();
     }
 
