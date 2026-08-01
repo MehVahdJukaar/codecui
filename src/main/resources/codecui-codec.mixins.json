@@ -5,6 +5,7 @@
   "package": "net.mehvahdjukaar.codecui.mixins",
   "mixins": [
     "CodecXmapMixin",
+    "LateBoundIdMapperMixin",
     "MapCodecXmapMixin"
   ],
   "client": [
