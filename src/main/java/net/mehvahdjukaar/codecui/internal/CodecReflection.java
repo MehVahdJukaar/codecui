@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 
 final class CodecReflection {
@@ -24,6 +25,56 @@ final class CodecReflection {
 
 
     record FieldOfEntry(String name, Codec<?> elementCodec) {}
+
+
+    record OrElseEntry(MapCodec<?> inner, Object fallback) {}
+
+    // MapCodec.orElse(v) / orElseGet(s) compile to mapResult(ResultFunction): an anonymous MapCodec
+    // capturing the wrapped MapCodec plus a ResultFunction holding the fallback. Nothing tags those
+    // (the construction mixins cover fieldOf/xmap only), so without this the wrapper unwraps to the
+    // bare fieldOf underneath - a REQUIRED field with no default. Returns null for the sibling
+    // mapResult users (mapError etc.) that carry no fallback.
+    static @Nullable OrElseEntry unwrapOrElse(MapCodec<?> codec) {
+        Object resultFunction = null;
+        MapCodec<?> inner = null;
+        for (Class<?> cls = codec.getClass(); cls != null && cls != Object.class; cls = cls.getSuperclass()) {
+            for (Field f : cls.getDeclaredFields()) {
+                if (Modifier.isStatic(f.getModifiers())) continue;
+                Object v = getFieldValue(f, codec);
+                if (v == null || v == codec) continue;
+                if (MapCodec.ResultFunction.class.isAssignableFrom(f.getType())) resultFunction = v;
+                else if (v instanceof MapCodec<?> m) inner = m;
+            }
+        }
+        if (resultFunction == null || inner == null) return null;
+        Object fallback = recoverFallback(resultFunction);
+        return fallback == null ? null : new OrElseEntry(inner, fallback);
+    }
+
+    // The ResultFunction's single capture that is neither the wrapped codec (this$0) nor the error
+    // rewriter (a UnaryOperator): orElse holds the value directly, orElseGet a Supplier of it.
+    private static @Nullable Object recoverFallback(Object resultFunction) {
+        Object found = null;
+        for (Class<?> cls = resultFunction.getClass(); cls != null && cls != Object.class; cls = cls.getSuperclass()) {
+            for (Field f : cls.getDeclaredFields()) {
+                if (Modifier.isStatic(f.getModifiers())) continue;
+                Class<?> t = f.getType();
+                if (MapCodec.class.isAssignableFrom(t) || Function.class.isAssignableFrom(t)) continue;
+                Object v = getFieldValue(f, resultFunction);
+                if (v == null) continue;
+                if (found != null) return null; // ambiguous shape - don't guess
+                found = v;
+            }
+        }
+        if (found instanceof Supplier<?> supplier) {
+            try {
+                return supplier.get();
+            } catch (Throwable t) {
+                return null;
+            }
+        }
+        return found;
+    }
 
     // The captured pieces of ExtraCodecs.dispatchOptionalValue's anonymous MapCodec: the two JSON
     // keys (type + nested value), the key Codec, and the two getter Functions (one of which is the
@@ -249,10 +300,24 @@ final class CodecReflection {
     }
 
 
+    // Structural markers are read off toString(), which on a foreign codec is arbitrary user code:
+    // DFU's own recurses through the entire decoder tree and evaluates every unit()/point() value
+    // (RecordCodecBuilder.build prints "RecordCodec[" + decoder + "]"), so a codec holding a
+    // half-initialized Supplier throws from a call the game itself never makes. Swallow it - an
+    // unreadable marker just means "not that shape".
+    static String safeToString(Object o) {
+        try {
+            String s = o.toString();
+            return s == null ? "" : s;
+        } catch (Throwable t) {
+            return "";
+        }
+    }
+
     private static boolean looksLikeRecordCodec(MapCodec<?> codec) {
         String cn = codec.getClass().getName();
         if (cn.contains("RecordCodecBuilder")) return true;
-        return codec.toString().startsWith("RecordCodec[");
+        return safeToString(codec).startsWith("RecordCodec[");
     }
 
     private static @Nullable RecordCodecBuilder<?, ?> findCapturedBuilder(MapCodec<?> codec) {
@@ -278,7 +343,7 @@ final class CodecReflection {
             return;
         }
 
-        if (node instanceof MapDecoder<?> md && md.toString().endsWith("[mapped]")) {
+        if (node instanceof MapDecoder<?> md && safeToString(md).endsWith("[mapped]")) {
             Object inner = unwrapMappedDecoder(md);
             if (inner != null) collectRecordDecoderFields(inner, out, visited, depth + 1);
             return;
@@ -314,6 +379,14 @@ final class CodecReflection {
             }
             Object fieldDec = findFieldDecoder(mc);
             if (fieldDec != null) return entryFromFieldDecoder(fieldDec);
+
+            // orElse/orElseGet: hand the whole wrapper to the resolver so it can recover the
+            // fallback. Unwrapping to the inner fieldOf here would report a required field.
+            OrElseEntry orElse = unwrapOrElse(mc);
+            if (orElse != null) {
+                RecordFieldTags.Entry named = entryFromDecoderNode(orElse.inner());
+                if (named != null) return new RecordFieldTags.Entry(named.name(), null, mc);
+            }
 
             Object inner = singleCapturedInner(mc);
             if (inner != null && inner != mc) return entryFromDecoderNode(inner);
@@ -363,10 +436,30 @@ final class CodecReflection {
         return null;
     }
 
+    // The chain's terminal point(constructor) node, whose decoder is a leaf unit/empty decoder
+    // carrying no fields. Must NOT be detected by searching toString for "unit"/"empty": a
+    // composite decoder's toString concatenates its children's, so once a record has 5+ fields
+    // (past that DFU stops using Instance's own ap2/ap3/ap4 and composes the generic
+    // Applicative.apN defaults) every intermediate chain node's toString contains the innermost
+    // "unit[...]" too - and skipping those dropped every field except the outermost apN's own
+    // arguments. Structural test instead: a real point() node captures no nested codec.
     private static boolean isApplicativeFunction(RecordCodecBuilder<?, ?> rcb) {
         Object decoder = readField(rcb, "decoder");
-        if (decoder == null) return true;
-        String s = decoder.toString().toLowerCase(Locale.ROOT);
-        return s.contains("unit") || s.contains("empty");
+        return decoder == null || !capturesNestedCodec(decoder);
+    }
+
+    private static boolean capturesNestedCodec(Object node) {
+        for (Class<?> cls = node.getClass(); cls != null && cls != Object.class; cls = cls.getSuperclass()) {
+            for (Field f : cls.getDeclaredFields()) {
+                if (Modifier.isStatic(f.getModifiers())) continue;
+                Class<?> t = f.getType();
+                if (!RecordCodecBuilder.class.isAssignableFrom(t)
+                        && !MapDecoder.class.isAssignableFrom(t)
+                        && !MapCodec.class.isAssignableFrom(t)) continue;
+                Object v = getFieldValue(f, node);
+                if (v != null && v != node) return true;
+            }
+        }
+        return false;
     }
 }

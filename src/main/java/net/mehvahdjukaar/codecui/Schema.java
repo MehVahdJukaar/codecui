@@ -78,6 +78,23 @@ public sealed interface Schema<A> {
     record MapOf<K, V>(Schema<K> key, Schema<V> value) implements Schema<Map<K, V>> {}
 
     /**
+     * A map whose value shape depends on its key ({@code Codec.dispatchedMap}): data component
+     * maps, game rule maps, environment attribute maps, timeline tracks.
+     *
+     * <p>{@code valueForKey} takes the key exactly as it appears in JSON (the object's field name)
+     * and hands back that entry's value schema. It resolves <em>lazily</em> on purpose: the key
+     * space can be thousands of entries (every block, for the debug stick's property map), so
+     * resolving them all up front is not an option. It never returns null - an unknown key, or one
+     * whose value codec can't be introspected, yields a {@link Opaque} raw-JSON schema, which is
+     * the same fallback the rest of the resolver uses.
+     *
+     * <p>A UI backend should re-resolve the value schema whenever a row's key changes, and treat
+     * a row with no key yet as opaque.
+     */
+    record DispatchedMapOf<K, V>(Schema<K> key,
+                                 Function<String, Schema<?>> valueForKey) implements Schema<Map<K, V>> {}
+
+    /**
      * A flat N-way "one of these alternative shapes" choice - for codecs that try several
      * formats in order ({@code Codec.either}/{@code withAlternative} chains, hand-rolled
      * alternative codecs, reference-or-inline). Always build via {@link #anyOf}: it splices
@@ -215,6 +232,7 @@ public sealed interface Schema<A> {
             case Record<?> ignored -> "object";
             case ListOf<?> ignored -> "list";
             case MapOf<?, ?> ignored -> "map";
+            case DispatchedMapOf<?, ?> ignored -> "map";
             case PairOf<?, ?> ignored -> "pair";
             case OneOf<?> ignored -> "typed object";
             case AnyOf<?> ignored -> "alternatives";

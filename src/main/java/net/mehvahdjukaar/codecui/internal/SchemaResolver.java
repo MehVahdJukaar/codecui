@@ -1,6 +1,8 @@
 package net.mehvahdjukaar.codecui.internal;
 
+import com.google.gson.JsonPrimitive;
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.JsonOps;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.BaseMapCodec;
 import com.mojang.serialization.codecs.CompoundListCodec;
@@ -23,6 +25,7 @@ import net.minecraft.resources.*;
 import org.jspecify.annotations.Nullable;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -80,6 +83,27 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         }
     }
 
+    /**
+     * Per-key value schemas for a {@code dispatchedMap}, resolved on demand and memoized. Lazy
+     * because the key space is unbounded in principle (the debug stick dispatches on every block),
+     * and because resolution runs off the original resolve - so it starts a fresh one rather than
+     * reusing that call's cycle cache.
+     */
+    private static <K, V> Function<String, Schema<?>> dispatchedValues(DispatchedMapCodec<K, V> dm) {
+        Map<String, Schema<?>> memo = new ConcurrentHashMap<>();
+        return jsonKey -> memo.computeIfAbsent(jsonKey, k -> {
+            try {
+                K key = dm.keyCodec().parse(JsonOps.INSTANCE, new JsonPrimitive(k)).result().orElse(null);
+                if (key == null) return new Schema.Opaque<>(null, null);
+                Codec<? extends V> valueCodec = dm.valueCodecFunction().apply(key);
+                return valueCodec == null ? new Schema.Opaque<>(null, null) : get().resolve(valueCodec);
+            } catch (Throwable t) {
+                // An unknown or half-registered key must degrade to raw JSON, never break the form.
+                return new Schema.Opaque<>(null, null);
+            }
+        });
+    }
+
     @SuppressWarnings("unchecked")
     <A> Schema<A> resolveCodec(Codec<A> codec, IdentityHashMap<Object, Schema<?>> cache) {
         Schema<?> cached = cache.get(codec);
@@ -104,14 +128,19 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         Schema.Ref<A> ref = new Schema.Ref<>();
         cache.put(codec, ref);
 
-        Schema<A> result = (Schema<A>) tierCustomHandlers(codec, false);
-        if (result == null) result = (Schema<A>) tierOnePrimitive(codec);
-        if (result == null) result = (Schema<A>) tierTwoStructural(codec, cache);
-        if (result == null) result = (Schema<A>) tierThreeReflective(codec, cache);
-        // Tier 3.5. Range recovery must run before the generic unwrap, which would collapse
-        // intRange/floatRange/doubleRange to an unbounded primitive.
-        if (result == null) result = (Schema<A>) recoverPrimitiveRange(codec);
-        if (result == null) result = (Schema<A>) unwrapCapturedInner(codec, cache);
+        Schema<A> result;
+        try {
+            result = (Schema<A>) tierCustomHandlers(codec, false);
+            if (result == null) result = (Schema<A>) tierOnePrimitive(codec);
+            if (result == null) result = (Schema<A>) tierTwoStructural(codec, cache);
+            if (result == null) result = (Schema<A>) tierThreeReflective(codec, cache);
+            // Tier 3.5. Range recovery must run before the generic unwrap, which would collapse
+            // intRange/floatRange/doubleRange to an unbounded primitive.
+            if (result == null) result = (Schema<A>) recoverPrimitiveRange(codec);
+            if (result == null) result = (Schema<A>) unwrapCapturedInner(codec, cache);
+        } catch (Throwable t) {
+            result = failedInference(codec, t);
+        }
         if (result == null) result = (Schema<A>) new Schema.Opaque<>(codec, null);
 
         ref.bind(result);
@@ -163,18 +192,36 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         Schema.Ref<A> ref = new Schema.Ref<>();
         cache.put(codec, ref);
 
-        Schema<A> result = (Schema<A>) tierCustomHandlers(codec, true);
-        if (result == null) result = (Schema<A>) tierTwoMapStructural(codec, cache);
-        if (result == null) result = (Schema<A>) tierThreeReflective(codec, cache);
-        // Tier 3.5: transform-free unwrap (see banner below).
-        if (result == null) result = (Schema<A>) unwrapFieldOf(codec, cache);
-        if (result == null) result = (Schema<A>) unwrapRecordCodec(codec, cache);
-        if (result == null) result = (Schema<A>) unwrapCapturedInner(codec, cache);
+        Schema<A> result;
+        try {
+            result = (Schema<A>) tierCustomHandlers(codec, true);
+            if (result == null) result = (Schema<A>) tierTwoMapStructural(codec, cache);
+            // Before tier 3: its generic inner-unwrap would resolve an orElse wrapper to the plain
+            // fieldOf underneath and lose the fallback.
+            if (result == null) result = (Schema<A>) unwrapOrElse(codec, cache);
+            if (result == null) result = (Schema<A>) tierThreeReflective(codec, cache);
+            // Tier 3.5: transform-free unwrap (see banner below).
+            if (result == null) result = (Schema<A>) unwrapFieldOf(codec, cache);
+            if (result == null) result = (Schema<A>) unwrapRecordCodec(codec, cache);
+            if (result == null) result = (Schema<A>) unwrapCapturedInner(codec, cache);
+        } catch (Throwable t) {
+            result = failedInference(codec, t);
+        }
         if (result == null) result = (Schema<A>) new Schema.Opaque<>(codec.codec(), null);
 
         ref.bind(result);
         cache.put(codec, result);
         return result;
+    }
+
+    // Inference walks third-party codecs reflectively and calls into them (toString, keys, getters),
+    // so a broken or half-initialized foreign codec can throw from anywhere in the tier chain. That
+    // must cost the caller one raw-JSON leaf, not the whole form. Returns null so the caller falls
+    // through to Opaque.
+    private static <A> @Nullable Schema<A> failedInference(Object codec, Throwable t) {
+        CodecUI.LOGGER.warn("Schema inference failed for {}; falling back to raw JSON",
+                codec.getClass().getName(), t);
+        return null;
     }
 
     // ---- Tier 0.5: user-registered SchemaHandlers (SchemaCodecs.registerHandler) ----
@@ -282,10 +329,10 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
             Schema<?> v = resolveCodec((Codec<?>) COMPOUND_LIST_ELEMENT.get(cl), cache);
             return new Schema.MapOf(k, v);
         }
-        // Value codec depends on the key via an opaque function; keys are still editable.
+        // Value codec depends on the key, so the value schema is resolved per key, lazily.
         if (codec instanceof DispatchedMapCodec<?, ?> dm) {
             Schema<?> k = resolveCodec(dm.keyCodec(), cache);
-            return new Schema.MapOf(k, new Schema.Opaque<>(null, null));
+            return new Schema.DispatchedMapOf(k, dispatchedValues(dm));
         }
         // Holder<E> by registry id, optionally with an inline definition (SoundEvent.CODEC etc.).
         if (codec instanceof RegistryFileCodec<?> rfc) {
@@ -507,6 +554,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
             boolean flattenable = mapSchema instanceof Schema.OneOf<?>
                     || mapSchema instanceof Schema.PairOf<?, ?>
                     || mapSchema instanceof Schema.MapOf<?, ?>
+                    || mapSchema instanceof Schema.DispatchedMapOf<?, ?>
                     || mapSchema instanceof Schema.AnyOf<?>;
             addField(fields, new Schema.Field(e.name(), mapSchema, false, null, flattenable));
             return;
@@ -532,6 +580,22 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         fields.add(field);
     }
 
+    // X.fieldOf(name).orElse(value): a required field plus a decode-time fallback, which is exactly
+    // optionalFieldOf(name, value) as far as an editor is concerned - the key may be omitted. No
+    // mixin tags MapCodec.orElse, so on BOTH loaders the wrapper would otherwise resolve to the bare
+    // required field and an untouched form would refuse to encode (a blank required number).
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private @Nullable Schema<?> unwrapOrElse(MapCodec<?> codec, IdentityHashMap<Object, Schema<?>> cache) {
+        CodecReflection.OrElseEntry entry = CodecReflection.unwrapOrElse(codec);
+        if (entry == null) return null;
+        Schema<?> inner = resolveMapCodec((MapCodec) entry.inner(), cache);
+        if (!(inner instanceof Schema.Record<?> rec) || rec.fields().size() != 1) return null;
+        Schema.Field<?, ?> field = rec.fields().getFirst();
+        if (field.optional()) return null;
+        return new Schema.Record(Object.class,
+                List.of(new Schema.Field(field.name(), field.schema(), true, entry.fallback())));
+    }
+
     // Required Codec.fieldOf(name): recover name + element codec, rebuild the record (mirrors tier 0a).
     @SuppressWarnings({"unchecked", "rawtypes"})
     private @Nullable Schema<?> unwrapFieldOf(MapCodec<?> codec, IdentityHashMap<Object, Schema<?>> cache) {
@@ -554,7 +618,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
     // bounds from the checker lambda's captures. Gated on the flatXmap marker and the inner
     // being exactly INT/FLOAT/DOUBLE so an unrelated flatXmap can't be misread as a range.
     private @Nullable Schema<?> recoverPrimitiveRange(Object codec) {
-        if (!(codec instanceof Codec<?>) || !codec.toString().endsWith("[flatXmapped]")) return null;
+        if (!(codec instanceof Codec<?>) || !CodecReflection.safeToString(codec).endsWith("[flatXmapped]")) return null;
         Object inner = CodecReflection.singleCapturedInner(codec);
         if (inner != Codec.INT && inner != Codec.FLOAT && inner != Codec.DOUBLE) return null;
 
