@@ -8,7 +8,7 @@ import java.lang.ref.WeakReference;
 import java.util.Map;
 
 // Lazy side-channel for Codec.xmap/flatXmap/validate/stable/... (and the MapCodec mirrors):
-// wrapper → innerCodec, recorded at construction. The resolver resolves the inner FRESH at
+// wrapper -> innerCodec, recorded at construction. The resolver resolves the inner FRESH at
 // lookup time, so a companion registered after construction still wins (eager resolution used
 // to capture stale schemas during MC bootstrap). See WeakTags for why the map is identity-keyed
 // and why the inner codec is held weakly.

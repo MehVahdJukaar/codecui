@@ -56,7 +56,7 @@ public abstract class RecordCodecBuilderInstanceMixin {
     // this.map(curryN, func) before delegating to ap2/ap3/ap4. Instance overrides
     // map, producing a NEW builder - without this hook the tags accumulated on
     // func are dropped there, and any record with more than 4 fields loses all
-    // fields captured before the map (e.g. a 9-field record only showed fields 5–9).
+    // fields captured before the map (e.g. a 9-field record only showed fields 5-9).
     @SuppressWarnings("rawtypes")
     @ModifyReturnValue(method = "map", at = @At("RETURN"))
     private App<?, ?> codecui$tagMap(App<?, ?> result, @Local(argsOnly = true) App ts) {

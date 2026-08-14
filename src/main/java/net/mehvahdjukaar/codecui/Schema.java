@@ -79,17 +79,11 @@ public sealed interface Schema<A> {
 
     /**
      * A map whose value shape depends on its key ({@code Codec.dispatchedMap}): data component
-     * maps, game rule maps, environment attribute maps, timeline tracks.
-     *
-     * <p>{@code valueForKey} takes the key exactly as it appears in JSON (the object's field name)
-     * and hands back that entry's value schema. It resolves <em>lazily</em> on purpose: the key
-     * space can be thousands of entries (every block, for the debug stick's property map), so
-     * resolving them all up front is not an option. It never returns null - an unknown key, or one
-     * whose value codec can't be introspected, yields a {@link Opaque} raw-JSON schema, which is
-     * the same fallback the rest of the resolver uses.
-     *
-     * <p>A UI backend should re-resolve the value schema whenever a row's key changes, and treat
-     * a row with no key yet as opaque.
+     * maps, game rule maps, timeline tracks. {@code valueForKey} takes the key as it appears in
+     * JSON (the object's field name) and gives back that entry's value schema. It resolves lazily,
+     * since the key space can be huge - every block, for the debug stick's property map - and
+     * never returns null; a key it can't resolve yields an {@link Opaque} raw-JSON schema.
+     * Backends should re-resolve a row's value schema when its key changes.
      */
     record DispatchedMapOf<K, V>(Schema<K> key,
                                  Function<String, Schema<?>> valueForKey) implements Schema<Map<K, V>> {}

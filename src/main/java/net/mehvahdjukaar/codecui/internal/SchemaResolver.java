@@ -83,12 +83,9 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         }
     }
 
-    /**
-     * Per-key value schemas for a {@code dispatchedMap}, resolved on demand and memoized. Lazy
-     * because the key space is unbounded in principle (the debug stick dispatches on every block),
-     * and because resolution runs off the original resolve - so it starts a fresh one rather than
-     * reusing that call's cycle cache.
-     */
+    // Per-key value schemas, resolved on demand and memoized: the key space can be huge (the debug
+    // stick dispatches on every block), and lookups happen long after the outer resolve finished,
+    // so each one starts a fresh resolve instead of sharing that call's cycle cache.
     private static <K, V> Function<String, Schema<?>> dispatchedValues(DispatchedMapCodec<K, V> dm) {
         Map<String, Schema<?>> memo = new ConcurrentHashMap<>();
         return jsonKey -> memo.computeIfAbsent(jsonKey, k -> {
@@ -98,7 +95,7 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
                 Codec<? extends V> valueCodec = dm.valueCodecFunction().apply(key);
                 return valueCodec == null ? new Schema.Opaque<>(null, null) : get().resolve(valueCodec);
             } catch (Throwable t) {
-                // An unknown or half-registered key must degrade to raw JSON, never break the form.
+                // An unknown or half-registered key falls back to raw JSON, never breaks the form.
                 return new Schema.Opaque<>(null, null);
             }
         });
@@ -196,8 +193,8 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         try {
             result = (Schema<A>) tierCustomHandlers(codec, true);
             if (result == null) result = (Schema<A>) tierTwoMapStructural(codec, cache);
-            // Before tier 3: its generic inner-unwrap would resolve an orElse wrapper to the plain
-            // fieldOf underneath and lose the fallback.
+            // Before tier 3, whose generic inner-unwrap would drop the fallback and leave a
+            // required field.
             if (result == null) result = (Schema<A>) unwrapOrElse(codec, cache);
             if (result == null) result = (Schema<A>) tierThreeReflective(codec, cache);
             // Tier 3.5: transform-free unwrap (see banner below).
@@ -214,10 +211,9 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         return result;
     }
 
-    // Inference walks third-party codecs reflectively and calls into them (toString, keys, getters),
-    // so a broken or half-initialized foreign codec can throw from anywhere in the tier chain. That
-    // must cost the caller one raw-JSON leaf, not the whole form. Returns null so the caller falls
-    // through to Opaque.
+    // Inference reflects into foreign codecs and calls back into them (toString, keys, getters), so
+    // a broken one can throw from anywhere in the tier chain. That should cost one raw-JSON leaf,
+    // not the whole form. Null so the caller falls through to Opaque.
     private static <A> @Nullable Schema<A> failedInference(Object codec, Throwable t) {
         CodecUI.LOGGER.warn("Schema inference failed for {}; falling back to raw JSON",
                 codec.getClass().getName(), t);
@@ -447,8 +443,8 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
     // ---- Tier 3: reflective last resort over unknown (typically hand-rolled) codec classes ----
 
     // Scans the instance fields of an unknown codec class for inner Codec/MapCodec values and
-    // guesses: one inner codec → shape-preserving wrapper, inherit its schema; a (key,
-    // element/value) pair → MapOf; several → flat AnyOf in declaration order. Heuristic by
+    // guesses: one inner codec -> shape-preserving wrapper, inherit its schema; a (key,
+    // element/value) pair -> MapOf; several -> flat AnyOf in declaration order. Heuristic by
     // design - a wrong guess is overridden by registering a tier-0 companion.
     @SuppressWarnings({"unchecked", "rawtypes"})
     private @Nullable Schema<?> tierThreeReflective(Object codec, IdentityHashMap<Object, Schema<?>> cache) {
@@ -580,10 +576,9 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         fields.add(field);
     }
 
-    // X.fieldOf(name).orElse(value): a required field plus a decode-time fallback, which is exactly
-    // optionalFieldOf(name, value) as far as an editor is concerned - the key may be omitted. No
-    // mixin tags MapCodec.orElse, so on BOTH loaders the wrapper would otherwise resolve to the bare
-    // required field and an untouched form would refuse to encode (a blank required number).
+    // X.fieldOf(name).orElse(value) is optionalFieldOf(name, value) as far as an editor cares: the
+    // key may be omitted. No mixin tags MapCodec.orElse, so on both loaders the wrapper would
+    // otherwise resolve to a bare required field and an untouched form would refuse to encode.
     @SuppressWarnings({"unchecked", "rawtypes"})
     private @Nullable Schema<?> unwrapOrElse(MapCodec<?> codec, IdentityHashMap<Object, Schema<?>> cache) {
         CodecReflection.OrElseEntry entry = CodecReflection.unwrapOrElse(codec);

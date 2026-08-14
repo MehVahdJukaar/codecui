@@ -29,11 +29,10 @@ final class CodecReflection {
 
     record OrElseEntry(MapCodec<?> inner, Object fallback) {}
 
-    // MapCodec.orElse(v) / orElseGet(s) compile to mapResult(ResultFunction): an anonymous MapCodec
-    // capturing the wrapped MapCodec plus a ResultFunction holding the fallback. Nothing tags those
-    // (the construction mixins cover fieldOf/xmap only), so without this the wrapper unwraps to the
-    // bare fieldOf underneath - a REQUIRED field with no default. Returns null for the sibling
-    // mapResult users (mapError etc.) that carry no fallback.
+    // orElse/orElseGet go through mapResult: an anonymous MapCodec capturing the wrapped codec plus
+    // a ResultFunction holding the fallback. No mixin tags those, so without this the wrapper
+    // unwraps to the bare fieldOf under it and the field reads as required. Null for the other
+    // mapResult users (mapError etc.) that have no fallback.
     static @Nullable OrElseEntry unwrapOrElse(MapCodec<?> codec) {
         Object resultFunction = null;
         MapCodec<?> inner = null;
@@ -300,11 +299,9 @@ final class CodecReflection {
     }
 
 
-    // Structural markers are read off toString(), which on a foreign codec is arbitrary user code:
-    // DFU's own recurses through the entire decoder tree and evaluates every unit()/point() value
-    // (RecordCodecBuilder.build prints "RecordCodec[" + decoder + "]"), so a codec holding a
-    // half-initialized Supplier throws from a call the game itself never makes. Swallow it - an
-    // unreadable marker just means "not that shape".
+    // toString on a foreign codec is arbitrary user code, and DFU's own walks the whole decoder
+    // tree evaluating every unit()/point() value, so a codec holding a half-built Supplier can
+    // throw here. An unreadable marker just means "not that shape".
     static String safeToString(Object o) {
         try {
             String s = o.toString();
@@ -380,8 +377,8 @@ final class CodecReflection {
             Object fieldDec = findFieldDecoder(mc);
             if (fieldDec != null) return entryFromFieldDecoder(fieldDec);
 
-            // orElse/orElseGet: hand the whole wrapper to the resolver so it can recover the
-            // fallback. Unwrapping to the inner fieldOf here would report a required field.
+            // Keep the whole orElse wrapper so the resolver can recover the fallback; unwrapping
+            // to the inner fieldOf here would report a required field.
             OrElseEntry orElse = unwrapOrElse(mc);
             if (orElse != null) {
                 RecordFieldTags.Entry named = entryFromDecoderNode(orElse.inner());
@@ -436,13 +433,9 @@ final class CodecReflection {
         return null;
     }
 
-    // The chain's terminal point(constructor) node, whose decoder is a leaf unit/empty decoder
-    // carrying no fields. Must NOT be detected by searching toString for "unit"/"empty": a
-    // composite decoder's toString concatenates its children's, so once a record has 5+ fields
-    // (past that DFU stops using Instance's own ap2/ap3/ap4 and composes the generic
-    // Applicative.apN defaults) every intermediate chain node's toString contains the innermost
-    // "unit[...]" too - and skipping those dropped every field except the outermost apN's own
-    // arguments. Structural test instead: a real point() node captures no nested codec.
+    // The chain's terminal point(constructor) node, which carries no fields. Tested structurally
+    // (a real point() node captures no nested codec) and not by matching "unit"/"empty" on
+    // toString, which drops fields on records with 5+ of them - see ARCHITECTURE.md.
     private static boolean isApplicativeFunction(RecordCodecBuilder<?, ?> rcb) {
         Object decoder = readField(rcb, "decoder");
         return decoder == null || !capturesNestedCodec(decoder);
