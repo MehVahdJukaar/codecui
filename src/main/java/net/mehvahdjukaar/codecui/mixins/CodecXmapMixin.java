@@ -7,6 +7,7 @@ import com.mojang.serialization.MapCodec;
 import net.mehvahdjukaar.codecui.Schema;
 import net.mehvahdjukaar.codecui.internal.FieldOfTags;
 import net.mehvahdjukaar.codecui.internal.SchemaTags;
+import net.mehvahdjukaar.codecui.internal.XmapTags;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -158,10 +159,7 @@ public interface CodecXmapMixin {
     private void codecui$tagSingleField(MapCodec<?> wrapped, String name, boolean optional, Object defaultValue) {
         if (wrapped == null) return;
         try {
-            // Store a LAZY tag: just (name, innerCodec). The resolver computes the inner
-            // schema fresh at lookup time, so a companion registered AFTER this fieldOf
-            // mixin fires still wins. Required because MC bootstrap calls fieldOf during
-            // early init (e.g. BlockState.CODEC.fieldOf in RandomBlockStateMatchTest).
+            // Lazy tag (name, inner codec): resolving here would freeze bootstrap-time schemas.
             Codec<?> inner = (Codec<?>) (Object) this;
             FieldOfTags.put(wrapped, name, inner, optional, defaultValue);
         } catch (Throwable ignored) {
@@ -172,9 +170,8 @@ public interface CodecXmapMixin {
     private void codecui$inheritInner(Codec<?> wrapped) {
         if (wrapped == null || wrapped == (Object) this) return;
         try {
-            // LAZY: just record (wrapped -> inner); the resolver resolves the inner fresh at
-            // lookup time (eager resolution here used to capture stale schemas during bootstrap).
-            net.mehvahdjukaar.codecui.internal.XmapTags.putCodec(
+            // Lazy tag (wrapped -> inner): resolving here would freeze bootstrap-time schemas.
+            XmapTags.putCodec(
                     wrapped, (Codec<?>) (Object) this);
         } catch (Throwable ignored) {
         }

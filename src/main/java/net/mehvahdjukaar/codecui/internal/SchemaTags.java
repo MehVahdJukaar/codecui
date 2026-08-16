@@ -6,15 +6,9 @@ import net.mehvahdjukaar.codecui.Schema;
 
 import java.util.Map;
 
-// Side-channel storage for schemas attached at codec construction time, weak by key so GC'd codecs
-// don't hold their tags alive. Best-effort: a missing tag just means the resolver falls back to its
-// structural tiers. See WeakTags for why the maps are identity-keyed.
-//
-// Unlike the other side channels the value here can't be weakened - a Schema is built for this map
-// and nothing else references it. So a Schema that embeds its own key codec (Schema.Opaque over the
-// codec being tagged, or a Schema.Custom whose widgetDef is bound to it) pins that entry for good.
-// Harmless for the static game codecs curated at bootstrap; don't do it for a codec built per
-// instance.
+// Schemas attached to codecs at construction. Best-effort: a missing tag falls back to the resolver tiers.
+// The Schema value is held strongly (nothing else refs it), so a Schema that embeds its own key codec
+// pins the entry forever. Fine for static bootstrap codecs, not for codecs built per instance.
 public final class SchemaTags {
     private static final Map<Codec<?>, Schema<?>> CODEC_SCHEMAS = WeakTags.identityKeyed();
     private static final Map<MapCodec<?>, Schema<?>> MAP_CODEC_SCHEMAS = WeakTags.identityKeyed();

@@ -47,24 +47,25 @@ public final class SchemaRecordBuilder<A> {
     }
 
     private <F> MapCodec<F> mapCodecFor(Field<A, F> field) {
-        if (field.optional && field.defaultValue != null) {
+        boolean hasDefault = field.optional && field.defaultValue != null;
+        if (hasDefault) {
             return field.codec.optionalFieldOf(field.name, field.defaultValue);
         }
         return field.codec.fieldOf(field.name);
     }
 
     @SafeVarargs
-    private void validate(Field<A, ?>... fs) {
-        if (fs.length != fields.size()) {
+    private void requireExactlyRegisteredFields(Field<A, ?>... passed) {
+        if (passed.length != fields.size()) {
             throw new IllegalStateException("SchemaRecordBuilder<" + type.getSimpleName()
-                    + ">: build expected " + fields.size() + " fields, got " + fs.length);
+                    + ">: build expected " + fields.size() + " fields, got " + passed.length);
         }
-        for (Field<A, ?> f : fs) {
-            boolean found = false;
+        for (Field<A, ?> f : passed) {
+            boolean registered = false;
             for (Field<A, ?> reg : fields) {
-                if (reg == f) { found = true; break; }
+                if (reg == f) { registered = true; break; }
             }
-            if (!found) {
+            if (!registered) {
                 throw new IllegalStateException("Field '" + f.name + "' was not registered on this builder");
             }
         }
@@ -83,14 +84,14 @@ public final class SchemaRecordBuilder<A> {
     }
 
     public <F1> SchemaCodec<A> build1(Function<F1, A> ctor, Field<A, F1> f1) {
-        validate(f1);
+        requireExactlyRegisteredFields(f1);
         MapCodec<F1> mc1 = mapCodecFor(f1);
         var codec = mc1.xmap(ctor, f1.getter).codec();
         return SchemaCodec.of(codec, buildSchema());
     }
 
     public <F1, F2> SchemaCodec<A> build2(BiFunction<F1, F2, A> ctor, Field<A, F1> f1, Field<A, F2> f2) {
-        validate(f1, f2);
+        requireExactlyRegisteredFields(f1, f2);
         MapCodec<F1> mc1 = mapCodecFor(f1);
         MapCodec<F2> mc2 = mapCodecFor(f2);
         var codec = RecordCodecBuilder.<A>create(i -> i.apply2(
@@ -103,7 +104,7 @@ public final class SchemaRecordBuilder<A> {
 
     public <F1, F2, F3> SchemaCodec<A> build3(Function3<F1, F2, F3, A> ctor,
                                               Field<A, F1> f1, Field<A, F2> f2, Field<A, F3> f3) {
-        validate(f1, f2, f3);
+        requireExactlyRegisteredFields(f1, f2, f3);
         MapCodec<F1> mc1 = mapCodecFor(f1);
         MapCodec<F2> mc2 = mapCodecFor(f2);
         MapCodec<F3> mc3 = mapCodecFor(f3);
@@ -119,7 +120,7 @@ public final class SchemaRecordBuilder<A> {
     public <F1, F2, F3, F4> SchemaCodec<A> build4(Function4<F1, F2, F3, F4, A> ctor,
                                                   Field<A, F1> f1, Field<A, F2> f2,
                                                   Field<A, F3> f3, Field<A, F4> f4) {
-        validate(f1, f2, f3, f4);
+        requireExactlyRegisteredFields(f1, f2, f3, f4);
         MapCodec<F1> mc1 = mapCodecFor(f1);
         MapCodec<F2> mc2 = mapCodecFor(f2);
         MapCodec<F3> mc3 = mapCodecFor(f3);
@@ -137,7 +138,7 @@ public final class SchemaRecordBuilder<A> {
     public <F1, F2, F3, F4, F5> SchemaCodec<A> build5(Function5<F1, F2, F3, F4, F5, A> ctor,
                                                       Field<A, F1> f1, Field<A, F2> f2, Field<A, F3> f3,
                                                       Field<A, F4> f4, Field<A, F5> f5) {
-        validate(f1, f2, f3, f4, f5);
+        requireExactlyRegisteredFields(f1, f2, f3, f4, f5);
         MapCodec<F1> mc1 = mapCodecFor(f1);
         MapCodec<F2> mc2 = mapCodecFor(f2);
         MapCodec<F3> mc3 = mapCodecFor(f3);
@@ -157,7 +158,7 @@ public final class SchemaRecordBuilder<A> {
     public <F1, F2, F3, F4, F5, F6> SchemaCodec<A> build6(Function6<F1, F2, F3, F4, F5, F6, A> ctor,
                                                           Field<A, F1> f1, Field<A, F2> f2, Field<A, F3> f3,
                                                           Field<A, F4> f4, Field<A, F5> f5, Field<A, F6> f6) {
-        validate(f1, f2, f3, f4, f5, f6);
+        requireExactlyRegisteredFields(f1, f2, f3, f4, f5, f6);
         MapCodec<F1> mc1 = mapCodecFor(f1);
         MapCodec<F2> mc2 = mapCodecFor(f2);
         MapCodec<F3> mc3 = mapCodecFor(f3);
@@ -180,7 +181,7 @@ public final class SchemaRecordBuilder<A> {
                                                               Field<A, F1> f1, Field<A, F2> f2, Field<A, F3> f3,
                                                               Field<A, F4> f4, Field<A, F5> f5, Field<A, F6> f6,
                                                               Field<A, F7> f7) {
-        validate(f1, f2, f3, f4, f5, f6, f7);
+        requireExactlyRegisteredFields(f1, f2, f3, f4, f5, f6, f7);
         MapCodec<F1> mc1 = mapCodecFor(f1);
         MapCodec<F2> mc2 = mapCodecFor(f2);
         MapCodec<F3> mc3 = mapCodecFor(f3);
@@ -205,7 +206,7 @@ public final class SchemaRecordBuilder<A> {
                                                                   Field<A, F1> f1, Field<A, F2> f2, Field<A, F3> f3,
                                                                   Field<A, F4> f4, Field<A, F5> f5, Field<A, F6> f6,
                                                                   Field<A, F7> f7, Field<A, F8> f8) {
-        validate(f1, f2, f3, f4, f5, f6, f7, f8);
+        requireExactlyRegisteredFields(f1, f2, f3, f4, f5, f6, f7, f8);
         MapCodec<F1> mc1 = mapCodecFor(f1);
         MapCodec<F2> mc2 = mapCodecFor(f2);
         MapCodec<F3> mc3 = mapCodecFor(f3);
@@ -229,7 +230,7 @@ public final class SchemaRecordBuilder<A> {
     }
 
     public <F1> SchemaMapCodec<A> buildMapCodec1(Function<F1, A> ctor, Field<A, F1> f1) {
-        validate(f1);
+        requireExactlyRegisteredFields(f1);
         MapCodec<F1> mc1 = mapCodecFor(f1);
         MapCodec<A> mapCodec = mc1.xmap(ctor, f1.getter);
         return SchemaMapCodec.of(mapCodec, buildSchema());
@@ -237,7 +238,7 @@ public final class SchemaRecordBuilder<A> {
 
     public <F1, F2> SchemaMapCodec<A> buildMapCodec2(BiFunction<F1, F2, A> ctor,
                                                      Field<A, F1> f1, Field<A, F2> f2) {
-        validate(f1, f2);
+        requireExactlyRegisteredFields(f1, f2);
         MapCodec<F1> mc1 = mapCodecFor(f1);
         MapCodec<F2> mc2 = mapCodecFor(f2);
         MapCodec<A> mapCodec = RecordCodecBuilder.mapCodec(i -> i.group(
@@ -249,7 +250,7 @@ public final class SchemaRecordBuilder<A> {
 
     public <F1, F2, F3> SchemaMapCodec<A> buildMapCodec3(Function3<F1, F2, F3, A> ctor,
                                                          Field<A, F1> f1, Field<A, F2> f2, Field<A, F3> f3) {
-        validate(f1, f2, f3);
+        requireExactlyRegisteredFields(f1, f2, f3);
         MapCodec<F1> mc1 = mapCodecFor(f1);
         MapCodec<F2> mc2 = mapCodecFor(f2);
         MapCodec<F3> mc3 = mapCodecFor(f3);
@@ -263,7 +264,7 @@ public final class SchemaRecordBuilder<A> {
 
     public <F1, F2, F3, F4> SchemaMapCodec<A> buildMapCodec4(Function4<F1, F2, F3, F4, A> ctor,
                                                              Field<A, F1> f1, Field<A, F2> f2, Field<A, F3> f3, Field<A, F4> f4) {
-        validate(f1, f2, f3, f4);
+        requireExactlyRegisteredFields(f1, f2, f3, f4);
         MapCodec<F1> mc1 = mapCodecFor(f1);
         MapCodec<F2> mc2 = mapCodecFor(f2);
         MapCodec<F3> mc3 = mapCodecFor(f3);
@@ -279,7 +280,7 @@ public final class SchemaRecordBuilder<A> {
 
     public <F1, F2, F3, F4, F5> SchemaMapCodec<A> buildMapCodec5(Function5<F1, F2, F3, F4, F5, A> ctor,
                                                                  Field<A, F1> f1, Field<A, F2> f2, Field<A, F3> f3, Field<A, F4> f4, Field<A, F5> f5) {
-        validate(f1, f2, f3, f4, f5);
+        requireExactlyRegisteredFields(f1, f2, f3, f4, f5);
         MapCodec<F1> mc1 = mapCodecFor(f1);
         MapCodec<F2> mc2 = mapCodecFor(f2);
         MapCodec<F3> mc3 = mapCodecFor(f3);
@@ -297,7 +298,7 @@ public final class SchemaRecordBuilder<A> {
 
     public <F1, F2, F3, F4, F5, F6> SchemaMapCodec<A> buildMapCodec6(Function6<F1, F2, F3, F4, F5, F6, A> ctor,
                                                                      Field<A, F1> f1, Field<A, F2> f2, Field<A, F3> f3, Field<A, F4> f4, Field<A, F5> f5, Field<A, F6> f6) {
-        validate(f1, f2, f3, f4, f5, f6);
+        requireExactlyRegisteredFields(f1, f2, f3, f4, f5, f6);
         MapCodec<F1> mc1 = mapCodecFor(f1);
         MapCodec<F2> mc2 = mapCodecFor(f2);
         MapCodec<F3> mc3 = mapCodecFor(f3);
@@ -317,7 +318,7 @@ public final class SchemaRecordBuilder<A> {
 
     public <F1, F2, F3, F4, F5, F6, F7> SchemaMapCodec<A> buildMapCodec7(Function7<F1, F2, F3, F4, F5, F6, F7, A> ctor,
                                                                          Field<A, F1> f1, Field<A, F2> f2, Field<A, F3> f3, Field<A, F4> f4, Field<A, F5> f5, Field<A, F6> f6, Field<A, F7> f7) {
-        validate(f1, f2, f3, f4, f5, f6, f7);
+        requireExactlyRegisteredFields(f1, f2, f3, f4, f5, f6, f7);
         MapCodec<F1> mc1 = mapCodecFor(f1);
         MapCodec<F2> mc2 = mapCodecFor(f2);
         MapCodec<F3> mc3 = mapCodecFor(f3);
@@ -339,7 +340,7 @@ public final class SchemaRecordBuilder<A> {
 
     public <F1, F2, F3, F4, F5, F6, F7, F8> SchemaMapCodec<A> buildMapCodec8(Function8<F1, F2, F3, F4, F5, F6, F7, F8, A> ctor,
                                                                              Field<A, F1> f1, Field<A, F2> f2, Field<A, F3> f3, Field<A, F4> f4, Field<A, F5> f5, Field<A, F6> f6, Field<A, F7> f7, Field<A, F8> f8) {
-        validate(f1, f2, f3, f4, f5, f6, f7, f8);
+        requireExactlyRegisteredFields(f1, f2, f3, f4, f5, f6, f7, f8);
         MapCodec<F1> mc1 = mapCodecFor(f1);
         MapCodec<F2> mc2 = mapCodecFor(f2);
         MapCodec<F3> mc3 = mapCodecFor(f3);
@@ -363,7 +364,7 @@ public final class SchemaRecordBuilder<A> {
 
     public <F1, F2, F3, F4, F5, F6, F7, F8, F9> SchemaMapCodec<A> buildMapCodec9(Function9<F1, F2, F3, F4, F5, F6, F7, F8, F9, A> ctor,
                                                                                  Field<A, F1> f1, Field<A, F2> f2, Field<A, F3> f3, Field<A, F4> f4, Field<A, F5> f5, Field<A, F6> f6, Field<A, F7> f7, Field<A, F8> f8, Field<A, F9> f9) {
-        validate(f1, f2, f3, f4, f5, f6, f7, f8, f9);
+        requireExactlyRegisteredFields(f1, f2, f3, f4, f5, f6, f7, f8, f9);
         MapCodec<F1> mc1 = mapCodecFor(f1);
         MapCodec<F2> mc2 = mapCodecFor(f2);
         MapCodec<F3> mc3 = mapCodecFor(f3);
@@ -389,7 +390,7 @@ public final class SchemaRecordBuilder<A> {
 
     public <F1, F2, F3, F4, F5, F6, F7, F8, F9, F10> SchemaMapCodec<A> buildMapCodec10(Function10<F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, A> ctor,
                                                                                        Field<A, F1> f1, Field<A, F2> f2, Field<A, F3> f3, Field<A, F4> f4, Field<A, F5> f5, Field<A, F6> f6, Field<A, F7> f7, Field<A, F8> f8, Field<A, F9> f9, Field<A, F10> f10) {
-        validate(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10);
+        requireExactlyRegisteredFields(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10);
         MapCodec<F1> mc1 = mapCodecFor(f1);
         MapCodec<F2> mc2 = mapCodecFor(f2);
         MapCodec<F3> mc3 = mapCodecFor(f3);
@@ -417,7 +418,7 @@ public final class SchemaRecordBuilder<A> {
 
     public <F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11> SchemaMapCodec<A> buildMapCodec11(Function11<F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, A> ctor,
                                                                                             Field<A, F1> f1, Field<A, F2> f2, Field<A, F3> f3, Field<A, F4> f4, Field<A, F5> f5, Field<A, F6> f6, Field<A, F7> f7, Field<A, F8> f8, Field<A, F9> f9, Field<A, F10> f10, Field<A, F11> f11) {
-        validate(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11);
+        requireExactlyRegisteredFields(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11);
         MapCodec<F1> mc1 = mapCodecFor(f1);
         MapCodec<F2> mc2 = mapCodecFor(f2);
         MapCodec<F3> mc3 = mapCodecFor(f3);
@@ -447,7 +448,7 @@ public final class SchemaRecordBuilder<A> {
 
     public <F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12> SchemaMapCodec<A> buildMapCodec12(Function12<F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, A> ctor,
                                                                                                  Field<A, F1> f1, Field<A, F2> f2, Field<A, F3> f3, Field<A, F4> f4, Field<A, F5> f5, Field<A, F6> f6, Field<A, F7> f7, Field<A, F8> f8, Field<A, F9> f9, Field<A, F10> f10, Field<A, F11> f11, Field<A, F12> f12) {
-        validate(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12);
+        requireExactlyRegisteredFields(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12);
         MapCodec<F1> mc1 = mapCodecFor(f1);
         MapCodec<F2> mc2 = mapCodecFor(f2);
         MapCodec<F3> mc3 = mapCodecFor(f3);
@@ -479,7 +480,7 @@ public final class SchemaRecordBuilder<A> {
 
     public <F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13> SchemaMapCodec<A> buildMapCodec13(Function13<F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, A> ctor,
                                                                                                       Field<A, F1> f1, Field<A, F2> f2, Field<A, F3> f3, Field<A, F4> f4, Field<A, F5> f5, Field<A, F6> f6, Field<A, F7> f7, Field<A, F8> f8, Field<A, F9> f9, Field<A, F10> f10, Field<A, F11> f11, Field<A, F12> f12, Field<A, F13> f13) {
-        validate(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13);
+        requireExactlyRegisteredFields(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13);
         MapCodec<F1> mc1 = mapCodecFor(f1);
         MapCodec<F2> mc2 = mapCodecFor(f2);
         MapCodec<F3> mc3 = mapCodecFor(f3);
@@ -513,7 +514,7 @@ public final class SchemaRecordBuilder<A> {
 
     public <F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14> SchemaMapCodec<A> buildMapCodec14(Function14<F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, A> ctor,
                                                                                                            Field<A, F1> f1, Field<A, F2> f2, Field<A, F3> f3, Field<A, F4> f4, Field<A, F5> f5, Field<A, F6> f6, Field<A, F7> f7, Field<A, F8> f8, Field<A, F9> f9, Field<A, F10> f10, Field<A, F11> f11, Field<A, F12> f12, Field<A, F13> f13, Field<A, F14> f14) {
-        validate(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14);
+        requireExactlyRegisteredFields(f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14);
         MapCodec<F1> mc1 = mapCodecFor(f1);
         MapCodec<F2> mc2 = mapCodecFor(f2);
         MapCodec<F3> mc3 = mapCodecFor(f3);

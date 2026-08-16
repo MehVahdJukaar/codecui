@@ -18,12 +18,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-// Like vanilla HolderSetCodec a value is a tag ("#c:ingots"), a single entry
-// ("minecraft:iron_ingot") or a list of entries. Unlike vanilla the list is recursive:
-// every element may itself be any of those forms - a tag, an entry or a nested list. All of them are
-// flattened into a single HolderSet, so tags can be mixed with entries inside one list:
-// ["#c:ingots", "minecraft:stick", ["#minecraft:planks", "minecraft:iron_ingot"]]
-// Build one with #create; the recursion is closed over Codec#recursive.
+// HolderSetCodec whose list form is recursive: elements can be tags, entries or nested lists,
+// all flattened into one HolderSet, e.g. ["#c:ingots", "minecraft:stick", ["#minecraft:planks"]].
 public final class RecursiveHolderSetCodec<E> implements Codec<HolderSet<E>> {
     private final ResourceKey<? extends Registry<E>> registryKey;
     private final Codec<Holder<E>> elementCodec;
@@ -46,7 +42,6 @@ public final class RecursiveHolderSetCodec<E> implements Codec<HolderSet<E>> {
                 self -> new RecursiveHolderSetCodec<>(registryKey, elementCodec, self));
     }
 
-    // Used by SchemaResolver to build the tag picker / element editor.
     Codec<Holder<E>> elementCodec() {
         return elementCodec;
     }
@@ -54,9 +49,9 @@ public final class RecursiveHolderSetCodec<E> implements Codec<HolderSet<E>> {
     @Override
     public <T> DataResult<Pair<HolderSet<E>, T>> decode(DynamicOps<T> ops, T input) {
         if (ops instanceof RegistryOps<T> registryOps) {
-            Optional<HolderGetter<E>> optional = registryOps.getter(this.registryKey);
-            if (optional.isPresent()) {
-                HolderGetter<E> holderGetter = optional.get();
+            Optional<HolderGetter<E>> getter = registryOps.getter(this.registryKey);
+            if (getter.isPresent()) {
+                HolderGetter<E> holderGetter = getter.get();
                 return this.registryAwareCodec.decode(ops, input).flatMap(pair -> {
                     DataResult<HolderSet<E>> result = pair.getFirst().map(
                             tagKey -> lookupTag(holderGetter, tagKey),
@@ -73,15 +68,15 @@ public final class RecursiveHolderSetCodec<E> implements Codec<HolderSet<E>> {
     @Override
     public <T> DataResult<T> encode(HolderSet<E> input, DynamicOps<T> ops, T prefix) {
         if (ops instanceof RegistryOps<T> registryOps) {
-            Optional<HolderOwner<E>> optional = registryOps.owner(this.registryKey);
-            if (optional.isPresent() && !input.canSerializeIn(optional.get())) {
+            Optional<HolderOwner<E>> owner = registryOps.owner(this.registryKey);
+            if (owner.isPresent() && !input.canSerializeIn(owner.get())) {
                 return DataResult.error(() -> "HolderSet " + input + " is not valid in current registry set");
             }
         }
         return this.registryAwareCodec.encode(toEither(input), ops, prefix);
     }
 
-    // Reuses the recursive codec so nested lists still decode; only tags can't resolve here.
+    // Nested lists still decode here; only tags need a registry.
     private <T> DataResult<Pair<HolderSet<E>, T>> decodeWithoutRegistry(DynamicOps<T> ops, T input) {
         return this.registryAwareCodec.decode(ops, input).flatMap(pair -> {
             Either<TagKey<E>, Either<Holder<E>, List<HolderSet<E>>>> either = pair.getFirst();
@@ -98,7 +93,7 @@ public final class RecursiveHolderSetCodec<E> implements Codec<HolderSet<E>> {
         });
     }
 
-    // A HolderSet is either a tag or a flat list of holders; encode a single-entry set as one entry.
+    // A single-entry set encodes as one entry, not a list.
     private static <E> Either<TagKey<E>, Either<Holder<E>, List<HolderSet<E>>>> toEither(HolderSet<E> input) {
         return input.unwrap().map(
                 Either::left,

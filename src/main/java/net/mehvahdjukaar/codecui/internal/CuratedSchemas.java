@@ -23,14 +23,9 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
-// THE hand-maintained list of schema registrations for codecs that auto-inspection can't
-// (or shouldn't) handle. Everything here goes through the same public API a third-party mod
-// would use, so this class doubles as the reference example for curating "weird" codecs.
-//
-// Ground rules: first try to make inference handle the CLASS of codec (tier-2 handler,
-// EnumerableCodec, mixin tag); curate here only when that's impossible or not worth it.
-// Schemas describe the ON-DISK JSON shape, not the runtime type. Comment WHY inference
-// fails for each entry.
+// Hand-maintained schema registrations for codecs inference can't (or shouldn't) handle, all through
+// the same public API a third-party mod would use. Prefer teaching inference the class of codec first;
+// curate only when that's not worth it. Schemas describe the on-disk JSON shape. Say why inference fails.
 public final class CuratedSchemas {
 
     private static volatile boolean bootstrapped = false;
@@ -46,16 +41,14 @@ public final class CuratedSchemas {
         } catch (Throwable t) {
             CodecUI.LOGGER.warn("curated schema registration failed", t);
         }
-        // These need the game bootstrap (Blocks, ItemStack components); on a bare JVM they
-        // fail without taking down the registrations above.
+        // Needs the game bootstrap (Blocks, ItemStack components); on a bare JVM this fails alone.
         try {
             registerBootstrapDependent();
         } catch (Throwable t) {
             CodecUI.LOGGER.info("game-dependent curated schemas unavailable (no game bootstrap): {}",
                     String.valueOf(t));
         }
-        // Client-only formats reference net.minecraft.client, absent on a dedicated server - guard
-        // so the NoClassDefFoundError there just skips them instead of failing the whole bootstrap.
+        // net.minecraft.client is absent on a dedicated server; the NoClassDefFoundError just skips these.
         try {
             ClientCuratedSchemas.register();
         } catch (Throwable t) {
@@ -68,29 +61,25 @@ public final class CuratedSchemas {
     private static void register() {
         registerVanillaDispatches();
 
-        // Identifier.CODEC is STRING.comapFlatMap -> inference yields plain text; an id
-        // widget (with the registry-less picker) is the nicer surface.
+        // Identifier.CODEC is STRING.comapFlatMap: inference yields plain text, an id widget is nicer.
         SchemaCodecs.registerCompanion(Identifier.CODEC, new Schema.ResourceId(null));
 
-        // UUIDUtil.CODEC is INT_STREAM.comapFlatMap -> opaque (INT_STREAM has no widget).
-        // On disk it is a fixed quadruple of ints.
+        // UUIDUtil.CODEC is INT_STREAM.comapFlatMap (opaque); on disk a fixed quadruple of ints.
         SchemaCodecs.registerCompanion(UUIDUtil.CODEC, (Schema) new Schema.ListOf<>(
                 new Schema.IntRange(Integer.MIN_VALUE, Integer.MAX_VALUE), 4, 4));
 
-        // UUIDUtil.STRING_CODEC / LENIENT_CODEC decode via opaque lambdas; on disk they are
-        // the canonical hyphenated string form.
+        // UUIDUtil.STRING_CODEC decodes via opaque lambdas; on disk the canonical hyphenated string.
         Schema uuidString = new Schema.Str(36, 36, Pattern.compile(
                 "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"));
         SchemaCodecs.registerCompanion(UUIDUtil.STRING_CODEC, uuidString);
 
-        // BlockPos.CODEC is INT_STREAM.comapFlatMap - INT_STREAM is opaque. On disk: [x, y, z].
+        // BlockPos.CODEC is INT_STREAM.comapFlatMap (opaque); on disk [x, y, z].
         Schema intAll = new Schema.IntRange(Integer.MIN_VALUE, Integer.MAX_VALUE);
         Schema floatAll = new Schema.FloatRange(-Float.MAX_VALUE, Float.MAX_VALUE);
         SchemaCodecs.registerCompanion(BlockPos.CODEC, new Schema.ListOf<>(intAll, 3, 3));
 
-        // JOML vector codecs are FLOAT/INT.listOf().comapFlatMap with an arity check hidden
-        // in the lambda; inference sees an unbounded list, curation restores the fixed size.
-        // Note: ExtraCodecs.VECTOR2F / VECTOR3I do not exist on 1.21.1 (added in 1.21.6).
+        // JOML vectors are listOf().comapFlatMap with the arity check in the lambda; restore the fixed size.
+        // VECTOR2F / VECTOR3I were added in 1.21.6.
         //? >=1.21.6 {
         try {
             SchemaCodecs.registerCompanion(ExtraCodecs.VECTOR2F, new Schema.ListOf<>(floatAll, 2, 2));
@@ -108,11 +97,8 @@ public final class CuratedSchemas {
         }
         //?}
 
-        // Color codecs: inference at best yields AnyOf(integer, text); a color picker is the
-        // point of this whole exercise. INT-primary variants emit packed ints, STRING_*
-        // variants emit "#RRGGBB"/"#AARRGGBB" strings (hexString flag). On 1.21.1 only ARGB_COLOR_CODEC exists (int-primary);
-        // RGB_COLOR_CODEC was added in 1.21.2.
-        // STRING_* hex-string color codecs were added in 1.21.11.
+        // Color codecs: inference at best yields AnyOf(integer, text). Int variants emit packed ints,
+        // STRING_* variants (1.21.11+) emit "#RRGGBB"/"#AARRGGBB". RGB_COLOR_CODEC was added in 1.21.2.
         //? >=1.21.2
         SchemaCodecs.registerCompanion(ExtraCodecs.RGB_COLOR_CODEC, new Schema.Color(false, false));
         SchemaCodecs.registerCompanion(ExtraCodecs.ARGB_COLOR_CODEC, new Schema.Color(true, false));
@@ -121,36 +107,23 @@ public final class CuratedSchemas {
         SchemaCodecs.registerCompanion(ExtraCodecs.STRING_ARGB_COLOR, new Schema.Color(true, true));
         //?}
 
-        // Text components: ComponentSerialization.CODEC is a Codec.recursive over an Either tree.
-        // Structural inference (especially NeoForge's reflective path) builds a schema whose
-        // re-encode doesn't round-trip, so a valid on-disk component fails to decode from the rebuilt
-        // form. It's also too rich to edit as a form. Curate it as opaque: validated raw JSON that
-        // round-trips exactly. The schema naming its own key codec pins this tag permanently, which
-        // is fine only because the codec is a static singleton (see registerCompanion).
+        // ComponentSerialization.CODEC is Codec.recursive over an Either tree; the inferred schema doesn't
+        // round-trip and is too rich for a form anyway, so validated raw JSON. Opaque over its own key
+        // codec pins the tag forever, fine only because the codec is a static singleton.
         SchemaCodecs.registerCompanion(ComponentSerialization.CODEC, new Schema.Opaque<>(ComponentSerialization.CODEC, null));
     }
 
-    // Dispatch key sets for vanilla Codec.dispatch(...) families keyed on a "type" object from
-    // a registry. A KeyDispatchCodec hides its valid key set inside a closure, so the resolver
-    // can't enumerate variants without this side channel.
-    //
-    // Only registries of concrete "type" objects belong here - ones whose dispatch decoder casts
-    // the key to a specific class, so a foreign key fails fast and the resolver's probe can tell
-    // hooks apart. Registries whose elements are bare MapCodec<? extends X> (DENSITY_FUNCTION_TYPE,
-    // MATERIAL_RULE, ...) are deliberately excluded: their dispatch decoder is identity, so every
-    // such registry would accept every other's keys and cross-contaminate the variant lists.
-    //
-    // For most use cases, the RegistryByNameCodecMixin should handle it as it wraps the codecs
-    // for the registry to provide the keys by default. However, this should be used for any registries
-    // which have dispatch codecs not covered by RegistryByNameCodecMixin
+    // Dispatch key sets for vanilla Codec.dispatch(...) families that RegistryByNameCodecMixin doesn't
+    // cover. Only registries of concrete "type" objects: registries of bare MapCodec<? extends X>
+    // (DENSITY_FUNCTION_TYPE, MATERIAL_RULE, ...) have an identity dispatch decoder and would accept
+    // each other's keys, cross-contaminating the variant lists.
     private static void registerVanillaDispatches() {
 
     }
 
     @SuppressWarnings({"unused", "unchecked", "rawtypes"})
     private static <K> void registerRegistryDispatch(Class<K> type, Registry<? extends K> registry) {
-        // LAZY: re-snapshot on each call so we see whatever's in the registry when the editor opens,
-        // not at static-init time (avoids any class-loading order race with registry population).
+        // Snapshot per call so we see the registry as it is when the editor opens, not at static init.
         Supplier<List<K>> keys = () -> {
             List<K> snapshot = new ArrayList<>();
             try {
@@ -169,9 +142,8 @@ public final class CuratedSchemas {
     }
 
     private static void registerBootstrapDependent() {
-        // BlockState.CODEC is built during very early MC bootstrap, before our mixins apply, so
-        // the internal keyCodec never gets its ResourceId tag. On-disk shape:
-        // {"Name": id, "Properties": {prop: value}} (Properties optional in vanilla).
+        // BlockState.CODEC is built before our mixins apply, so its keyCodec never gets the ResourceId tag.
+        // On disk: {"Name": id, "Properties": {prop: value}}.
         Schema.Str anyStr = new Schema.Str(0, Integer.MAX_VALUE, null);
         SchemaCodecs.registerCompanion(BlockState.CODEC,
                 new Schema.Record<>(BlockState.class,
@@ -179,14 +151,13 @@ public final class CuratedSchemas {
                         new Schema.Field<>("Name", new Schema.ResourceId(Registries.BLOCK), false, null),
                         new Schema.Field<>("Properties", new Schema.MapOf<>(anyStr, anyStr), true, null))));
 
-        // ItemStack.CODEC routes through data components - opaque to inference. Minimal
-        // round-tripping shape for plain stacks.
+        // ItemStack.CODEC routes through data components (opaque); minimal shape for plain stacks.
         SchemaCodecs.registerCompanion(ItemStack.CODEC,
                 new Schema.Record<>(ItemStack.class,
                         List.of(
                         new Schema.Field<>("id", new Schema.ResourceId(Registries.ITEM), false, null),
                         new Schema.Field<>("count", new Schema.IntRange(1, 99), true, 1))));
-        // In 26.1 and beyond, ItemStackTemplate is a class that acts as a template for an ItemStack, as such, we handle it the same.
+        // ItemStackTemplate (26.1+) is an ItemStack template; same shape.
         //? >=26.1 {
         SchemaCodecs.registerCompanion(ItemStackTemplate.CODEC,
                 new Schema.Record<>(ItemStackTemplate.class,
@@ -195,10 +166,8 @@ public final class CuratedSchemas {
                                 new Schema.Field<>("count", new Schema.IntRange(1, 99), true, 1))));
         //?}
 
-        // Ingredient.CODEC is either(list(Value), Value) with Value = xor(ItemValue, TagValue);
-        // structurally that resolves to an unlabeled AnyOf. Curate the on-disk shape with real
-        // labels: {"item": id} / {"tag": id}, or a list mixing the two. (The NeoForge
-        // {"type": ...} custom form falls outside this surface.)
+        // Ingredient.CODEC is either(list(Value), Value), Value = xor(item, tag): an unlabeled AnyOf.
+        // Curate with labels: {"item": id} / {"tag": id} or a list of those. NeoForge {"type": ...} not covered.
         Schema<Ingredient> ingredientItem = new Schema.Record<>(Ingredient.class,
                 List.<Schema.Field<Ingredient, ?>>of(
                         new Schema.Field<>("item", new Schema.ResourceId(Registries.ITEM), false, null)));
@@ -212,12 +181,11 @@ public final class CuratedSchemas {
                 Schema.option("tag", ingredientTag),
                 Schema.option("list", new Schema.ListOf<>(ingredientValue, 1, Integer.MAX_VALUE)));
         SchemaCodecs.registerCompanion(Ingredient.CODEC, ingredient);
-        // By 1.21.2, Ingredient.CODEC_NONEMPTY was removed as Ingredient.CODEC enforces being non-empty now
+        // 1.21.2 removed CODEC_NONEMPTY; CODEC is non-empty itself now.
         //? <1.21.2
         //SchemaCodecs.registerCompanion(Ingredient.CODEC_NONEMPTY, ingredient);
 
-        // DimensionType.DIRECT_CODEC wraps fields via ExtraCodecs.catchDecoderException (a raw
-        // Codec.of with anonymous decoder) - no mixin point.
+        // DimensionType.DIRECT_CODEC wraps fields in ExtraCodecs.catchDecoderException (raw Codec.of), no mixin point.
         SchemaCodecs.registerCompanion(DimensionType.DIRECT_CODEC,
                 new Schema.Record<>(DimensionType.class,
                         List.of(

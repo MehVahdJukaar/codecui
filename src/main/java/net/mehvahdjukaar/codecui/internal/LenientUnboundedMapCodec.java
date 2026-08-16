@@ -14,20 +14,19 @@ public record LenientUnboundedMapCodec<K, V>(Codec<K> keyCodec,
 
     @Override
     public <T> DataResult<Map<K, V>> decode(DynamicOps<T> ops, MapLike<T> input) {
-        ImmutableMap.Builder<K, V> read = ImmutableMap.builder();
+        ImmutableMap.Builder<K, V> decoded = ImmutableMap.builder();
         input.entries().forEach((pair) -> {
-            DataResult<K> k = this.keyCodec().parse(ops, pair.getFirst());
-            DataResult<V> v = this.elementCodec().parse(ops, pair.getSecond());
-            DataResult<Pair<K, V>> entry = k.apply2stable(Pair::of, v);
+            DataResult<K> key = this.keyCodec().parse(ops, pair.getFirst());
+            DataResult<V> value = this.elementCodec().parse(ops, pair.getSecond());
+            DataResult<Pair<K, V>> entry = key.apply2stable(Pair::of, value);
             entry.error().ifPresent((e) -> {
-                CodecUI.LOGGER.error("Failed to decode key {} for value {}: {}", k, v, e);
+                CodecUI.LOGGER.error("Failed to decode key {} for value {}: {}", key, value, e);
             });
             entry.result().ifPresent((e) -> {
-                read.put(e.getFirst(), e.getSecond());
+                decoded.put(e.getFirst(), e.getSecond());
             });
         });
-        Map<K, V> elements = read.build();
-        return DataResult.success(elements);
+        return DataResult.success(decoded.build());
     }
 
     @Override

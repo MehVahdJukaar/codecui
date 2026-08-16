@@ -7,7 +7,7 @@ import com.mojang.serialization.DynamicOps;
 
 import java.util.Objects;
 
-// Basically equivalent of RegistryFileCodec but for simple map "registries". Use a MapRegistry.
+// RegistryFileCodec for plain map "registries" (see MapRegistry).
 public final class ReferenceOrDirectCodec<E> implements Codec<E> {
     private final Codec<E> reference;
     private final Codec<E> direct;
@@ -27,8 +27,8 @@ public final class ReferenceOrDirectCodec<E> implements Codec<E> {
     @Override
     public <T> DataResult<Pair<E, T>> decode(final DynamicOps<T> ops, final T input) {
         if (ops.getStringValue(input).result().isPresent()) {
-            var ref = reference.decode(ops, input);
-            if (ref.result().isPresent() || !bothStrings) return ref;
+            var referenceRead = reference.decode(ops, input);
+            if (referenceRead.result().isPresent() || !bothStrings) return referenceRead;
         }
         return direct.decode(ops, input);
     }
@@ -36,8 +36,8 @@ public final class ReferenceOrDirectCodec<E> implements Codec<E> {
     @Override
     public <T> DataResult<T> encode(final E input, final DynamicOps<T> ops, final T prefix) {
         if (ops.compressMaps()) {
-            var ref = reference.encode(input, ops, prefix);
-            if (ref.result().isPresent()) return ref;
+            var referenceWrite = reference.encode(input, ops, prefix);
+            if (referenceWrite.result().isPresent()) return referenceWrite;
         }
         return direct.encode(input, ops, prefix);
     }
@@ -50,8 +50,8 @@ public final class ReferenceOrDirectCodec<E> implements Codec<E> {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        final ReferenceOrDirectCodec<?> eitherCodec = ((ReferenceOrDirectCodec<?>) o);
-        return Objects.equals(reference, eitherCodec.reference) && Objects.equals(direct, eitherCodec.direct);
+        final ReferenceOrDirectCodec<?> that = ((ReferenceOrDirectCodec<?>) o);
+        return Objects.equals(reference, that.reference) && Objects.equals(direct, that.direct);
     }
 
     @Override

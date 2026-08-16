@@ -17,12 +17,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-// Tags the Codec returned by Registry#byNameCodec() with a
-// Schema.ResourceId carrying this registry's key. The resolver then routes the codec
-// to a ResourceIdWidget (dropdown / picker) instead of the inherited String schema.
-//
-// Because byNameCodec() is a default method on Registry, this mixin fires
-// for every concrete registry implementation - vanilla, mod registries, custom ones.
+// Tags Registry#byNameCodec() output with Schema.ResourceId(registry key). Default method, so it
+// covers every registry implementation.
 @Mixin(Registry.class)
 public interface RegistryByNameCodecMixin<T> {
 
@@ -31,7 +27,7 @@ public interface RegistryByNameCodecMixin<T> {
 
     @ModifyReturnValue(method = "byNameCodec", at = @At("RETURN"))
     private Codec<T> codecui$tagByNameCodec(Codec<T> wrapped) {
-        codecui$tagWithKey(wrapped);
+        codecui$tagResourceId(wrapped);
         return wrapped;
     }
 
@@ -39,23 +35,23 @@ public interface RegistryByNameCodecMixin<T> {
     @SuppressWarnings("rawtypes")
     @ModifyReturnValue(method = "holderByNameCodec", at = @At("RETURN"))
     private Codec codecui$tagHolderByNameCodec(Codec wrapped) {
-        codecui$tagWithKey(wrapped);
+        codecui$tagResourceId(wrapped);
         return wrapped;
     }
 
     @ModifyReturnValue(method = "referenceHolderWithLifecycle", at = @At("RETURN"))
     private Codec<T> codecui$tagReferenceHolderWithLifecycle(Codec<T> wrapped) {
-        codecui$tagWithKey(wrapped);
+        codecui$tagResourceId(wrapped);
         return new WrappedEnumerableCodec<>(wrapped, () -> {
-            Map<String, T> idToValues = new HashMap<>();
-            this.entrySet().forEach(entry -> idToValues.put(McCompat.keyId(entry.getKey()).toString(), entry.getValue()));
-            return idToValues;
+            Map<String, T> valuesById = new HashMap<>();
+            this.entrySet().forEach(entry -> valuesById.put(McCompat.keyId(entry.getKey()).toString(), entry.getValue()));
+            return valuesById;
         });
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     @Unique
-    private void codecui$tagWithKey(Codec<?> wrapped) {
+    private void codecui$tagResourceId(Codec<?> wrapped) {
         try {
             ResourceKey<? extends Registry<T>> key = ((Registry<T>) this).key();
             Schema.ResourceId schema = new Schema.ResourceId(key);

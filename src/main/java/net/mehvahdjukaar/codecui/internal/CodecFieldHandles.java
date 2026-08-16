@@ -17,11 +17,9 @@ import java.lang.invoke.VarHandle;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-// VarHandles for the private fields of the DFU codec classes the resolver introspects.
-// Every handle is nullable: a failed lookup (DFU version drift, module access) leaves it
-// null and the corresponding tier branch is skipped. net.minecraft.* codecs are NOT here -
-// they are read via access-widened fields, since string field names would not survive
-// Fabric's intermediary remap.
+// VarHandles for the private fields of the DFU codec classes the resolver introspects. A failed
+// lookup leaves the handle null and the tier branch is skipped. net.minecraft.* codecs are read
+// via the access widener instead: string field names would not survive Fabric's intermediary remap.
 final class CodecFieldHandles {
 
     static final @Nullable VarHandle PAIR_CODEC_FIRST;
@@ -80,20 +78,17 @@ final class CodecFieldHandles {
         } catch (Throwable ignored) {}
         try {
             var lookup = MethodHandles.privateLookupIn(KeyDispatchCodec.class, MethodHandles.lookup());
-            // keyCodec's declared type differs across DFU versions (DFU 9: fieldOf-wrapped
-            // MapCodec, DFU 8: raw Codec). Try both, and don't let a miss abort the sibling
-            // lookups below - that once left `decoder` null on DFU 8, killing all dispatch enumeration.
+            // keyCodec is a fieldOf-wrapped MapCodec on DFU 9, a raw Codec on DFU 8. A miss here
+            // must not abort the sibling lookups (that once left decoder null on DFU 8).
             try {
                 kdk = lookup.findVarHandle(KeyDispatchCodec.class, "keyCodec", MapCodec.class);
             } catch (Throwable e) {
                 kdk = lookup.findVarHandle(KeyDispatchCodec.class, "keyCodec", Codec.class);
             }
             kdt = lookup.findVarHandle(KeyDispatchCodec.class, "type", Function.class);
-            // The public constructor stores the user's codec function as `decoder`, so applying it
-            // to a candidate K yields that variant's MapCodec - the basis of variant enumeration.
+            // decoder is the user's K -> MapCodec function; variant enumeration applies it per key.
             kdd = lookup.findVarHandle(KeyDispatchCodec.class, "decoder", Function.class);
-            // DFU 8 (1.21.1) keeps the JSON type field name in a `typeKey` String field; DFU 9
-            // dropped it (the name lives inside the fieldOf-wrapped keyCodec instead).
+            // DFU 8 keeps the JSON type field name in typeKey; DFU 9 folds it into keyCodec.
             //? <1.21.11 {
             /*try {
                 kdtk = lookup.findVarHandle(KeyDispatchCodec.class, "typeKey", String.class);

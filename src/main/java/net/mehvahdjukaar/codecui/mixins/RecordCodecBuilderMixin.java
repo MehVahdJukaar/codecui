@@ -13,11 +13,8 @@ import net.mehvahdjukaar.codecui.internal.SchemaTags;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
-// Captures per-field information during RecordCodecBuilder construction so the MapCodec
-// returned by build(...) can carry a real Schema.Record; without this the anonymous MapCodec
-// is fully opaque. Coverage: only the of(...) entry points are tagged - dependent(...) and
-// point/stable carry empty tag lists and fall through to Opaque. Optionality is best-effort:
-// only the of(getter, MapCodec) form carries it; of(getter, name, codec) marks fields required.
+// Tags RCB fields at construction so build(...) output can become a Schema.Record.
+// Only the of(...) entry points are tagged; dependent/point/stable fall through to Opaque.
 @Mixin(RecordCodecBuilder.class)
 public abstract class RecordCodecBuilderMixin {
 
@@ -42,9 +39,7 @@ public abstract class RecordCodecBuilderMixin {
         return result;
     }
 
-    // Transfers the accumulated field tags to the OUTPUT MapCodec. Deliberately does not
-    // populate SchemaTags: the resolver rebuilds the schema fresh at lookup time so
-    // companions registered later still win.
+    // Only field tags, no SchemaTags: the resolver builds the schema at lookup time so later companions win.
     @SuppressWarnings({"unchecked", "rawtypes"})
     @ModifyReturnValue(method = "build", at = @At("RETURN"))
     private static MapCodec<?> codecui$tagBuild(

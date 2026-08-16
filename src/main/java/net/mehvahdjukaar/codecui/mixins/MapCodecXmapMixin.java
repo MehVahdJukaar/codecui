@@ -2,14 +2,12 @@ package net.mehvahdjukaar.codecui.mixins;
 
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import com.mojang.serialization.MapCodec;
+import net.mehvahdjukaar.codecui.internal.XmapTags;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 
-// Mirror of CodecXmapMixin for MapCodec.xmap / flatXmap.
-// Many vanilla CODECs are built like something.fieldOf("x").xmap(ctor, getter) - the
-// xmap is on the MapCodec, not the Codec. Without this mixin, those outputs are opaque to the
-// resolver and the entire record falls to a raw JSON editor.
+// CodecXmapMixin for MapCodec: vanilla often does something.fieldOf("x").xmap(ctor, getter).
 @Mixin(MapCodec.class)
 public abstract class MapCodecXmapMixin {
 
@@ -36,7 +34,7 @@ public abstract class MapCodecXmapMixin {
     private void codecui$inheritInner(MapCodec<?> wrapped) {
         if (wrapped == null || wrapped == (Object) this) return;
         try {
-            net.mehvahdjukaar.codecui.internal.XmapTags.putMap(
+            XmapTags.putMap(
                     wrapped, (MapCodec<?>) (Object) this);
         } catch (Throwable ignored) {
         }

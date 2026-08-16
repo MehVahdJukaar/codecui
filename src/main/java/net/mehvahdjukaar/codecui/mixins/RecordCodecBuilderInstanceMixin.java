@@ -11,11 +11,7 @@ import org.spongepowered.asm.mixin.injection.At;
 
 import java.util.function.Function;
 
-// Propagates accumulated field tags through the applicative apN combinators.
-// Each apN takes an applicative function plus N field-carrying RCBs and produces a
-// new RCB whose tag list is the concatenation of the inputs' tag lists. The applicative
-// function position (func) typically carries no field tags itself (it's built from
-// point); concat just skips empty contributions.
+// Carries field tags through apN: the result RCB gets the inputs' tags concatenated.
 @Mixin(RecordCodecBuilder.Instance.class)
 public abstract class RecordCodecBuilderInstanceMixin {
 
@@ -25,7 +21,7 @@ public abstract class RecordCodecBuilderInstanceMixin {
                                        @Local(argsOnly = true, ordinal = 0) App func,
                                        @Local(argsOnly = true, ordinal = 1) App a,
                                        @Local(argsOnly = true, ordinal = 2) App b) {
-        codecui$concat(result, func, a, b);
+        codecui$concatFieldTags(result, func, a, b);
         return result;
     }
 
@@ -36,7 +32,7 @@ public abstract class RecordCodecBuilderInstanceMixin {
                                        @Local(argsOnly = true, ordinal = 1) App t1,
                                        @Local(argsOnly = true, ordinal = 2) App t2,
                                        @Local(argsOnly = true, ordinal = 3) App t3) {
-        codecui$concat(result, func, t1, t2, t3);
+        codecui$concatFieldTags(result, func, t1, t2, t3);
         return result;
     }
 
@@ -48,15 +44,12 @@ public abstract class RecordCodecBuilderInstanceMixin {
                                        @Local(argsOnly = true, ordinal = 2) App t2,
                                        @Local(argsOnly = true, ordinal = 3) App t3,
                                        @Local(argsOnly = true, ordinal = 4) App t4) {
-        codecui$concat(result, func, t1, t2, t3, t4);
+        codecui$concatFieldTags(result, func, t1, t2, t3, t4);
         return result;
     }
 
-    // The Applicative interface defaults for ap5..ap16 all begin with
-    // this.map(curryN, func) before delegating to ap2/ap3/ap4. Instance overrides
-    // map, producing a NEW builder - without this hook the tags accumulated on
-    // func are dropped there, and any record with more than 4 fields loses all
-    // fields captured before the map (e.g. a 9-field record only showed fields 5-9).
+    // ap5..ap16 defaults start with this.map(curryN, func); without this, records past 4 fields
+    // lose the fields captured before the map (see ARCHITECTURE.md, arity trap).
     @SuppressWarnings("rawtypes")
     @ModifyReturnValue(method = "map", at = @At("RETURN"))
     private App<?, ?> codecui$tagMap(App<?, ?> result, @Local(argsOnly = true) App ts) {
@@ -69,10 +62,7 @@ public abstract class RecordCodecBuilderInstanceMixin {
         return result;
     }
 
-    // Single-field records go through Products.P1.apply -> Applicative.ap ->
-    // lift1(func).apply(t1), never touching ap2/3/4. Wrap the function returned by
-    // lift1 so the App it produces inherits the tags of both the function position
-    // and the argument (in that order).
+    // 1-field records go P1.apply -> Applicative.ap -> lift1(func).apply(t1), skipping ap2/3/4.
     @SuppressWarnings({"rawtypes", "unchecked"})
     @ModifyReturnValue(method = "lift1", at = @At("RETURN"))
     private Function codecui$tagLift1(Function original, @Local(argsOnly = true) App func) {
@@ -92,7 +82,7 @@ public abstract class RecordCodecBuilderInstanceMixin {
 
     @Unique
     @SuppressWarnings("rawtypes")
-    private static void codecui$concat(App<?, ?> result, App... inputs) {
+    private static void codecui$concatFieldTags(App<?, ?> result, App... inputs) {
         try {
             if (!(result instanceof RecordCodecBuilder<?, ?> resultBuilder)) return;
             RecordCodecBuilder<?, ?>[] in = new RecordCodecBuilder[inputs.length];

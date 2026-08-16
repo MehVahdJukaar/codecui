@@ -7,11 +7,9 @@ import net.mehvahdjukaar.codecui.CodecUI;
 
 import java.util.function.Function;
 
-// Runtime detection of whether the codec-construction mixins actually wove. They fail on
-// NeoForge always (DFU isn't on the transforming classloader) and on Fabric occasionally
-// (a DFU type classloaded before Mixin prepares its configs is silently skipped,
-// required:false). Detected by exercising an intercepted call and checking whether the
-// side-channel tag appeared; exposed through SchemaCodecs.inferenceMode().
+// Probes whether the codec-construction mixins wove, by building a codec and checking for its
+// tag. They never apply on NeoForge (DFU is off the transforming classloader) and can miss on
+// Fabric when a DFU type loads before Mixin is ready (required:false hides that).
 public final class MixinDetection {
 
     private static volatile boolean detected = false;
@@ -19,7 +17,7 @@ public final class MixinDetection {
     private static volatile boolean mapCodecActive = false;
     private static volatile boolean recordBuilderActive = false;
 
-    // Optimistic-false before #run completes; callers use it after init.
+    // false until run() completed
     public static boolean constructionInterceptionActive() {
         return codecActive && mapCodecActive && recordBuilderActive;
     }
@@ -43,13 +41,11 @@ public final class MixinDetection {
 
         String missing = describeMissing();
         if (neoForge) {
-            // Expected on NeoForge: DFU is off the transforming classloader by design.
             CodecUI.LOGGER.info(
                     "Codec construction mixins inactive ({}) - expected on NeoForge; using reflective "
                             + "schema inference (numeric ranges recovered, optional-field defaults not).",
                     missing);
         } else {
-            // Anomaly on Fabric: something classloaded a DFU type before Mixin could weave.
             CodecUI.LOGGER.error("""
                     ============================================================
                      CodecUI: codec construction mixins DID NOT APPLY ({})

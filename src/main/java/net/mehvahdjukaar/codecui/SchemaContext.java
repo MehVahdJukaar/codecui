@@ -6,11 +6,11 @@ import net.minecraft.core.registries.BuiltInRegistries;
 public class SchemaContext {
     private static RegistryAccess registries = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
 
-    // Get the current RegistryAccess
     public static RegistryAccess getRegistries() {
         return SchemaContext.registries;
     }
-    // Update whenever tags are read to store the current RegistryAccess
+
+    // called from the loader entrypoints whenever tags are (re)loaded
     public static void update(RegistryAccess registries) {
         SchemaContext.registries = registries;
     }

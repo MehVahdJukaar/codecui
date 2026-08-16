@@ -11,9 +11,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.BiFunction;
 
-// Decodes a base object, then decodes zero or more EXTRA map-fields off the same input and
-// folds them into the base via merge. The extras are decode-only: encoding delegates straight
-// to the base codec, so they don't round-trip back out on their own.
+// Decodes base, then the extra map fields off the same input, and merges them in. Extras are
+// decode-only; encode goes straight to base.
 public final class CodecWithExtra<A> implements Codec<A> {
     private final Codec<A> base;
     private final List<MapCodec<?>> extras;
@@ -25,7 +24,6 @@ public final class CodecWithExtra<A> implements Codec<A> {
         this.merge = Objects.requireNonNull(merge);
     }
 
-    // Exposed so the schema resolver can render the primary shape.
     public Codec<A> base() {
         return base;
     }

@@ -10,17 +10,14 @@ import net.minecraft.tags.TagKey;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
-// Tags the Codec returned by TagKey#codec (and hashedCodec) with a
-// Schema.TagId carrying the target registry key - the tag twin of
-// RegistryByNameCodecMixin. The resolver then routes any TagKey.codec(reg) field
-// to a tag picker instead of the inherited Identifier-string schema.
+// Tags TagKey#codec / hashedCodec output with Schema.TagId(registry key).
 @Mixin(TagKey.class)
 public class TagKeyCodecMixin {
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     @ModifyReturnValue(method = "codec", at = @At("RETURN"))
     private static Codec codecui$tagCodec(Codec original, ResourceKey<? extends Registry<?>> registry) {
-        // TagKey.codec writes a bare "namespace:path"; hashedCodec (below) writes "#namespace:path".
+        // codec writes "namespace:path", hashedCodec writes "#namespace:path".
         SchemaTags.tag(original, (Schema) new Schema.TagId(registry, false));
         return original;
     }

@@ -42,11 +42,8 @@ public final class SchemaRecord {
     }
 
     /**
-     * Field backed by an already-built {@link MapCodec} - e.g. a lenient wrapper that embeds
-     * its own key and default and recovers from malformed input. The map codec is used
-     * verbatim, so decode/encode semantics (including lenient fallback) are preserved exactly;
-     * {@code elementSchema} only supplies the schema the editor renders for the value. Treated
-     * as optional in the UI, since such wrappers always carry a fallback.
+     * Field backed by an already-built MapCodec (e.g. a lenient wrapper with its own key and default).
+     * The map codec is used verbatim; elementSchema only supplies what the editor renders. Shown as optional.
      */
     public static <A, F> FieldRef<A, F> field(String name, MapCodec<F> mapCodec, SchemaCodec<F> elementSchema,
                                               Function<A, F> getter) {
@@ -66,8 +63,7 @@ public final class SchemaRecord {
         return optional(name, SchemaCodec.wrap(codec), defaultValue, getter);
     }
 
-    /** Optional field with NO default - round-trips as {@code Optional<F>}, mirroring
-     *  {@code codec.optionalFieldOf(name).forGetter(...)}. */
+    /** Optional field with no default; round-trips as Optional<F> like codec.optionalFieldOf(name). */
     public static <A, F> FieldRef<A, java.util.Optional<F>> optional(String name, SchemaCodec<F> codec,
                                                                      Function<A, java.util.Optional<F>> getter) {
         return new FieldRef<>(name, null, true, null, getter, codec.optionalFieldOf(name), codec);
@@ -78,7 +74,6 @@ public final class SchemaRecord {
         return optional(name, SchemaCodec.wrap(codec), getter);
     }
 
-    /** Per-record builder context; exposes field/optional and group(...) factories. */
     public static final class Instance<A> {
         private final Class<A> type;
 
@@ -95,11 +90,8 @@ public final class SchemaRecord {
         }
 
         /**
-         * Field backed by an already-built {@link MapCodec} - e.g. a lenient wrapper that embeds
-         * its own key and default and recovers from malformed input. The map codec is used
-         * verbatim, so decode/encode semantics (including lenient fallback) are preserved exactly;
-         * {@code elementSchema} only supplies the schema the editor renders for the value. Treated
-         * as optional in the UI, since such wrappers always carry a fallback.
+         * Field backed by an already-built MapCodec (e.g. a lenient wrapper with its own key and default).
+         * The map codec is used verbatim; elementSchema only supplies what the editor renders. Shown as optional.
          */
         public <F> FieldRef<A, F> field(String name, MapCodec<F> mapCodec, SchemaCodec<F> elementSchema,
                                         Function<A, F> getter) {
@@ -119,8 +111,7 @@ public final class SchemaRecord {
             return SchemaRecord.optional(name, codec, defaultValue, getter);
         }
 
-        /** Optional field with NO default - round-trips as {@code Optional<F>}, mirroring
-         *  {@code codec.optionalFieldOf(name).forGetter(...)}. */
+        /** Optional field with no default; round-trips as Optional<F> like codec.optionalFieldOf(name). */
         public <F> FieldRef<A, java.util.Optional<F>> optional(String name, SchemaCodec<F> codec,
                                                                Function<A, java.util.Optional<F>> getter) {
             return SchemaRecord.optional(name, codec, getter);
@@ -293,8 +284,7 @@ public final class SchemaRecord {
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static <A, F> Schema.Field<A, F> toSchemaField(FieldRef<A, F> f) {
-        // Optional<F> fields display their INNER codec's schema (the editor models optionality
-        // via the field flag, not via an Optional wrapper type).
+        // Optional<F> fields show the inner codec's schema; the field flag models optionality
         Schema<?> schema = f.innerCodec != null ? f.innerCodec.schema() : f.codec.schema();
         return new Schema.Field<>(f.name, (Schema) schema, f.optional, f.defaultValue);
     }
@@ -1014,7 +1004,6 @@ public final class SchemaRecord {
             return this;
         }
 
-        /** Append one more field, widening to the next arity. */
         public <F16> Group16<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16> and(FieldRef<A, F16> f) {
             return new Group16<>(instance, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f);
         }
@@ -1069,7 +1058,6 @@ public final class SchemaRecord {
             return this;
         }
 
-        /** Append one more field, widening to the next arity. */
         public <F17> Group17<A, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, F13, F14, F15, F16, F17> and(FieldRef<A, F17> f) {
             return new Group17<>(instance, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f);
         }

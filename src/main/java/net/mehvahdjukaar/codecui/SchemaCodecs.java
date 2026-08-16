@@ -51,69 +51,45 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 /**
- * Facade of the CodecUI declarative API: primitives and combinators that pair a {@link Codec}
- * with its {@link Schema}, so a mod can declare an editable surface for its own codecs and
- * have a CodecUI-aware editor render it.
- *
- * <p>Schemas may be stated explicitly - here, via {@link SchemaCodec#of}, or via
- * {@link SchemaRecord}/{@link SchemaRecordBuilder} - or inferred: {@link SchemaCodec#wrap}
- * runs the bundled inference engine (structural walk + construction-mixin tags + registered
- * companions/handlers). Anything the engine can't resolve degrades to {@link Schema.Opaque}
- * (a raw-JSON editor). Extend the engine via {@link #registerCompanion}, {@link #registerHandler}
- * and {@link #registerDispatchKeys}. The declaration contract is simply: produce a
- * {@link SchemaCodec} (or {@link SchemaMapCodec}); the editor reads {@link SchemaCodec#schema()}.</p>
+ * Public facade: primitives and combinators that pair a Codec with its Schema, plus the
+ * registration hooks (registerCompanion, registerHandler, registerDispatchKeys) that extend
+ * inference for codecs you don't own. SchemaCodec.wrap infers a schema for any other codec.
  */
 public final class SchemaCodecs {
-    /**
-     * How CodecUI recovers schema metadata from a codec's construction.
-     *
-     * @see #inferenceMode()
-     */
     public enum Inference {
         MIXIN,
         REFLECTION
     }
 
     /**
-     * Whether codec-construction interception is active. {@link Inference#REFLECTION} means schema
-     * inference is running in reduced-fidelity fallback (see the enum) - always on NeoForge, and on
-     * Fabric when a DFU type loaded too early. Valid after CodecUI has initialized.
+     * MIXIN when the codec-construction mixins are active, REFLECTION for the reduced-fidelity
+     * fallback (always on NeoForge, and on Fabric when a DFU type loaded too early).
      */
     public static Inference inferenceMode() {
         return MixinDetection.constructionInterceptionActive() ? Inference.MIXIN : Inference.REFLECTION;
     }
 
     /**
-     * Manually register a schema for a codec that can't be auto-introspected (opaque
-     * {@code Codec.of(enc, dec)} wrappers, etc.). After registration, any resolution of this
-     * codec - including nested inside another - finds the hand-crafted schema first.
-     *
-     * <p>Registrations are keyed weakly, but the schema itself is held strongly. So if {@code codec}
-     * is built per instance rather than being a static singleton, don't put it inside its own schema
-     * ({@code Schema.Opaque} over it, or a {@code Schema.Custom} widgetDef bound to it) - that makes
-     * the entry reach its own key and it can never be collected.
+     * Hand-crafted schema for one codec instance; wins over inference wherever that codec shows up.
+     * The codec is held weakly but the schema strongly, so a per-instance codec must not appear
+     * inside its own schema (Opaque over it, Custom widget bound to it) or it is never collected.
      */
     public static <A> void registerCompanion(Codec<A> codec, Schema<A> schema) {
         SchemaTags.tag(codec, schema);
     }
 
-    /** Same as {@link #registerCompanion(Codec, Schema)} for a {@link MapCodec}. */
     public static <A> void registerCompanion(MapCodec<A> codec, Schema<A> schema) {
         SchemaTags.tag(codec, schema);
     }
 
-    /**
-     * Register a {@link SchemaHandler} that teaches the resolver how to introspect a whole
-     * class of codecs. See {@link SchemaHandler} for contract, ordering and an example.
-     */
+    /** Teach the resolver a whole class of codecs. See SchemaHandler for the contract. */
     public static void registerHandler(SchemaHandler handler) {
         SchemaResolver.registerHandler(handler);
     }
 
     /**
-     * Register the key set of a {@code Codec.dispatch(...)} family whose key type can't
-     * implement {@link EnumerableCodec} (vanilla or third-party K). Keys the dispatch accepts
-     * become entries in the variant picker, with fully resolved bodies.
+     * Key set of a Codec.dispatch family whose key type can't implement EnumerableCodec.
+     * Each key becomes a variant picker entry with a fully resolved body.
      */
     public static <K> void registerDispatchKeys(Class<K> keyType, Supplier<List<K>> keys,
                                                 Function<K, String> nameOf) {
@@ -150,21 +126,15 @@ public final class SchemaCodecs {
         return SchemaCodec.of(codec, new Schema.Enum<>(options, label));
     }
 
-    /** Convenience: a {@link SchemaCodec} that pairs an integer codec with a {@link Schema.Color} (RGB). */
     public static SchemaCodec<Integer> colorRgb(Codec<Integer> codec) {
         return SchemaCodec.of(codec, new Schema.Color(false));
     }
 
-    /** Convenience: same as {@link #colorRgb} but for ARGB (with alpha channel). */
     public static SchemaCodec<Integer> colorArgb(Codec<Integer> codec) {
         return SchemaCodec.of(codec, new Schema.Color(true));
     }
 
-    /**
-     * Best-effort schema for any codec: its own schema when it already is a {@link SchemaCodec},
-     * otherwise a raw {@link Schema.Opaque}. No structural inference is performed - this only
-     * unwraps schema-carrying codecs and provides a raw fallback for the rest.
-     */
+    /** Schema for any codec: its own when it is a SchemaCodec, otherwise inferred (Opaque as last resort). */
     public static <A> Schema<A> resolve(Codec<A> codec) {
         return SchemaCodec.wrap(codec).schema();
     }
@@ -199,14 +169,12 @@ public final class SchemaCodecs {
         return SchemaCodec.of(codec, schema);
     }
 
-    /** An unbounded {@code Map<K, V>} codec paired with a {@link Schema.MapOf} (key + value editors). */
     public static <K, V> SchemaCodec<Map<K, V>> map(SchemaCodec<K> keyCodec, SchemaCodec<V> valueCodec) {
         Codec<Map<K, V>> codec = Codec.unboundedMap(keyCodec, valueCodec);
         Schema<Map<K, V>> schema = new Schema.MapOf<>(keyCodec.schema(), valueCodec.schema());
         return SchemaCodec.of(codec, schema);
     }
 
-    /** A {@link Pair} codec paired with a {@link Schema.PairOf} (first + second editors). */
     public static <F, S> SchemaCodec<Pair<F, S>> pair(SchemaCodec<F> first, SchemaCodec<S> second) {
         Codec<Pair<F, S>> codec = Codec.pair(first, second);
         Schema<Pair<F, S>> schema = new Schema.PairOf<>(first.schema(), second.schema());
@@ -240,7 +208,6 @@ public final class SchemaCodecs {
         return SchemaMapCodec.of(mapCodec, schema);
     }
 
-    /** A labeled alternative for {@link #withAlternative} / {@link #labeled}. */
     public record Alt<A>(String label, Codec<A> codec) {}
 
     public static <A> Alt<A> alt(String label, Codec<A> codec) {
@@ -248,10 +215,8 @@ public final class SchemaCodecs {
     }
 
     /**
-     * Labeled {@link Codec#withAlternative}: builds the codec AND a lazy {@link Schema.AnyOf}
-     * from the same two declarations - each alternative stated once. Prefer passing
-     * {@link SchemaCodec}s as the alternatives so their schemas render structurally; a raw
-     * codec alternative falls back to {@link Schema.Opaque}.
+     * Labeled Codec.withAlternative: codec and AnyOf schema from the same two declarations.
+     * Pass SchemaCodecs as alternatives where you can; a raw codec is inferred (Opaque at worst).
      */
     public static <A> SchemaCodec<A> withAlternative(Alt<A> primary, Alt<? extends A> secondary) {
         return SchemaCodec.lazy(Codec.withAlternative(primary.codec(), secondary.codec()),
@@ -261,15 +226,11 @@ public final class SchemaCodecs {
     }
 
     /**
-     * Labeled view over an EXISTING multi-format codec whose alternative structure can't be
-     * rebuilt here: the wire codec is passed through untouched, and the editor surface is a
-     * lazy flat {@link Schema.AnyOf} over the given labeled parts. Alternatives that are
-     * themselves AnyOf splice flat, keeping their own (more specific) labels.
+     * Labels an existing multi-format codec: the wire codec passes through untouched, the schema
+     * is a flat AnyOf over the given labeled parts.
      */
     public static <A> SchemaCodec<A> labeled(Codec<A> codec, Alt<?>... alternatives) {
-        // No explicit alternatives: this is just a SchemaCodec adapter over the raw codec, so
-        // resolve it structurally. Wrapping it in an AnyOf would produce a picker with zero
-        // options (an empty AnyOf), which is degenerate and blows up the widget layer.
+        // an empty AnyOf is a dead picker, so with no parts just infer the codec itself
         if (alternatives.length == 0) {
             return SchemaCodec.lazy(codec, () -> resolve(codec));
         }
@@ -283,12 +244,8 @@ public final class SchemaCodecs {
     }
 
     /**
-     * N-ary labeled alternatives: builds a "try each" wire codec (see {@link AlternativeCodec})
-     * AND a lazy flat {@link Schema.AnyOf} from the same declarations - each alternative stated
-     * once. Unlike {@link #withAlternative} (a 2-way {@link Codec#withAlternative} fold that always
-     * encodes with the primary), every alternative is tried for both decode and encode. Prefer
-     * passing {@link SchemaCodec}s so their schemas render structurally; a raw codec alternative
-     * falls back to {@link Schema.Opaque}. Alternatives that are themselves AnyOf splice flat.
+     * N-ary labeled "try each" codec (AlternativeCodec) plus a flat AnyOf schema. Unlike
+     * withAlternative, every alternative is tried for both decode and encode.
      */
     @SafeVarargs
     public static <A> SchemaCodec<A> alternatives(Alt<? extends A>... alternatives) {
@@ -310,11 +267,7 @@ public final class SchemaCodecs {
         });
     }
 
-    /**
-     * Unlabeled n-ary "try each" alternatives over raw codecs - a flat {@link Schema.AnyOf} with
-     * auto-derived option names. Use the {@code (label, codec)} overloads or {@link #alt} when you
-     * want to name the picker options.
-     */
+    /** Unlabeled form of alternatives(Alt...); picker options get auto-derived kind names. */
     @SafeVarargs
     public static <A> SchemaCodec<A> alternatives(Codec<? extends A>... codecs) {
         if (codecs.length == 0) {
@@ -330,20 +283,17 @@ public final class SchemaCodecs {
         });
     }
 
-    /** {@link #alternatives(Alt[])} stated as interleaved {@code (label, codec)} pairs. */
     public static <A> SchemaCodec<A> alternatives(String l1, Codec<? extends A> c1,
                                                   String l2, Codec<? extends A> c2) {
         return alternatives(alt(l1, c1), alt(l2, c2));
     }
 
-    /** {@link #alternatives(Alt[])} stated as interleaved {@code (label, codec)} pairs. */
     public static <A> SchemaCodec<A> alternatives(String l1, Codec<? extends A> c1,
                                                   String l2, Codec<? extends A> c2,
                                                   String l3, Codec<? extends A> c3) {
         return alternatives(alt(l1, c1), alt(l2, c2), alt(l3, c3));
     }
 
-    /** {@link #alternatives(Alt[])} stated as interleaved {@code (label, codec)} pairs. */
     public static <A> SchemaCodec<A> alternatives(String l1, Codec<? extends A> c1,
                                                   String l2, Codec<? extends A> c2,
                                                   String l3, Codec<? extends A> c3,
@@ -351,7 +301,6 @@ public final class SchemaCodecs {
         return alternatives(alt(l1, c1), alt(l2, c2), alt(l3, c3), alt(l4, c4));
     }
 
-    /** {@link #alternatives(Alt[])} stated as interleaved {@code (label, codec)} pairs. */
     public static <A> SchemaCodec<A> alternatives(String l1, Codec<? extends A> c1,
                                                   String l2, Codec<? extends A> c2,
                                                   String l3, Codec<? extends A> c3,
@@ -372,30 +321,22 @@ public final class SchemaCodecs {
         return SchemaCodec.of(nameCodec, schema);
     }
 
-    /**
-     * The tag twin of {@link #registryEntry}: a field that picks one {@link TagKey} of
-     * {@code registryKey}. Uses {@link TagKey#codec} for the wire form and a {@link Schema.TagId}
-     * so the editor shows a tag picker. Note {@code TagKey.codec} is already tagged with the same
-     * schema on construction (see {@code TagKeyCodecMixin}), so {@code SchemaCodec.wrap} of a bare
-     * {@code TagKey.codec(...)} yields the same result - this is just the explicit spelling.
-     */
+    /** One TagKey of registryKey, wire form TagKey.codec (bare "ns:path", no '#'), rendered as a tag picker. */
     public static <T> SchemaCodec<TagKey<T>> tag(ResourceKey<? extends Registry<T>> registryKey) {
-        Schema<TagKey<T>> schema = castSchema(new Schema.TagId(registryKey, false)); // TagKey.codec is bare, no '#'
+        Schema<TagKey<T>> schema = castSchema(new Schema.TagId(registryKey, false));
         return SchemaCodec.of(TagKey.codec(registryKey), schema);
     }
 
     /**
-     * Editor surface for a datapack tag file: the wire form is vanilla {@link TagFile#CODEC} and
-     * each member renders through the registry pickers ({@link Schema.ResourceId} / {@link Schema.TagId})
-     * for {@code registryKey}. Built per registry because a tag's target registry lives in its file
-     * path, not the JSON, so it can't be auto-tagged onto the shared {@code TagFile.CODEC}.
+     * Datapack tag file over vanilla TagFile.CODEC, with members rendered as registryKey pickers.
+     * Per registry because the target registry is in the file path, not the JSON.
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
     public static SchemaCodec<TagFile> tagFile(ResourceKey<? extends Registry<?>> registryKey) {
         Schema<Object> idOf = (Schema) new Schema.ResourceId(registryKey);
         Schema<Object> tagOf = (Schema) new Schema.TagId(registryKey);
 
-        // A member is an entry id, a #tag reference, or the {id, required} object form.
+        // a member is an entry id, a #tag reference, or the {id, required} object form
         Schema<Object> idOrTag = (Schema) Schema.anyOf(Schema.option("id", idOf), Schema.option("tag", tagOf));
         List<Schema.Field<Object, ?>> objectFields = List.of(
                 new Schema.Field<>("id", idOrTag, false, null),
@@ -416,22 +357,16 @@ public final class SchemaCodecs {
     }
 
     /**
-     * A {@link HolderSet} codec like vanilla's (a tag, a single entry, or a list of entries) except
-     * the list is <b>recursive</b>: every element may itself be a tag, an entry or a nested list, all
-     * flattened into one set. Lets tags and entries be mixed inside a single list. The resolver
-     * derives a self-recursive tag / single / list schema, so {@code SchemaCodec.wrap} suffices.
+     * Vanilla-style HolderSet codec (tag, single entry, or list) whose list is recursive: elements
+     * may themselves be tags, entries or nested lists, all flattened into one set.
      */
     public static <E> SchemaCodec<HolderSet<E>> recursiveHolderSet(ResourceKey<? extends Registry<E>> registryKey, Codec<Holder<E>> elementCodec) {
         return SchemaCodec.wrap(RecursiveHolderSetCodec.create(registryKey, elementCodec));
     }
 
     /**
-     * Enumerates the currently loaded tag ids of {@code registryKey}, sorted - the candidate list
-     * a UI backend feeds into a {@link Schema.TagId} picker (the tag analogue of iterating a
-     * registry's {@code keySet()} for {@link Schema.ResourceId}). Tags are data-driven, so this is
-     * only meaningful once tags have been loaded/synced (i.e. with a world open); it returns an
-     * empty list - never throws - for an unknown registry or before tags bind, letting the backend
-     * fall back to a free-text field.
+     * Sorted ids of the currently loaded tags of registryKey, for a TagId picker. Empty (never
+     * throws) for an unknown registry or before tags are bound, so backends can fall back to text.
      */
     public static List<Identifier> availableTagIds(ResourceKey<? extends Registry<?>> registryKey) {
         if (registryKey == null) return List.of();
@@ -448,10 +383,7 @@ public final class SchemaCodecs {
                 .toList();
     }
 
-    /**
-     * Sum-type dispatch: serialize {@code A} as a tagged map where {@code typeField} selects a variant.
-     * Each variant is a {@link SchemaMapCodec} keyed by the same string as produced by {@code typeFn}.
-     */
+    /** Type-dispatched map: typeField selects the variant, keyed by the string typeFn produces. */
     public static <A> SchemaCodec<A> dispatch(
             String typeField,
             Function<A, String> typeFn,
@@ -468,11 +400,7 @@ public final class SchemaCodecs {
         return SchemaCodec.of(codec, schema);
     }
 
-    /**
-     * A "reference OR inline" codec (like {@code RegistryFileCodec} for simple map registries):
-     * a string decodes through {@code reference}, anything else through {@code direct}. Renders
-     * as a labeled reference/inline picker.
-     */
+    /** A string decodes through reference, anything else through direct; renders as a reference/inline picker. */
     public static <E> SchemaCodec<E> referenceOrDirect(Codec<? extends E> reference, Codec<? extends E> direct) {
         return referenceOrDirect(reference, direct, false);
     }
@@ -484,7 +412,7 @@ public final class SchemaCodecs {
                 Schema.option("inline", resolve(direct))));
     }
 
-    /** Try both alternatives and keep the "best" one per {@code chooseFirst} when both parse. */
+    /** Tries both and keeps the one chooseFirst prefers when both parse. */
     public static <A, B extends A, C extends A> SchemaCodec<A> bestAlternative(
             Codec<B> first, Codec<C> second, BiPredicate<B, C> chooseFirst) {
         Codec<A> raw = new BestAlternativeCodec<>(first, second, chooseFirst);
@@ -493,7 +421,7 @@ public final class SchemaCodecs {
                 Schema.option(resolve(second))));
     }
 
-    /** Decodes {@code A} and wraps it as {@link Either#left}; its schema IS the left branch's. */
+    /** Decodes A as Either.left; the schema is the left branch's. */
     public static <A, B> SchemaCodec<Either<A, B>> eitherLeft(Codec<A> leftCodec) {
         Codec<Either<A, B>> raw = new EitherLeftCodec<>(leftCodec);
         return SchemaCodec.lazy(raw, () -> castSchema(resolve(leftCodec)));
@@ -505,7 +433,7 @@ public final class SchemaCodecs {
         return SchemaCodec.lazy(raw, () -> singleOrListSchema(elementCodec));
     }
 
-    /** As {@link #singleOrList(Codec)} but collapsing to a single {@code A} via {@code listToSingle}. */
+    /** As singleOrList(Codec) but collapses the list to one A via listToSingle. */
     public static <A> SchemaCodec<A> singleOrList(Codec<A> elementCodec, Function<List<A>, A> listToSingle) {
         Codec<A> raw = Codec.withAlternative(elementCodec, elementCodec.listOf(), listToSingle);
         return SchemaCodec.lazy(raw, () -> castSchema(singleOrListSchema(elementCodec)));
@@ -524,16 +452,12 @@ public final class SchemaCodecs {
         return SchemaCodec.lazy(raw, () -> new Schema.ListOf<>(resolve(elementCodec), 0, Integer.MAX_VALUE));
     }
 
-    /**
-     * A {@link HolderSet} codec like vanilla's (a tag, a single entry, or a list of entries) whose
-     * list is lenient: entries that fail to decode are skipped instead of failing the whole set.
-     * For the recursive (mixed tags/entries in one list) variant see {@link #recursiveHolderSet}.
-     */
+    /** Vanilla-style HolderSet codec whose list skips entries that fail to decode. */
     public static <E> SchemaCodec<HolderSet<E>> lenientHolderSet(ResourceKey<? extends Registry<E>> registryKey, Codec<Holder<E>> elementCodec) {
         return SchemaCodec.wrap(LenientHolderSetCodec.create(registryKey, elementCodec, false));
     }
 
-    /** An unbounded {@code Map} that logs and skips entries which fail to decode, instead of failing the whole map. */
+    /** An unbounded map that logs and skips entries which fail to decode. */
     public static <K, V> SchemaCodec<Map<K, V>> lenientUnboundedMap(Codec<K> keyCodec, Codec<V> valueCodec) {
         Codec<Map<K, V>> raw = new LenientUnboundedMapCodec<>(keyCodec, valueCodec);
         return SchemaCodec.lazy(raw, () -> new Schema.MapOf<>(resolve(keyCodec), resolve(valueCodec)));
@@ -548,17 +472,17 @@ public final class SchemaCodecs {
         return LenientCodecWithLog.of(elementCodec, name);
     }
 
-    /** A required field readable under either {@code primaryName} or {@code alias}. */
+    /** A required field readable under either primaryName or alias. */
     public static <B> MapCodec<B> alias(Codec<B> codec, String primaryName, String alias) {
         return AlternativeMapCodec.alias(codec, primaryName, alias);
     }
 
-    /** An optional field readable under either {@code primaryName} or {@code alias}. */
+    /** An optional field readable under either primaryName or alias. */
     public static <B> MapCodec<Optional<B>> optionalAlias(Codec<B> codec, String primaryName, String alias) {
         return AlternativeMapCodec.optionalAlias(codec, primaryName, alias);
     }
 
-    /** A membership {@link Predicate} over a single-or-list of elements. */
+    /** Membership predicate over a single-or-list of elements. */
     public static <A> Codec<Predicate<A>> predicate(Codec<A> elementCodec) {
         return singleOrList(elementCodec).xmap(
                 list -> a -> {
@@ -570,10 +494,7 @@ public final class SchemaCodecs {
                 predicate -> List.of());
     }
 
-    /**
-     * Decode a base object plus extra merged map-fields read off the same input, folding them into
-     * the base via {@code merge};
-     */
+    /** Decodes base plus extra map fields read off the same input, folded into the base via merge. */
     public static <A> Codec<A> withExtra(Codec<A> base, List<MapCodec<?>> extras,
                                          BiFunction<A, List<Object>, A> merge) {
         Codec<A> raw = new CodecWithExtra<>(base, extras, merge);
@@ -586,7 +507,6 @@ public final class SchemaCodecs {
         return withExtra(base, List.of(c1), (A a, List<Object> v) -> f.apply(a, (B) v.get(0)));
     }
 
-    /** Typed two-extra {@link #withExtra(Codec, List, BiFunction)}. */
     @SuppressWarnings("unchecked")
     public static <A, B, C> Codec<A> withExtra(Codec<A> base, MapCodec<B> c1, MapCodec<C> c2,
                                                Function3<A, B, C, A> f) {
@@ -610,7 +530,7 @@ public final class SchemaCodecs {
                 (A a, List<Object> v) -> f.apply(a, (B) v.getFirst(), (C) v.get(1), (D) v.get(2), (E) v.get(3)));
     }
 
-    /** An {@link ItemStack} written either as a full stack object or as a bare item id. */
+    /** An ItemStack written as a full stack object or a bare item id. */
     public static final Codec<ItemStack> ITEM_OR_STACK = Codec.lazyInitialized(() ->
             Codec.withAlternative(/*? >=26.1 {*/ItemStack.CODEC.xmap(itemStack -> itemStack.copyWithCount(1), Function.identity())/*?} <26.1 {*//*ItemStack.SINGLE_ITEM_CODEC*//*?}*/, BuiltInRegistries.ITEM.byNameCodec(),
                     Item::getDefaultInstance));
@@ -621,13 +541,13 @@ public final class SchemaCodecs {
             .xmap(l -> () -> l.stream().map(Holder::value).map(ItemStack::new).toList(),
                     s -> HolderSet.direct(s.get().stream().map(McCompat::itemHolder).toList()));
 
-    /** A single item/stack, a list of them, or an item tag/holder-set - all as a {@code Supplier<List<ItemStack>>}. */
+    /** A single item/stack, a list of them, or an item tag/holder-set. */
     public static final Codec<Supplier<List<ItemStack>>> ITEMSTACK_OR_LIST_OR_HOLDER_SET =
             Codec.withAlternative(
                     ITEMSTACK_OR_ITEMSTACK_LIST.xmap(l -> () -> l, Supplier::get),
                     ITEMSTACK_HOLDER_SET);
     //? >=26.1 {
-    /** An {@link ItemStackTemplate} written either as a full stack object or as a bare item id. */
+    /** An ItemStackTemplate written as a full stack object or a bare item id. */
     public static final Codec<ItemStackTemplate> ITEM_OR_STACK_TEMPLATE = Codec.lazyInitialized(() ->
             Codec.withAlternative(ItemStackTemplate.CODEC.xmap(itemStack -> itemStack.withCount(1), Function.identity()), BuiltInRegistries.ITEM.byNameCodec(),
                     ItemStackTemplate::new));
@@ -638,7 +558,7 @@ public final class SchemaCodecs {
             .xmap(l -> () -> l.stream().map(Holder::value).map(ItemStackTemplate::new).toList(),
                     s -> HolderSet.direct(s.get().stream().map(ItemStackTemplate::/*? >=26.1 {*/typeHolder/*?} <26.1 {*//*getItemHolder*//*?}*/).toList()));
 
-    /** A single item/stack, a list of them, or an item tag/holder-set - all as a {@code Supplier<List<ItemStackTemplate>>}. */
+    /** A single item/stack template, a list of them, or an item tag/holder-set. */
     public static final Codec<Supplier<List<ItemStackTemplate>>> ITEMSTACK_TEMPLATE_OR_LIST_OR_HOLDER_SET =
             Codec.withAlternative(
                     ITEMSTACK_TEMPLATE_OR_ITEMSTACK_TEMPLATE_LIST.xmap(l -> () -> l, Supplier::get),

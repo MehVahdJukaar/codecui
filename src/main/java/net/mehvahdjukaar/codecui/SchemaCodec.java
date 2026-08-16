@@ -10,26 +10,16 @@ import net.mehvahdjukaar.codecui.internal.SchemaResolver;
 import java.util.function.Supplier;
 
 /**
- * Pairing of a {@link Codec} with its {@link Schema}. Since this IS a {@code Codec}, an
- * existing {@code static final Codec<X> CODEC = ...} declaration can be upgraded in place
- * to {@code static final SchemaCodec<X> CODEC = SchemaRecord.create(...)} (or {@code of}/
- * {@code lazy}) with no change for any code that uses it.
- *
- * <p>The edit surface can be declared explicitly via {@link #of}, {@link SchemaRecord},
- * {@link SchemaRecordBuilder} or the {@link SchemaCodecs} combinators/primitives. A raw codec
- * passed to {@link #wrap} is introspected by the bundled inference engine (structural walk +
- * construction-mixin tags + registered companions/handlers); anything it can't resolve degrades
- * to a {@link Schema.Opaque} (raw-JSON) surface.</p>
+ * A Codec that also carries its Schema, so an existing static Codec field can become a SchemaCodec in place.
+ * Declare the schema with of, SchemaRecord or SchemaCodecs, or let wrap infer it (falls back to Schema.Opaque).
  */
 public sealed interface SchemaCodec<A> extends Codec<A> {
 
     Schema<A> schema();
 
     /**
-     * Return the codec unchanged when it already carries a schema; otherwise wrap it with a
-     * schema derived LAZILY by the inference engine on each {@link #schema()} call, so
-     * companions/handlers/registry content registered later are reflected. Anything the engine
-     * can't introspect degrades to a {@link Schema.Opaque} raw-JSON surface.
+     * Returns the codec itself if it already carries a schema, else wraps it with one the inference
+     * engine derives fresh on each schema() call, so late-registered companions and handlers still apply.
      */
     @SuppressWarnings("unchecked")
     static <A> SchemaCodec<A> wrap(Codec<A> codec) {
@@ -42,10 +32,8 @@ public sealed interface SchemaCodec<A> extends Codec<A> {
     }
 
     /**
-     * Wrap a raw codec with a lazily computed schema - the supplier runs fresh on each
-     * {@link #schema()} call. Use when the schema references other codecs' schemas (e.g.
-     * a labeled {@code SchemaCodecs.anyOf} over alternatives) from a static initializer:
-     * resolution is deferred instead of being frozen at class load.
+     * Wraps a codec with a schema the supplier computes on each schema() call. Use it from static
+     * initializers whose schema refers to other codecs' schemas, so nothing resolves at class load.
      */
     static <A> SchemaCodec<A> lazy(Codec<A> codec, Supplier<Schema<A>> schema) {
         return new LazySchemaCodec<>(codec, schema);

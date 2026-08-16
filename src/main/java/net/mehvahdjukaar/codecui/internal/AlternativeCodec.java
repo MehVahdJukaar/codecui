@@ -39,17 +39,17 @@ public record AlternativeCodec<A>(Codec<? extends A>... codecs) implements Codec
                 lastPartial = result.map(vo -> Pair.of(vo.getFirst(), vo.getSecond()));
             }
 
-            int finalI = i;
-            result.error().ifPresent(e -> errors.add("[" + finalI + "]: " + e.message()));
+            int index = i;
+            result.error().ifPresent(e -> errors.add("[" + index + "]: " + e.message()));
         }
 
-        String combined = String.join("; ", errors);
+        String combinedErrors = String.join("; ", errors);
         if (lastPartial != null) {
             return lastPartial.mapError(msg ->
-                    "No alternative matched (partial from one attempt: " + msg + "). All errors: " + combined);
+                    "No alternative matched (partial from one attempt: " + msg + "). All errors: " + combinedErrors);
         }
 
-        return DataResult.error(() -> "Failed to parse any alternative codec. Errors: " + combined);
+        return DataResult.error(() -> "Failed to parse any alternative codec. Errors: " + combinedErrors);
     }
 
     @Override

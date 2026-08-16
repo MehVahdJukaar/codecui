@@ -19,9 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-// A copy of vanilla HolderSetCodec whose list of entries is lenient: elements that fail to
-// decode are skipped rather than failing the whole set (see LenientListCodec). Otherwise
-// identical - a value is a tag, a single entry, or a list of entries.
+// Vanilla HolderSetCodec with a LenientListCodec for the list form: bad elements are skipped.
 public final class LenientHolderSetCodec<E> implements Codec<HolderSet<E>> {
     private final ResourceKey<? extends Registry<E>> registryKey;
     private final Codec<Holder<E>> elementCodec;
@@ -47,19 +45,18 @@ public final class LenientHolderSetCodec<E> implements Codec<HolderSet<E>> {
         this.registryAwareCodec = Codec.either(TagKey.hashedCodec(registryKey), this.homogenousListCodec);
     }
 
-    // Used by SchemaResolver to build the tag picker / element editor.
     Codec<Holder<E>> elementCodec() {
         return elementCodec;
     }
 
     @Override
-    public <T> DataResult<Pair<HolderSet<E>, T>> decode(DynamicOps<T> dynamicOps, T object) {
-        if (dynamicOps instanceof RegistryOps<T> registryOps) {
-            Optional<HolderGetter<E>> optional = registryOps.getter(this.registryKey);
-            if (optional.isPresent()) {
-                HolderGetter<E> holderGetter = optional.get();
+    public <T> DataResult<Pair<HolderSet<E>, T>> decode(DynamicOps<T> ops, T input) {
+        if (ops instanceof RegistryOps<T> registryOps) {
+            Optional<HolderGetter<E>> getter = registryOps.getter(this.registryKey);
+            if (getter.isPresent()) {
+                HolderGetter<E> holderGetter = getter.get();
                 return this.registryAwareCodec
-                        .decode(dynamicOps, object)
+                        .decode(ops, input)
                         .flatMap(pair -> {
                             DataResult<HolderSet<E>> dataResult = pair.getFirst()
                                     .map(tagKey -> lookupTag(holderGetter, tagKey), list -> DataResult.success(HolderSet.direct(list)));
@@ -67,12 +64,12 @@ public final class LenientHolderSetCodec<E> implements Codec<HolderSet<E>> {
                         });
             }
         }
-        return this.decodeWithoutRegistry(dynamicOps, object);
+        return this.decodeWithoutRegistry(ops, input);
     }
 
     @SuppressWarnings("unchecked")
-    private static <E> DataResult<HolderSet<E>> lookupTag(HolderGetter<E> input, TagKey<E> tagKey) {
-        return (DataResult<HolderSet<E>>) (Object) input.get(tagKey)
+    private static <E> DataResult<HolderSet<E>> lookupTag(HolderGetter<E> getter, TagKey<E> tagKey) {
+        return (DataResult<HolderSet<E>>) (Object) getter.get(tagKey)
                 .map(DataResult::success)
                 .orElseGet(() -> DataResult.error(() -> "Missing tag: '" + tagKey.location() + "' in '" + McCompat.keyId(tagKey.registry()) + "'"));
     }
@@ -80,9 +77,9 @@ public final class LenientHolderSetCodec<E> implements Codec<HolderSet<E>> {
     @Override
     public <T> DataResult<T> encode(HolderSet<E> input, DynamicOps<T> ops, T prefix) {
         if (ops instanceof RegistryOps<T> registryOps) {
-            Optional<HolderOwner<E>> optional = registryOps.owner(this.registryKey);
-            if (optional.isPresent()) {
-                if (!input.canSerializeIn(optional.get())) {
+            Optional<HolderOwner<E>> owner = registryOps.owner(this.registryKey);
+            if (owner.isPresent()) {
+                if (!input.canSerializeIn(owner.get())) {
                     return DataResult.error(() -> "HolderSet " + input + " is not valid in current registry set");
                 }
                 return this.registryAwareCodec.encode(input.unwrap().mapRight(List::copyOf), ops, prefix);

@@ -30,16 +30,16 @@ public class LateBoundIdMapperMixin<I, V> {
     @Final
     private BiMap<I, V> idToValue;
 
-    // We need some way to extract the possible ids for any given LateBoundIdMapper on 1.21.4+, as it may be used by mods
+    // Mods use LateBoundIdMapper as a dispatch key; expose its ids so the dispatch enumerates.
     @WrapMethod(method = "codec")
-    public Codec<V> extractDispatchKeys(Codec<I> codec, Operation<Codec<V>> original) {
-        return new WrappedEnumerableCodec<>(original.call(codec), () -> {
+    public Codec<V> codecui$makeCodecEnumerable(Codec<I> idCodec, Operation<Codec<V>> original) {
+        return new WrappedEnumerableCodec<>(original.call(idCodec), () -> {
             DynamicOps<JsonElement> ops = SchemaContext.getRegistries().createSerializationContext(JsonOps.INSTANCE);
-            Map<String, V> vMap = new HashMap<>();
+            Map<String, V> valuesByEncodedId = new HashMap<>();
             this.idToValue.forEach((id, value) -> {
                 String key;
                 try {
-                    key = codec.encodeStart(ops, id).flatMap(element -> {
+                    key = idCodec.encodeStart(ops, id).flatMap(element -> {
                         if (!element.isJsonPrimitive())
                             return DataResult.success(CodecUI.GSON.toJson(element));
                         return DataResult.success(element.getAsString());
@@ -48,9 +48,9 @@ public class LateBoundIdMapperMixin<I, V> {
                     key = id.toString();
                     CodecUI.LOGGER.error("Error encoding {} as string, falling back to {}. Error: {}", id, key, e);
                 }
-                vMap.put(key, value);
+                valuesByEncodedId.put(key, value);
             });
-            return vMap;
+            return valuesByEncodedId;
         });
     }
     //?}

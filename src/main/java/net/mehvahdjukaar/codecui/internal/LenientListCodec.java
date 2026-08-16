@@ -10,8 +10,7 @@ import com.mojang.serialization.ListBuilder;
 import java.util.ArrayList;
 import java.util.List;
 
-// Like listOf but doesn't fail the whole list if a single element fails to decode - the
-// offending element is simply skipped. Encoding is identical to a normal list codec.
+// listOf that skips elements that fail to decode instead of failing the whole list.
 public record LenientListCodec<E>(Codec<E> elementCodec) implements Codec<List<E>> {
 
     public static <A> LenientListCodec<A> of(final Codec<A> elementCodec) {

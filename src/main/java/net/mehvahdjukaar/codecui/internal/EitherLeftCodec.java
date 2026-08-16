@@ -15,16 +15,16 @@ public final class EitherLeftCodec<A, B> implements Codec<Either<A, B>> {
     }
 
     @Override
-    public <T> DataResult<Pair<Either<A, B>, T>> decode(DynamicOps<T> dynamicOps, T t) {
-        return leftCodec.decode(dynamicOps, t).map(pair ->
+    public <T> DataResult<Pair<Either<A, B>, T>> decode(DynamicOps<T> ops, T input) {
+        return leftCodec.decode(ops, input).map(pair ->
                 pair.mapFirst(Either::left)
         );
     }
 
     @Override
-    public <T> DataResult<T> encode(Either<A, B> abEither, DynamicOps<T> dynamicOps, T t) {
-        return abEither.left()
-                .map(a -> leftCodec.encode(a, dynamicOps, t))
+    public <T> DataResult<T> encode(Either<A, B> either, DynamicOps<T> ops, T prefix) {
+        return either.left()
+                .map(a -> leftCodec.encode(a, ops, prefix))
                 .orElseGet(() -> DataResult.error(() -> "Expected left value"));
     }
 
