@@ -147,7 +147,7 @@ public final class CuratedSchemas {
         Schema.Str anyStr = new Schema.Str(0, Integer.MAX_VALUE, null);
         SchemaCodecs.registerCompanion(BlockState.CODEC,
                 new Schema.Record<>(BlockState.class,
-                        List.<Schema.Field<BlockState, ?>>of(
+                        List.of(
                         new Schema.Field<>("Name", new Schema.ResourceId(Registries.BLOCK), false, null),
                         new Schema.Field<>("Properties", new Schema.MapOf<>(anyStr, anyStr), true, null))));
 
@@ -169,10 +169,10 @@ public final class CuratedSchemas {
         // Ingredient.CODEC is either(list(Value), Value), Value = xor(item, tag): an unlabeled AnyOf.
         // Curate with labels: {"item": id} / {"tag": id} or a list of those. NeoForge {"type": ...} not covered.
         Schema<Ingredient> ingredientItem = new Schema.Record<>(Ingredient.class,
-                List.<Schema.Field<Ingredient, ?>>of(
+                List.of(
                         new Schema.Field<>("item", new Schema.ResourceId(Registries.ITEM), false, null)));
         Schema<Ingredient> ingredientTag = new Schema.Record<>(Ingredient.class,
-                List.<Schema.Field<Ingredient, ?>>of(
+                List.of(
                         new Schema.Field<>("tag", new Schema.TagId(Registries.ITEM, false), false, null)));
         Schema<Ingredient> ingredientValue = Schema.anyOf(
                 Schema.option("item", ingredientItem), Schema.option("tag", ingredientTag));
