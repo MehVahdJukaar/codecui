@@ -39,6 +39,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemStackTemplate;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -327,6 +328,9 @@ public final class SchemaCodecs {
         return SchemaCodec.of(TagKey.codec(registryKey), schema);
     }
 
+    private static final boolean TAG_FILE_HAS_REMOVE = Arrays.stream(TagFile.class.getRecordComponents())
+            .anyMatch(c -> c.getName().equals("remove"));
+
     /**
      * Datapack tag file over vanilla TagFile.CODEC, with members rendered as registryKey pickers.
      * Per registry because the target registry is in the file path, not the JSON.
@@ -348,9 +352,11 @@ public final class SchemaCodecs {
                 Schema.option("object", objectMember));
 
         Schema<List<Object>> values = new Schema.ListOf<>(member, 0, Integer.MAX_VALUE);
-        List<Schema.Field<TagFile, ?>> fields = List.of(
+        List<Schema.Field<TagFile, ?>> fields = new ArrayList<>(List.of(
                 new Schema.Field<>("replace", new Schema.Bool(), true, Boolean.FALSE),
-                new Schema.Field<>("values", values, false, null));
+                new Schema.Field<>("values", values, false, null)));
+        // neoforge patches a remove list into TagFile, without it the form would drop it on save
+        if (TAG_FILE_HAS_REMOVE) fields.add(new Schema.Field<>("remove", values, true, null));
         Schema<TagFile> schema = (Schema) new Schema.Record<>(TagFile.class, fields);
 
         return SchemaCodec.of(TagFile.CODEC, schema);

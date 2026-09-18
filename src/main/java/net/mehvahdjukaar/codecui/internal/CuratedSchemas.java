@@ -15,7 +15,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemStackTemplate;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.dimension.DimensionType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -184,27 +183,5 @@ public final class CuratedSchemas {
         // 1.21.2 removed CODEC_NONEMPTY; CODEC is non-empty itself now.
         //? <1.21.2
         //SchemaCodecs.registerCompanion(Ingredient.CODEC_NONEMPTY, ingredient);
-
-        // DimensionType.DIRECT_CODEC wraps fields in ExtraCodecs.catchDecoderException (raw Codec.of), no mixin point.
-        SchemaCodecs.registerCompanion(DimensionType.DIRECT_CODEC,
-                new Schema.Record<>(DimensionType.class,
-                        List.of(
-                        new Schema.Field<>("ultrawarm", new Schema.Bool(), false, null),
-                        new Schema.Field<>("natural", new Schema.Bool(), false, null),
-                        new Schema.Field<>("coordinate_scale", new Schema.DoubleRange(1e-5, 30_000_000.0), false, null),
-                        new Schema.Field<>("has_skylight", new Schema.Bool(), false, null),
-                        new Schema.Field<>("has_ceiling", new Schema.Bool(), false, null),
-                        new Schema.Field<>("ambient_light", new Schema.FloatRange(0f, 1f), false, null),
-                        new Schema.Field<>("fixed_time", new Schema.LongRange(0L, 24000L), true, null),
-                        new Schema.Field<>("monster_spawn_block_light_limit", new Schema.IntRange(0, 15), false, null),
-                        new Schema.Field<>("piglin_safe", new Schema.Bool(), false, null),
-                        new Schema.Field<>("bed_works", new Schema.Bool(), false, null),
-                        new Schema.Field<>("respawn_anchor_works", new Schema.Bool(), false, null),
-                        new Schema.Field<>("has_raids", new Schema.Bool(), false, null),
-                        new Schema.Field<>("logical_height", new Schema.IntRange(0, 4064), false, null),
-                        new Schema.Field<>("min_y", new Schema.IntRange(-2032, 2031), false, null),
-                        new Schema.Field<>("height", new Schema.IntRange(16, 4064), false, null),
-                        new Schema.Field<>("infiniburn", anyStr, false, null),
-                        new Schema.Field<>("effects", anyStr, true, "minecraft:overworld"))));
     }
 }
