@@ -38,6 +38,8 @@ import net.minecraft.world.item.ItemStack;
 //? >=26.1
 import net.minecraft.world.item.ItemStackTemplate;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -328,8 +330,17 @@ public final class SchemaCodecs {
         return SchemaCodec.of(TagKey.codec(registryKey), schema);
     }
 
-    private static final boolean TAG_FILE_HAS_REMOVE = Arrays.stream(TagFile.class.getRecordComponents())
-            .anyMatch(c -> c.getName().equals("remove"));
+    private static final @Nullable String TAG_FILE_REMOVE_KEY = tagFileRemoveKey();
+
+    // both loaders patch a remove list into TagFile, under different keys
+    private static @Nullable String tagFileRemoveKey() {
+        for (Class<?> patched : TagFile.class.getInterfaces()) {
+            if (patched.getName().equals("net.fabricmc.fabric.api.tag.v1.FabricTagFile")) return "fabric:remove";
+        }
+        boolean neoforgeRemove = Arrays.stream(TagFile.class.getRecordComponents())
+                .anyMatch(c -> c.getName().equals("remove"));
+        return neoforgeRemove ? "remove" : null;
+    }
 
     /**
      * Datapack tag file over vanilla TagFile.CODEC, with members rendered as registryKey pickers.
@@ -355,8 +366,8 @@ public final class SchemaCodecs {
         List<Schema.Field<TagFile, ?>> fields = new ArrayList<>(List.of(
                 new Schema.Field<>("replace", new Schema.Bool(), true, Boolean.FALSE),
                 new Schema.Field<>("values", values, false, null)));
-        // neoforge patches a remove list into TagFile, without it the form would drop it on save
-        if (TAG_FILE_HAS_REMOVE) fields.add(new Schema.Field<>("remove", values, true, null));
+        // without it the form would drop the loader's remove list on save
+        if (TAG_FILE_REMOVE_KEY != null) fields.add(new Schema.Field<>(TAG_FILE_REMOVE_KEY, values, true, null));
         Schema<TagFile> schema = (Schema) new Schema.Record<>(TagFile.class, fields);
 
         return SchemaCodec.of(TagFile.CODEC, schema);
