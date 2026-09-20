@@ -19,7 +19,7 @@ tasks.named<ProcessResources>("processResources") {
         this["fabric_api_version"] = if (hasProp("deps.min-fabric-api")) prop("deps.min-fabric-api") else prop("deps.fabric-api")
         this["fabric_version"] = if (isUnobfuscated) prop("deps.fabric-loader") else "0.18"
         this["java"] = prop("deps.java")
-        this["mod_accesswidener"] = "${prop("mod.id")}.${if (isUnobfuscated) "classtweaker" else "accesswidener"}"
+        this["mod_accesswidener"] = "${prop("mod.id")}${if (sc.current.parsed >= "26.3") "_26_3" else ""}.${if (isUnobfuscated) "classtweaker" else "accesswidener"}"
         this["mod_id"] = prop("mod.id")
         this["mod_name"] = prop("mod.name")
         this["mod_description"] = prop("mod.description")
@@ -46,8 +46,8 @@ tasks.named<ProcessResources>("processResources") {
 }
 
 loom {
-    if (isUnobfuscated) accessWidenerPath = rootProject.file("src/main/resources/${property("mod.id")}.classtweaker")
-    else accessWidenerPath = rootProject.file("src/main/resources/${property("mod.id")}.accesswidener")
+    accessWidenerPath = if (isUnobfuscated) rootProject.file("src/main/resources/${property("mod.id")}${if (sc.current.parsed >= "26.3") "_26_3" else ""}.classtweaker")
+    else rootProject.file("src/main/resources/${property("mod.id")}.accesswidener")
 }
 
 version = "${property("deps.minecraft")}-${property("mod.version")}-fabric"
@@ -215,6 +215,16 @@ java {
 stonecutter {
     val (version, loader) = current.project.split('-', limit = 2)
     properties.tags(version, loader)
+
+    filters.exclude("**/*.accesswidener")
+
+    replacements.string(current.parsed >= "26.3") {
+        replace("net.minecraft.core.RegistryCodecs", "net.minecraft.core.registries.codec.RegistryCodecs")
+        replace("RegistryCodecs.homogeneousList", "RegistryCodecs.holderSet")
+        replace("net.minecraft.resources.RegistryFixedCodec", "net.minecraft.core.registries.codec.RegistryFixedCodec")
+        replace("net.minecraft.resources.RegistryFileCodec", "net.minecraft.core.registries.codec.RegistryFileCodec")
+        replace("net.minecraft.resources.HolderSetCodec", "net.minecraft.core.registries.codec.HolderSetCodec")
+    }
 
     replacements.string(current.parsed >= "26.1") {
         replace("PayloadTypeRegistry.playS2C()", "PayloadTypeRegistry.clientboundPlay()")

@@ -49,6 +49,10 @@ public final class LenientHolderSetCodec<E> implements Codec<HolderSet<E>> {
         return elementCodec;
     }
 
+    ResourceKey<? extends Registry<E>> registryKey() {
+        return registryKey;
+    }
+
     @Override
     public <T> DataResult<Pair<HolderSet<E>, T>> decode(DynamicOps<T> ops, T input) {
         if (ops instanceof RegistryOps<T> registryOps) {
@@ -77,7 +81,11 @@ public final class LenientHolderSetCodec<E> implements Codec<HolderSet<E>> {
     @Override
     public <T> DataResult<T> encode(HolderSet<E> input, DynamicOps<T> ops, T prefix) {
         if (ops instanceof RegistryOps<T> registryOps) {
+            //? <26.3 {
             Optional<HolderOwner<E>> owner = registryOps.owner(this.registryKey);
+             //?} else {
+            /*Optional<? extends HolderOwner<E>> owner = registryOps.getter(this.registryKey);
+            *///?}
             if (owner.isPresent()) {
                 if (!input.canSerializeIn(owner.get())) {
                     return DataResult.error(() -> "HolderSet " + input + " is not valid in current registry set");

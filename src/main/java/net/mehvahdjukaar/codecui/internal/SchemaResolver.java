@@ -21,8 +21,13 @@ import net.mehvahdjukaar.codecui.EnumerableCodec;
 import net.mehvahdjukaar.codecui.Schema;
 import net.mehvahdjukaar.codecui.SchemaHandler;
 import net.minecraft.core.Registry;
-import net.minecraft.resources.*;
 import org.jspecify.annotations.Nullable;
+
+//~ if >26.2 'resources.*' -> 'core.registries.codec.*'
+import net.minecraft.resources.*;
+
+//? >26.2
+//import net.minecraft.resources.ResourceKey;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -342,12 +347,19 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
         }
         // HolderSet<E> (vanilla or our lenient copy): a "#namespace:path" tag, a single entry,
         // or a list of entries.
-        Codec<?> holderSetElement = codec instanceof HolderSetCodec<?> hs ? hs.elementCodec
-                : codec instanceof LenientHolderSetCodec<?> lhs ? lhs.elementCodec() : null;
+        Codec<?> holderSetElement = null;
+        ResourceKey<? extends Registry<?>> holderSetRegistry = null;
+        if (codec instanceof HolderSetCodecExtension hs) {
+            holderSetElement = hs.codecui$elementCodec();
+            holderSetRegistry = hs.codecui$registryKey();
+        } else if (codec instanceof LenientHolderSetCodec<?> lhs) {
+            holderSetElement = lhs.elementCodec();
+            holderSetRegistry = lhs.registryKey();
+        }
         if (holderSetElement != null) {
             Schema<?> element = resolveCodec(holderSetElement, cache);
             ResourceKey<? extends Registry<?>> registry =
-                    element instanceof Schema.ResourceId r ? r.registry() : null;
+                    element instanceof Schema.ResourceId r ? r.registry() : holderSetRegistry;
             Schema<?> tag = registry != null
                     ? new Schema.TagId(registry)
                     : new Schema.Str(0, Integer.MAX_VALUE, null);
