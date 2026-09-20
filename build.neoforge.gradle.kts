@@ -155,7 +155,7 @@ repositories {
 }
 
 access {
-    from = rootProject.file("src/main/resources/${property("mod.id")}.${if (isUnobfuscated) "classtweaker" else "accesswidener"}")
+    from = rootProject.file("src/main/resources/${property("mod.id")}${if (sc.current.parsed >= "26.3") "_26_3" else ""}.${if (isUnobfuscated) "classtweaker" else "accesswidener"}")
 }
 
 val output = layout.buildDirectory.file("accesstransformer.cfg").map { it.asFile }
@@ -242,6 +242,16 @@ java {
 stonecutter {
     val (version, loader) = current.project.split('-', limit = 2)
     properties.tags(version, loader)
+
+    filters.exclude("**/*.accesswidener")
+
+    replacements.string(current.parsed >= "26.3") {
+        replace("net.minecraft.core.RegistryCodecs", "net.minecraft.core.registries.codec.RegistryCodecs")
+        replace("RegistryCodecs.homogeneousList", "RegistryCodecs.holderSet")
+        replace("net.minecraft.resources.RegistryFixedCodec", "net.minecraft.core.registries.codec.RegistryFixedCodec")
+        replace("net.minecraft.resources.RegistryFileCodec", "net.minecraft.core.registries.codec.RegistryFileCodec")
+        replace("net.minecraft.resources.HolderSetCodec", "net.minecraft.core.registries.codec.HolderSetCodec")
+    }
 
     replacements.string(current.parsed >= "1.21.11") {
         replace("ResourceLocation", "Identifier")

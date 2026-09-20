@@ -1,7 +1,7 @@
 package net.mehvahdjukaar.codecui.neoforge;
 
 //? neoforge {
-import net.mehvahdjukaar.codecui.CodecUI;
+/*import net.mehvahdjukaar.codecui.CodecUI;
 import net.mehvahdjukaar.codecui.SchemaContext;
 import net.minecraft.core.RegistryAccess;
 import net.neoforged.bus.api.IEventBus;
@@ -18,7 +18,7 @@ import net.neoforged.neoforge.event.TagsUpdatedEvent;
 public class CodecUINeoForge {
 
     public CodecUINeoForge(IEventBus modBus) {
-        CodecUI.init(!FMLEnvironment./*? >=1.21.9 {*/isProduction()/*?} <1.21.9 {*//*production*//*?}*/, true);
+        CodecUI.init(!FMLEnvironment./^? >=1.21.9 {^/isProduction()/^?} <1.21.9 {^//^production^//^?}^/, true);
         NeoForge.EVENT_BUS.register(this);
     }
 
@@ -29,18 +29,18 @@ public class CodecUINeoForge {
         //? >=26.1 {
                 event.getRegistries();
         //?} <1.21.2 {
-                /*event.getRegistryAccess();
-        *///?}
+                /^event.getRegistryAccess();
+        ^///?}
         SchemaContext.update(access);
     }
     //?}
 
     //? <26.1 && >=1.21.2 {
-    /*@SubscribeEvent
+    /^@SubscribeEvent
     public void onAddReloadListener(AddServerReloadListenersEvent event) {
         RegistryAccess access = event.getRegistryAccess();
         SchemaContext.update(access);
     }
-    *///?}
+    ^///?}
 }
-//?}
+*///?}
