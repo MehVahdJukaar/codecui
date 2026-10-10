@@ -17,38 +17,37 @@ import java.lang.invoke.VarHandle;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-// VarHandles for the private fields of the DFU codec classes the resolver introspects. A failed
-// lookup leaves the handle null and the tier branch is skipped. net.minecraft.* codecs are read
-// via the access widener instead: string field names would not survive Fabric's intermediary remap.
-final class CodecFieldHandles {
+// VarHandles for the private fields of the DFU codec classes the resolver introspects. A failed lookup leaves the handle null and the tier branch is skipped.
+// net.minecraft.* codecs are read via the access widener instead: string field names would not survive Fabric's intermediary remap.
+public final class CodecFieldHandles {
 
-    static final @Nullable VarHandle PAIR_CODEC_FIRST;
-    static final @Nullable VarHandle PAIR_CODEC_SECOND;
+    public static final @Nullable VarHandle PAIR_CODEC_FIRST;
+    public static final @Nullable VarHandle PAIR_CODEC_SECOND;
 
-    static final @Nullable VarHandle OPTIONAL_FIELD_NAME;
-    static final @Nullable VarHandle OPTIONAL_FIELD_ELEMENT;
-    static final @Nullable VarHandle OPTIONAL_FIELD_LENIENT;
+    public static final @Nullable VarHandle OPTIONAL_FIELD_NAME;
+    public static final @Nullable VarHandle OPTIONAL_FIELD_ELEMENT;
+    public static final @Nullable VarHandle OPTIONAL_FIELD_LENIENT;
 
-    static final @Nullable VarHandle PAIR_MAP_FIRST;
-    static final @Nullable VarHandle PAIR_MAP_SECOND;
+    public static final @Nullable VarHandle PAIR_MAP_FIRST;
+    public static final @Nullable VarHandle PAIR_MAP_SECOND;
 
-    static final @Nullable VarHandle KEY_DISPATCH_KEYCODEC;
-    static final @Nullable VarHandle KEY_DISPATCH_TYPE;
-    static final @Nullable VarHandle KEY_DISPATCH_DECODER;
+    public static final @Nullable VarHandle KEY_DISPATCH_KEYCODEC;
+    public static final @Nullable VarHandle KEY_DISPATCH_TYPE;
+    public static final @Nullable VarHandle KEY_DISPATCH_DECODER;
     //? <1.21.11
     //static final @Nullable VarHandle KEY_DISPATCH_TYPEKEY;
 
-    static final @Nullable VarHandle SIMPLE_MAP_KEYCODEC;
-    static final @Nullable VarHandle SIMPLE_MAP_ELEMENT;
-    static final @Nullable VarHandle SIMPLE_MAP_KEYS;
+    public static final @Nullable VarHandle SIMPLE_MAP_KEYCODEC;
+    public static final @Nullable VarHandle SIMPLE_MAP_ELEMENT;
+    public static final @Nullable VarHandle SIMPLE_MAP_KEYS;
 
-    static final @Nullable VarHandle RECURSIVE_WRAPPED;
-    static final @Nullable Class<?> RECURSIVE_MAP_CLASS;
-    static final @Nullable VarHandle RECURSIVE_MAP_WRAPPED;
-    static final @Nullable VarHandle COMPOUND_LIST_KEY;
-    static final @Nullable VarHandle COMPOUND_LIST_ELEMENT;
-    static final @Nullable VarHandle EITHER_MAP_FIRST;
-    static final @Nullable VarHandle EITHER_MAP_SECOND;
+    public static final @Nullable VarHandle RECURSIVE_WRAPPED;
+    public static final @Nullable Class<?> RECURSIVE_MAP_CLASS;
+    public static final @Nullable VarHandle RECURSIVE_MAP_WRAPPED;
+    public static final @Nullable VarHandle COMPOUND_LIST_KEY;
+    public static final @Nullable VarHandle COMPOUND_LIST_ELEMENT;
+    public static final @Nullable VarHandle EITHER_MAP_FIRST;
+    public static final @Nullable VarHandle EITHER_MAP_SECOND;
 
     static {
         VarHandle pf = null, ps = null;
@@ -78,8 +77,8 @@ final class CodecFieldHandles {
         } catch (Throwable ignored) {}
         try {
             var lookup = MethodHandles.privateLookupIn(KeyDispatchCodec.class, MethodHandles.lookup());
-            // keyCodec is a fieldOf-wrapped MapCodec on DFU 9, a raw Codec on DFU 8. A miss here
-            // must not abort the sibling lookups (that once left decoder null on DFU 8).
+            // keyCodec is a fieldOf-wrapped MapCodec on DFU 9, a raw Codec on DFU 8.
+            // A miss here must not abort the sibling lookups (that once left decoder null on DFU 8).
             try {
                 kdk = lookup.findVarHandle(KeyDispatchCodec.class, "keyCodec", MapCodec.class);
             } catch (Throwable e) {

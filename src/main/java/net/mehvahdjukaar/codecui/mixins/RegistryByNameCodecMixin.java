@@ -17,8 +17,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-// Tags Registry#byNameCodec() output with Schema.ResourceId(registry key). Default method, so it
-// covers every registry implementation.
+// byNameCodec is a default method, so this covers every registry implementation
 @Mixin(Registry.class)
 public interface RegistryByNameCodecMixin<T> {
 

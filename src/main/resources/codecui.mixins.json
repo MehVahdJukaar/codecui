@@ -4,9 +4,12 @@
   "compatibilityLevel": "${java}",
   "package": "net.mehvahdjukaar.codecui.mixins",
   "mixins": [
+    "HolderSetCodecMixin",
     "RecordCodecBuilderMixin",
     "RecordCodecBuilderInstanceMixin",
     "RegistryByNameCodecMixin",
+    "RegistryFileCodecAccessor",
+    "RegistryFixedCodecAccessor",
     "StringRepresentableCodecMixin",
     "TagKeyCodecMixin"
   ],

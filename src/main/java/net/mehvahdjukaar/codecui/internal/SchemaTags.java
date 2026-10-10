@@ -7,8 +7,7 @@ import net.mehvahdjukaar.codecui.Schema;
 import java.util.Map;
 
 // Schemas attached to codecs at construction. Best-effort: a missing tag falls back to the resolver tiers.
-// The Schema value is held strongly (nothing else refs it), so a Schema that embeds its own key codec
-// pins the entry forever. Fine for static bootstrap codecs, not for codecs built per instance.
+// The Schema value is held strongly, so a Schema that embeds its own key codec pins the entry forever: fine for static bootstrap codecs, not for codecs built per instance.
 public final class SchemaTags {
     private static final Map<Codec<?>, Schema<?>> CODEC_SCHEMAS = WeakTags.identityKeyed();
     private static final Map<MapCodec<?>, Schema<?>> MAP_CODEC_SCHEMAS = WeakTags.identityKeyed();

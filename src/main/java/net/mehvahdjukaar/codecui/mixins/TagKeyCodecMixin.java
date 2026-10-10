@@ -10,7 +10,6 @@ import net.minecraft.tags.TagKey;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
-// Tags TagKey#codec / hashedCodec output with Schema.TagId(registry key).
 @Mixin(TagKey.class)
 public class TagKeyCodecMixin {
 

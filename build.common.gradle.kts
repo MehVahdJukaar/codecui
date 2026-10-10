@@ -232,6 +232,14 @@ stonecutter {
     val (version, loader) = current.project.split('-', limit = 2)
     properties.tags(version, loader)
 
+    replacements.string(current.parsed >= "26.3") {
+        replace("net.minecraft.core.RegistryCodecs", "net.minecraft.core.registries.codec.RegistryCodecs")
+        replace("RegistryCodecs.homogeneousList(", "RegistryCodecs.holderSet(")
+        replace("net.minecraft.resources.RegistryFileCodec", "net.minecraft.core.registries.codec.RegistryFileCodec")
+        replace("net.minecraft.resources.RegistryFixedCodec", "net.minecraft.core.registries.codec.RegistryFixedCodec")
+        replace("net.minecraft.resources.HolderSetCodec", "net.minecraft.core.registries.codec.HolderSetCodec")
+    }
+
     replacements.string(current.parsed >= "1.21.11") {
         replace("ResourceLocation", "Identifier")
         replace("net.minecraft.Util", "net.minecraft.util.Util")

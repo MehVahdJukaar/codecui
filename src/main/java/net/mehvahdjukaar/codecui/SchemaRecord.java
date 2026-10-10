@@ -22,6 +22,7 @@ import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -64,13 +65,13 @@ public final class SchemaRecord {
     }
 
     /** Optional field with no default; round-trips as Optional<F> like codec.optionalFieldOf(name). */
-    public static <A, F> FieldRef<A, java.util.Optional<F>> optional(String name, SchemaCodec<F> codec,
-                                                                     Function<A, java.util.Optional<F>> getter) {
+    public static <A, F> FieldRef<A, Optional<F>> optional(String name, SchemaCodec<F> codec,
+                                                           Function<A, Optional<F>> getter) {
         return new FieldRef<>(name, null, true, null, getter, codec.optionalFieldOf(name), codec);
     }
 
-    public static <A, F> FieldRef<A, java.util.Optional<F>> optional(String name, Codec<F> codec,
-                                                                     Function<A, java.util.Optional<F>> getter) {
+    public static <A, F> FieldRef<A, Optional<F>> optional(String name, Codec<F> codec,
+                                                           Function<A, Optional<F>> getter) {
         return optional(name, SchemaCodec.wrap(codec), getter);
     }
 
@@ -112,13 +113,13 @@ public final class SchemaRecord {
         }
 
         /** Optional field with no default; round-trips as Optional<F> like codec.optionalFieldOf(name). */
-        public <F> FieldRef<A, java.util.Optional<F>> optional(String name, SchemaCodec<F> codec,
-                                                               Function<A, java.util.Optional<F>> getter) {
+        public <F> FieldRef<A, Optional<F>> optional(String name, SchemaCodec<F> codec,
+                                                     Function<A, Optional<F>> getter) {
             return SchemaRecord.optional(name, codec, getter);
         }
 
-        public <F> FieldRef<A, java.util.Optional<F>> optional(String name, Codec<F> codec,
-                                                               Function<A, java.util.Optional<F>> getter) {
+        public <F> FieldRef<A, Optional<F>> optional(String name, Codec<F> codec,
+                                                     Function<A, Optional<F>> getter) {
             return SchemaRecord.optional(name, codec, getter);
         }
 

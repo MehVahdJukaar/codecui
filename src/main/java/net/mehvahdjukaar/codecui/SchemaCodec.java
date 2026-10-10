@@ -18,8 +18,7 @@ public sealed interface SchemaCodec<A> extends Codec<A> {
     Schema<A> schema();
 
     /**
-     * Returns the codec itself if it already carries a schema, else wraps it with one the inference
-     * engine derives fresh on each schema() call, so late-registered companions and handlers still apply.
+     * Returns the codec itself if it already carries a schema, else wraps it with one the inference engine derives fresh on each schema() call, so late-registered companions and handlers still apply.
      */
     @SuppressWarnings("unchecked")
     static <A> SchemaCodec<A> wrap(Codec<A> codec) {
@@ -32,8 +31,8 @@ public sealed interface SchemaCodec<A> extends Codec<A> {
     }
 
     /**
-     * Wraps a codec with a schema the supplier computes on each schema() call. Use it from static
-     * initializers whose schema refers to other codecs' schemas, so nothing resolves at class load.
+     * Wraps a codec with a schema the supplier computes on each schema() call.
+     * Use it from static initializers whose schema refers to other codecs' schemas, so nothing resolves at class load.
      */
     static <A> SchemaCodec<A> lazy(Codec<A> codec, Supplier<Schema<A>> schema) {
         return new LazySchemaCodec<>(codec, schema);

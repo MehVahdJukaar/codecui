@@ -10,7 +10,6 @@ import com.mojang.serialization.ListBuilder;
 import java.util.ArrayList;
 import java.util.List;
 
-// listOf that skips elements that fail to decode instead of failing the whole list.
 public record LenientListCodec<E>(Codec<E> elementCodec) implements Codec<List<E>> {
 
     public static <A> LenientListCodec<A> of(final Codec<A> elementCodec) {

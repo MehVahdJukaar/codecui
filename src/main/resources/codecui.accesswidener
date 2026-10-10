@@ -1,14 +1,5 @@
 accessWidener	v1	named
 
-# Read private fields of Minecraft's registry/holder codecs so the schema resolver can
-# introspect them. These are net.minecraft.* classes, so string reflection would break on
-# Fabric's intermediary runtime - widening keeps it remap-safe on both loaders.
-accessible	field	net/minecraft/resources/RegistryFileCodec	registryKey	Lnet/minecraft/resources/ResourceKey;
-accessible	field	net/minecraft/resources/RegistryFileCodec	elementCodec	Lcom/mojang/serialization/Codec;
-accessible	field	net/minecraft/resources/RegistryFileCodec	allowInline	Z
-accessible	field	net/minecraft/resources/RegistryFixedCodec	registryKey	Lnet/minecraft/resources/ResourceKey;
-accessible	field	net/minecraft/resources/HolderSetCodec	elementCodec	Lcom/mojang/serialization/Codec;
-
 # NOTE: the atlas sprite-source dispatch field (SpriteSources.TYPES on 1.21.1-1.21.4)
 # is NOT widened here. Loom's AW validation is strict and
 # rejects an entry whose target field is absent on that version, and a single AW source can't be

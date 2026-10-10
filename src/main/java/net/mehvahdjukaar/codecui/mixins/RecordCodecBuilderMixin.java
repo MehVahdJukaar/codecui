@@ -13,7 +13,6 @@ import net.mehvahdjukaar.codecui.internal.SchemaTags;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 
-// Tags RCB fields at construction so build(...) output can become a Schema.Record.
 // Only the of(...) entry points are tagged; dependent/point/stable fall through to Opaque.
 @Mixin(RecordCodecBuilder.class)
 public abstract class RecordCodecBuilderMixin {

@@ -22,9 +22,8 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 
-// Hand-maintained schema registrations for codecs inference can't (or shouldn't) handle, all through
-// the same public API a third-party mod would use. Prefer teaching inference the class of codec first;
-// curate only when that's not worth it. Schemas describe the on-disk JSON shape. Say why inference fails.
+// Hand-maintained schema registrations for codecs inference can't (or shouldn't) handle, all through the same public API a third-party mod would use.
+// Prefer teaching inference the class of codec first; curate only when that's not worth it. Schemas describe the on-disk JSON shape. Say why inference fails.
 public final class CuratedSchemas {
 
     private static volatile boolean bootstrapped = false;
@@ -96,8 +95,8 @@ public final class CuratedSchemas {
         }
         //?}
 
-        // Color codecs: inference at best yields AnyOf(integer, text). Int variants emit packed ints,
-        // STRING_* variants (1.21.11+) emit "#RRGGBB"/"#AARRGGBB". RGB_COLOR_CODEC was added in 1.21.2.
+        // Color codecs: inference at best yields AnyOf(integer, text).
+        // Int variants emit packed ints, STRING_* variants (1.21.11+) emit "#RRGGBB"/"#AARRGGBB". RGB_COLOR_CODEC was added in 1.21.2.
         //? >=1.21.2
         SchemaCodecs.registerCompanion(ExtraCodecs.RGB_COLOR_CODEC, new Schema.Color(false, false));
         SchemaCodecs.registerCompanion(ExtraCodecs.ARGB_COLOR_CODEC, new Schema.Color(true, false));
@@ -106,16 +105,13 @@ public final class CuratedSchemas {
         SchemaCodecs.registerCompanion(ExtraCodecs.STRING_ARGB_COLOR, new Schema.Color(true, true));
         //?}
 
-        // ComponentSerialization.CODEC is Codec.recursive over an Either tree; the inferred schema doesn't
-        // round-trip and is too rich for a form anyway, so validated raw JSON. Opaque over its own key
-        // codec pins the tag forever, fine only because the codec is a static singleton.
+        // ComponentSerialization.CODEC is Codec.recursive over an Either tree; the inferred schema doesn't round-trip and is too rich for a form anyway, so validated raw JSON.
+        // Opaque over its own key codec pins the tag forever, fine only because the codec is a static singleton.
         SchemaCodecs.registerCompanion(ComponentSerialization.CODEC, new Schema.Opaque<>(ComponentSerialization.CODEC, null));
     }
 
-    // Dispatch key sets for vanilla Codec.dispatch(...) families that RegistryByNameCodecMixin doesn't
-    // cover. Only registries of concrete "type" objects: registries of bare MapCodec<? extends X>
-    // (DENSITY_FUNCTION_TYPE, MATERIAL_RULE, ...) have an identity dispatch decoder and would accept
-    // each other's keys, cross-contaminating the variant lists.
+    // Dispatch key sets for vanilla Codec.dispatch(...) families that RegistryByNameCodecMixin doesn't cover.
+    // Only registries of concrete "type" objects: registries of bare MapCodec<? extends X> (DENSITY_FUNCTION_TYPE, MATERIAL_RULE, ...) have an identity dispatch decoder and would accept each other's keys, cross-contaminating the variant lists.
     private static void registerVanillaDispatches() {
 
     }

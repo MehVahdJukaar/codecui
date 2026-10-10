@@ -11,8 +11,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.BiFunction;
 
-// Decodes base, then the extra map fields off the same input, and merges them in. Extras are
-// decode-only; encode goes straight to base.
+// Decodes base, then the extra map fields off the same input, and merges them in.
+// Extras are decode-only; encode goes straight to base.
 public final class CodecWithExtra<A> implements Codec<A> {
     private final Codec<A> base;
     private final List<MapCodec<?>> extras;

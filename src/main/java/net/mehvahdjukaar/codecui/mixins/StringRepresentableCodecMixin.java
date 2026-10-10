@@ -13,8 +13,7 @@ import java.util.List;
 import java.util.function.Function;
 import java.util.function.ToIntFunction;
 
-// Tags every StringRepresentableCodec (fromEnum / fromValues output) with a Schema.Enum. The values
-// array is only reachable in the constructor; the codec keeps it inside lambdas.
+// The values array is only reachable in the constructor; the codec keeps it inside lambdas.
 @Mixin(StringRepresentable.StringRepresentableCodec.class)
 public abstract class StringRepresentableCodecMixin {
 

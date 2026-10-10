@@ -19,7 +19,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-// Vanilla HolderSetCodec with a LenientListCodec for the list form: bad elements are skipped.
 public final class LenientHolderSetCodec<E> implements Codec<HolderSet<E>> {
     private final ResourceKey<? extends Registry<E>> registryKey;
     private final Codec<Holder<E>> elementCodec;
@@ -45,7 +44,7 @@ public final class LenientHolderSetCodec<E> implements Codec<HolderSet<E>> {
         this.registryAwareCodec = Codec.either(TagKey.hashedCodec(registryKey), this.homogenousListCodec);
     }
 
-    Codec<Holder<E>> elementCodec() {
+    public Codec<Holder<E>> elementCodec() {
         return elementCodec;
     }
 
@@ -77,7 +76,7 @@ public final class LenientHolderSetCodec<E> implements Codec<HolderSet<E>> {
     @Override
     public <T> DataResult<T> encode(HolderSet<E> input, DynamicOps<T> ops, T prefix) {
         if (ops instanceof RegistryOps<T> registryOps) {
-            Optional<HolderOwner<E>> owner = registryOps.owner(this.registryKey);
+            Optional<? extends HolderOwner<E>> owner = McCompat.holderOwner(registryOps, this.registryKey);
             if (owner.isPresent()) {
                 if (!input.canSerializeIn(owner.get())) {
                     return DataResult.error(() -> "HolderSet " + input + " is not valid in current registry set");

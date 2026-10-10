@@ -18,8 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-// HolderSetCodec whose list form is recursive: elements can be tags, entries or nested lists,
-// all flattened into one HolderSet, e.g. ["#c:ingots", "minecraft:stick", ["#minecraft:planks"]].
+// HolderSetCodec whose list form is recursive: elements can be tags, entries or nested lists, all flattened into one HolderSet, e.g. ["#c:ingots", "minecraft:stick", ["#minecraft:planks"]].
 public final class RecursiveHolderSetCodec<E> implements Codec<HolderSet<E>> {
     private final ResourceKey<? extends Registry<E>> registryKey;
     private final Codec<Holder<E>> elementCodec;
@@ -42,7 +41,7 @@ public final class RecursiveHolderSetCodec<E> implements Codec<HolderSet<E>> {
                 self -> new RecursiveHolderSetCodec<>(registryKey, elementCodec, self));
     }
 
-    Codec<Holder<E>> elementCodec() {
+    public Codec<Holder<E>> elementCodec() {
         return elementCodec;
     }
 
@@ -68,7 +67,7 @@ public final class RecursiveHolderSetCodec<E> implements Codec<HolderSet<E>> {
     @Override
     public <T> DataResult<T> encode(HolderSet<E> input, DynamicOps<T> ops, T prefix) {
         if (ops instanceof RegistryOps<T> registryOps) {
-            Optional<HolderOwner<E>> owner = registryOps.owner(this.registryKey);
+            Optional<? extends HolderOwner<E>> owner = McCompat.holderOwner(registryOps, this.registryKey);
             if (owner.isPresent() && !input.canSerializeIn(owner.get())) {
                 return DataResult.error(() -> "HolderSet " + input + " is not valid in current registry set");
             }

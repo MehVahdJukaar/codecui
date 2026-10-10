@@ -5,11 +5,9 @@ import com.mojang.serialization.MapCodec;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Extension point for codec classes the resolver can't introspect on its own. Register with
- * SchemaCodecs.registerHandler. Handlers run after companions and mixin tags but before the built-in
- * structural tiers, so one can override a built-in guess for a whole class of codecs. Return null to
- * pass; the first non-null wins. Resolve inner codecs only through the given Resolver, or the
- * per-resolve cycle detection is lost.
+ * Extension point for codec classes the resolver can't introspect on its own. Register with SchemaCodecs.registerHandler.
+ * Handlers run after companions and mixin tags but before the built-in structural tiers, so one can override a built-in guess for a whole class of codecs.
+ * Return null to pass; the first non-null wins. Resolve inner codecs only through the given Resolver, or the per-resolve cycle detection is lost.
  *
  * <pre>
  * SchemaCodecs.registerHandler((codec, resolver) -> {

@@ -25,18 +25,17 @@ import static net.mehvahdjukaar.codecui.internal.CodecFieldHandles.KEY_DISPATCH_
 //? <1.21.11
 //import static net.mehvahdjukaar.codecui.internal.CodecFieldHandles.KEY_DISPATCH_TYPEKEY;
 
-// Enumerates the variants of a KeyDispatchCodec into a Schema.OneOf.
-final class DispatchEnumerator {
+public final class DispatchEnumerator {
 
     private final SchemaResolver resolver;
 
-    DispatchEnumerator(SchemaResolver resolver) {
+    public DispatchEnumerator(SchemaResolver resolver) {
         this.resolver = resolver;
     }
 
     // Opaque when no variants can be recovered: an empty OneOf is a dead picker.
     // Caller guarantees KEY_DISPATCH_KEYCODEC is non-null.
-    Schema<?> resolve(KeyDispatchCodec<?, ?> dispatch, MapCodec<?> fullCodec,
+    public Schema<?> resolve(KeyDispatchCodec<?, ?> dispatch, MapCodec<?> fullCodec,
                       IdentityHashMap<Object, Schema<?>> cache) {
         //? >=1.21.11
         MapCodec<?> keyCodec = (MapCodec<?>) KEY_DISPATCH_KEYCODEC.get(dispatch);
@@ -53,8 +52,8 @@ final class DispatchEnumerator {
         return new Schema.OneOf<>(typeKey, variants);
     }
 
-    // The JSON field name driving the dispatch. DFU 8 has a typeKey String field; DFU 9 folds
-    // it into the fieldOf-wrapped keyCodec, read back via keys(). Defaults to "type".
+    // The JSON field name driving the dispatch.
+    // DFU 8 has a typeKey String field; DFU 9 folds it into the fieldOf-wrapped keyCodec, read back via keys(). Defaults to "type".
     //? <1.21.11 {
     /*private String dispatchTypeKey(KeyDispatchCodec<?, ?> dispatch, @Nullable Object keyCodec) {
         if (KEY_DISPATCH_TYPEKEY != null) {
@@ -67,8 +66,7 @@ final class DispatchEnumerator {
     }
     *///?}
 
-    // DFU 9 stores the key codec fieldOf-wrapped as a MapCodec (unwrapped via FieldOfTags),
-    // DFU 8 stores the raw Codec.
+    // DFU 9 stores the key codec fieldOf-wrapped as a MapCodec (unwrapped via FieldOfTags), DFU 8 stores the raw Codec.
     private static @Nullable Codec<?> innerKeyCodec(@Nullable Object keyCodec) {
         if (keyCodec instanceof MapCodec<?> mc) {
             FieldOfTags.Entry fieldOfEntry = FieldOfTags.get(mc);
@@ -124,8 +122,7 @@ final class DispatchEnumerator {
             }
         }
 
-        // A hook for the wrong registry fails on every key (foreign K -> ClassCastException), so
-        // bail after a few early misses instead of walking its whole registry.
+        // A hook for the wrong registry fails on every key (foreign K -> ClassCastException), so bail after a few early misses instead of walking its whole registry.
         final int MAX_EARLY_MISSES = 4;
         for (DispatchRegistry.Hook<?> hook : DispatchRegistry.all()) {
             List<?> keys = hook.keys().get();
@@ -148,8 +145,7 @@ final class DispatchEnumerator {
             }
         }
 
-        // No name-only fallback on purpose: a hook lookup matches any registered K regardless of
-        // the dispatch's real K (BlockState once got IntProvider variants).
+        // No name-only fallback on purpose: a hook lookup matches any registered K regardless of the dispatch's real K (BlockState once got IntProvider variants).
 
         CodecUI.LOGGER.debug("final variant count: {}", variants.size());
         return variants;
@@ -169,8 +165,7 @@ final class DispatchEnumerator {
         }
     }
 
-    // Registry-backed fallback: the key codec resolves to a ResourceId of a known registry, so
-    // that registry's entries fill the dropdown.
+    // Registry-backed fallback: the key codec resolves to a ResourceId of a known registry, so that registry's entries fill the dropdown.
     @SuppressWarnings({"unchecked", "rawtypes"})
     private LinkedHashMap<String, Schema<?>> enumerateFromRegistryTag(Object keyCodec, KeyDispatchCodec<?, ?> dispatch,
                                                                       IdentityHashMap<Object, Schema<?>> cache) {
@@ -240,8 +235,8 @@ final class DispatchEnumerator {
         }
     }
 
-    // ExtraCodecs.dispatchOptionalValue: a OneOf with a valueField, so the variant body nests
-    // under that key (a criterion's "conditions") instead of flattening. Null when empty.
+    // ExtraCodecs.dispatchOptionalValue: a OneOf with a valueField, so the variant body nests under that key (a criterion's "conditions") instead of flattening.
+    // Null when empty.
     @Nullable Schema<?> resolveOptionalValueDispatch(CodecReflection.OptionalValueDispatch dispatch,
                                                      IdentityHashMap<Object, Schema<?>> cache) {
         LinkedHashMap<String, Schema<?>> variants = enumerateOptionalValueVariants(dispatch, cache);
@@ -249,8 +244,7 @@ final class DispatchEnumerator {
         return new Schema.OneOf<>(dispatch.typeKey(), variants, dispatch.valueKey());
     }
 
-    // Only registry-keyed dispatches (the sole vanilla shape): the key codec resolves to a
-    // ResourceId and each registry value fed to the codec-getter gives that variant's body.
+    // Only registry-keyed dispatches (the sole vanilla shape): the key codec resolves to a ResourceId and each registry value fed to the codec-getter gives that variant's body.
     @SuppressWarnings({"unchecked", "rawtypes"})
     private LinkedHashMap<String, Schema<?>> enumerateOptionalValueVariants(
             CodecReflection.OptionalValueDispatch dispatch, IdentityHashMap<Object, Schema<?>> cache) {
@@ -288,8 +282,7 @@ final class DispatchEnumerator {
         return variants;
     }
 
-    // Of the two captured getters (keyGetter V->K, codecGetter K->Codec), the codec-getter is
-    // the one that returns a Codec for a registry value. One probe per getter is enough.
+    // Of the two captured getters (keyGetter V->K, codecGetter K->Codec), the codec-getter is the one that returns a Codec for a registry value. One probe per getter is enough.
     private static @Nullable Function<Object, Object> pickCodecGetter(
             List<Function<Object, Object>> getters, Registry<?> registry, List<Identifier> ids) {
         for (Function<Object, Object> getter : getters) {

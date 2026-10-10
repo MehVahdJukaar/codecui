@@ -17,18 +17,17 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-final class CodecReflection {
+public final class CodecReflection {
 
-    record ScannedInner(Object value, String fieldName) {}
+    public record ScannedInner(Object value, String fieldName) {}
 
-    record FieldOfEntry(String name, Codec<?> elementCodec) {}
+    public record FieldOfEntry(String name, Codec<?> elementCodec) {}
 
-    record OrElseEntry(MapCodec<?> inner, Object fallback) {}
+    public record OrElseEntry(MapCodec<?> inner, Object fallback) {}
 
-    // orElse/orElseGet are an untagged mapResult MapCodec capturing the wrapped codec plus a
-    // ResultFunction holding the fallback; without this the field would read as required.
+    // orElse/orElseGet are an untagged mapResult MapCodec capturing the wrapped codec plus a ResultFunction holding the fallback; without this the field would read as required.
     // Null for mapResult users with no fallback (mapError etc.).
-    static @Nullable OrElseEntry unwrapOrElse(MapCodec<?> codec) {
+    public static @Nullable OrElseEntry unwrapOrElse(MapCodec<?> codec) {
         Object resultFunction = null;
         MapCodec<?> inner = null;
         for (Class<?> cls = codec.getClass(); cls != null && cls != Object.class; cls = cls.getSuperclass()) {
@@ -45,8 +44,7 @@ final class CodecReflection {
         return fallback == null ? null : new OrElseEntry(inner, fallback);
     }
 
-    // The ResultFunction's one capture that is neither the wrapped codec nor the error rewriter:
-    // orElse holds the value directly, orElseGet a Supplier of it.
+    // The ResultFunction's one capture that is neither the wrapped codec nor the error rewriter: orElse holds the value directly, orElseGet a Supplier of it.
     private static @Nullable Object recoverFallback(Object resultFunction) {
         Object found = null;
         for (Class<?> cls = resultFunction.getClass(); cls != null && cls != Object.class; cls = cls.getSuperclass()) {
@@ -70,16 +68,15 @@ final class CodecReflection {
         return found;
     }
 
-    // Captures of ExtraCodecs.dispatchOptionalValue's anonymous MapCodec. One of the two getters
-    // is the codec-getter; the caller probes to tell them apart.
-    record OptionalValueDispatch(String typeKey, String valueKey, Codec<?> keyCodec,
+    // Captures of ExtraCodecs.dispatchOptionalValue's anonymous MapCodec.
+    // One of the two getters is the codec-getter; the caller probes to tell them apart.
+    public record OptionalValueDispatch(String typeKey, String valueKey, Codec<?> keyCodec,
                                  List<Function<Object, Object>> getters) {}
 
-    // ExtraCodecs.dispatchOptionalValue (advancement criteria etc.) is not a KeyDispatchCodec, so the
-    // dispatch path misses it. Matched structurally (field names vary across loaders): two string keys,
-    // one captured key Codec, two getter Functions. A wrong match just falls through at the caller.
+    // ExtraCodecs.dispatchOptionalValue (advancement criteria etc.) is not a KeyDispatchCodec, so the dispatch path misses it.
+    // Matched structurally (field names vary across loaders): two string keys, one captured key Codec, two getter Functions. A wrong match just falls through at the caller.
     @SuppressWarnings("unchecked")
-    static @Nullable OptionalValueDispatch detectOptionalValueDispatch(MapCodec<?> codec) {
+    public static @Nullable OptionalValueDispatch detectOptionalValueDispatch(MapCodec<?> codec) {
         List<String> keys;
         try {
             keys = codec.keys(JsonOps.INSTANCE).map(CodecReflection::jsonKeyString).toList();
@@ -111,12 +108,12 @@ final class CodecReflection {
     }
 
     // JsonOps keys are JsonPrimitive(String), whose toString() is quoted.
-    static String jsonKeyString(Object o) {
+    public static String jsonKeyString(Object o) {
         if (o instanceof JsonPrimitive p && p.isString()) return p.getAsString();
         return String.valueOf(o);
     }
 
-    static List<ScannedInner> scanInnerCodecs(Object codec) {
+    public static List<ScannedInner> scanInnerCodecs(Object codec) {
         ArrayList<ScannedInner> inners = new ArrayList<>();
         try {
             for (Class<?> cls = codec.getClass(); cls != null && cls != Object.class; cls = cls.getSuperclass()) {
@@ -144,7 +141,7 @@ final class CodecReflection {
         return inners;
     }
 
-    static @Nullable FieldOfEntry unwrapFieldOf(MapCodec<?> codec) {
+    public static @Nullable FieldOfEntry unwrapFieldOf(MapCodec<?> codec) {
         Object fieldDecoder = findFieldValueByClassName(codec, "FieldDecoder");
         if (fieldDecoder == null) return null;
         Object nameObj = readField(fieldDecoder, "name");
@@ -154,9 +151,9 @@ final class CodecReflection {
         return inner == null ? null : new FieldOfEntry(name, inner);
     }
 
-    // DFU's intRange/floatRange/doubleRange are PRIMITIVE.flatXmap(checkRange(min, max), ...); the
-    // checker lambda captures exactly the two bounds. Caller gates on flatXmap over a primitive.
-    static Number @Nullable [] recoverRangeBounds(Object flatXmappedCodec) {
+    // DFU's intRange/floatRange/doubleRange are PRIMITIVE.flatXmap(checkRange(min, max), ...); the checker lambda captures exactly the two bounds.
+    // Caller gates on flatXmap over a primitive.
+    public static Number @Nullable [] recoverRangeBounds(Object flatXmappedCodec) {
         Set<Object> visited = Collections.newSetFromMap(new IdentityHashMap<>());
         Number[] pair = findNumberPairCapture(flatXmappedCodec, visited, 0);
         if (pair == null) return null;
@@ -200,14 +197,14 @@ final class CodecReflection {
         return (a instanceof Number na && b instanceof Number nb) ? new Number[]{na, nb} : null;
     }
 
-    static @Nullable Object singleCapturedInner(Object codec) {
+    public static @Nullable Object singleCapturedInner(Object codec) {
         Set<Object> inners = Collections.newSetFromMap(new IdentityHashMap<>());
         Set<Object> visited = Collections.newSetFromMap(new IdentityHashMap<>());
         collectCapturedInners(codec, codec, inners, visited, 0);
         return inners.size() == 1 ? inners.iterator().next() : null;
     }
 
-    static @Nullable List<RecordFieldTags.Entry> extractRecordFields(MapCodec<?> codec) {
+    public static @Nullable List<RecordFieldTags.Entry> extractRecordFields(MapCodec<?> codec) {
         if (!looksLikeRecordCodec(codec)) return null;
 
         RecordCodecBuilder<?, ?> builder = findCapturedBuilder(codec);
@@ -222,11 +219,11 @@ final class CodecReflection {
         return fields.isEmpty() ? null : List.copyOf(fields);
     }
 
-    static @Nullable Codec<?> decoderAsCodec(@Nullable Object decoder) {
+    public static @Nullable Codec<?> decoderAsCodec(@Nullable Object decoder) {
         return decoder instanceof Codec<?> c ? c : null;
     }
 
-    static @Nullable Object readField(Object obj, String name) {
+    public static @Nullable Object readField(Object obj, String name) {
         for (Class<?> cls = obj.getClass(); cls != null && cls != Object.class; cls = cls.getSuperclass()) {
             try {
                 return getFieldValue(cls.getDeclaredField(name), obj);
@@ -238,7 +235,7 @@ final class CodecReflection {
         return null;
     }
 
-    static @Nullable Object findFieldValueByClassName(Object obj, String simpleNameSuffix) {
+    public static @Nullable Object findFieldValueByClassName(Object obj, String simpleNameSuffix) {
         for (Class<?> cls = obj.getClass(); cls != null && cls != Object.class; cls = cls.getSuperclass()) {
             for (Field f : cls.getDeclaredFields()) {
                 if (Modifier.isStatic(f.getModifiers())) continue;
@@ -281,9 +278,9 @@ final class CodecReflection {
         }
     }
 
-    // toString on a foreign codec is arbitrary user code; DFU's own evaluates every unit()/point()
-    // value and can throw on a half-built Supplier. Unreadable just means "not that shape".
-    static String safeToString(Object o) {
+    // toString on a foreign codec is arbitrary user code; DFU's own evaluates every unit()/point() value and can throw on a half-built Supplier.
+    // Unreadable just means "not that shape".
+    public static String safeToString(Object o) {
         try {
             String s = o.toString();
             return s == null ? "" : s;
@@ -413,8 +410,8 @@ final class CodecReflection {
         return null;
     }
 
-    // The chain's terminal point(constructor) node carries no fields. Tested structurally, not by
-    // "unit"/"empty" in toString, which drops fields on 5+ field records (see ARCHITECTURE.md).
+    // The chain's terminal point(constructor) node carries no fields.
+    // Tested structurally, not by "unit"/"empty" in toString, which drops fields on 5+ field records (see ARCHITECTURE.md).
     private static boolean isTerminalPointNode(RecordCodecBuilder<?, ?> rcb) {
         Object decoder = readField(rcb, "decoder");
         return decoder == null || !capturesNestedCodec(decoder);

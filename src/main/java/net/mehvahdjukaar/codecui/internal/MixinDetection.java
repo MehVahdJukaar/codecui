@@ -7,9 +7,8 @@ import net.mehvahdjukaar.codecui.CodecUI;
 
 import java.util.function.Function;
 
-// Probes whether the codec-construction mixins wove, by building a codec and checking for its
-// tag. They never apply on NeoForge (DFU is off the transforming classloader) and can miss on
-// Fabric when a DFU type loads before Mixin is ready (required:false hides that).
+// Probes whether the codec-construction mixins wove, by building a codec and checking for its tag.
+// They never apply on NeoForge (DFU is off the transforming classloader) and can miss on Fabric when a DFU type loads before Mixin is ready (required:false hides that).
 public final class MixinDetection {
 
     private static volatile boolean detected = false;

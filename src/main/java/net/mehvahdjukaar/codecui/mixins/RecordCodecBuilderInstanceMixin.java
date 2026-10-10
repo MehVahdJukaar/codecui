@@ -11,7 +11,6 @@ import org.spongepowered.asm.mixin.injection.At;
 
 import java.util.function.Function;
 
-// Carries field tags through apN: the result RCB gets the inputs' tags concatenated.
 @Mixin(RecordCodecBuilder.Instance.class)
 public abstract class RecordCodecBuilderInstanceMixin {
 
@@ -48,8 +47,7 @@ public abstract class RecordCodecBuilderInstanceMixin {
         return result;
     }
 
-    // ap5..ap16 defaults start with this.map(curryN, func); without this, records past 4 fields
-    // lose the fields captured before the map (see ARCHITECTURE.md, arity trap).
+    // ap5..ap16 defaults start with this.map(curryN, func); without this, records past 4 fields lose the fields captured before the map (see ARCHITECTURE.md, arity trap).
     @SuppressWarnings("rawtypes")
     @ModifyReturnValue(method = "map", at = @At("RETURN"))
     private App<?, ?> codecui$tagMap(App<?, ?> result, @Local(argsOnly = true) App ts) {

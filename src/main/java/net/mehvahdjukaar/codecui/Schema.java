@@ -39,9 +39,8 @@ public sealed interface Schema<A> {
     record ResourceId(@Nullable ResourceKey<? extends Registry<?>> registry) implements Schema<Identifier> {}
 
     /**
-     * One tag of registry, picked from SchemaCodecs.availableTagIds (plain text when null or no
-     * tags loaded). hashed selects the on-disk form: "#ns:path" (TagKey.hashedCodec) or bare
-     * "ns:path" (TagKey.codec); the game codec rejects the wrong one.
+     * One tag of registry, picked from SchemaCodecs.availableTagIds (plain text when null or no tags loaded).
+     * hashed selects the on-disk form: "#ns:path" (TagKey.hashedCodec) or bare "ns:path" (TagKey.codec); the game codec rejects the wrong one.
      */
     record TagId(@Nullable ResourceKey<? extends Registry<?>> registry, boolean hashed) implements Schema<Identifier> {
         public TagId(@Nullable ResourceKey<? extends Registry<?>> registry) {
@@ -54,9 +53,8 @@ public sealed interface Schema<A> {
     record Record<A>(Class<A> type, List<Field<A, ?>> fields) implements Schema<A> {}
 
     /**
-     * inline marks a field whose MapCodec spans the parent's own keys instead of nesting under
-     * name (a dispatch, pair or map via RecordCodecBuilder.of(getter, MapCodec)). Backends must
-     * merge it flat into the parent and hand it the whole parent object on load.
+     * inline marks a field whose MapCodec spans the parent's own keys instead of nesting under name (a dispatch, pair or map via RecordCodecBuilder.of(getter, MapCodec)).
+     * Backends must merge it flat into the parent and hand it the whole parent object on load.
      */
     record Field<A, F>(String name, Schema<F> schema, boolean optional, @Nullable F defaultValue,
                        boolean inline) {
@@ -70,16 +68,15 @@ public sealed interface Schema<A> {
     record MapOf<K, V>(Schema<K> key, Schema<V> value) implements Schema<Map<K, V>> {}
 
     /**
-     * Codec.dispatchedMap: valueForKey maps the JSON key to that entry's value schema, lazily
-     * (the key space can be every block) and never null (Opaque when unresolvable). Backends
-     * re-resolve a row when its key changes.
+     * Codec.dispatchedMap: valueForKey maps the JSON key to that entry's value schema, lazily (the key space can be every block) and never null (Opaque when unresolvable).
+     * Backends re-resolve a row when its key changes.
      */
     record DispatchedMapOf<K, V>(Schema<K> key,
                                  Function<String, Schema<?>> valueForKey) implements Schema<Map<K, V>> {}
 
     /**
-     * Flat N-way choice between alternative shapes (either/withAlternative chains). Build via
-     * anyOf, which splices nested AnyOfs flat and auto-labels unlabeled options.
+     * Flat N-way choice between alternative shapes (either/withAlternative chains).
+     * Build via anyOf, which splices nested AnyOfs flat and auto-labels unlabeled options.
      */
     record AnyOf<A>(List<Option> options) implements Schema<A> {
         public record Option(@Nullable String label, Schema<?> schema) {}
@@ -88,9 +85,8 @@ public sealed interface Schema<A> {
     record PairOf<F, S>(Schema<F> first, Schema<S> second) implements Schema<Pair<F, S>> {}
 
     /**
-     * typeField selects one of variants. The variant body sits flat next to the type field when
-     * valueField is null (plain KeyDispatchCodec), else nested under valueField and omitted when
-     * empty (ExtraCodecs.dispatchOptionalValue, e.g. advancement criteria).
+     * typeField selects one of variants.
+     * The variant body sits flat next to the type field when valueField is null (plain KeyDispatchCodec), else nested under valueField and omitted when empty (ExtraCodecs.dispatchOptionalValue, e.g. advancement criteria).
      */
     record OneOf<A>(String typeField, Map<String, Schema<? extends A>> variants,
                     @Nullable String valueField) implements Schema<A> {
@@ -100,9 +96,8 @@ public sealed interface Schema<A> {
     }
 
     /**
-     * Back-reference to a schema still being resolved (self-recursive codecs). Bound by the
-     * resolver before the editor sees it. Backends must materialize the target lazily or a
-     * cyclic schema recurses forever.
+     * Back-reference to a schema still being resolved (self-recursive codecs). Bound by the resolver before the editor sees it.
+     * Backends must materialize the target lazily or a cyclic schema recurses forever.
      */
     final class Ref<A> implements Schema<A> {
         private volatile @Nullable Schema<?> target;
@@ -156,8 +151,7 @@ public sealed interface Schema<A> {
     }
 
     /**
-     * Splices nested AnyOf options flat, collapses a single option to its own schema, and labels
-     * unlabeled options by kind ("object", "id"), numbered only when a kind repeats.
+     * Splices nested AnyOf options flat, collapses a single option to its own schema, and labels unlabeled options by kind ("object", "id"), numbered only when a kind repeats.
      */
     @SuppressWarnings("unchecked")
     static <A> Schema<A> anyOf(List<AnyOf.Option> options) {

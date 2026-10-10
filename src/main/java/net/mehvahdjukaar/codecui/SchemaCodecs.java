@@ -54,9 +54,8 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 /**
- * Public facade: primitives and combinators that pair a Codec with its Schema, plus the
- * registration hooks (registerCompanion, registerHandler, registerDispatchKeys) that extend
- * inference for codecs you don't own. SchemaCodec.wrap infers a schema for any other codec.
+ * Public facade: primitives and combinators that pair a Codec with its Schema, plus the registration hooks (registerCompanion, registerHandler, registerDispatchKeys) that extend inference for codecs you don't own.
+ * SchemaCodec.wrap infers a schema for any other codec.
  */
 public final class SchemaCodecs {
     public enum Inference {
@@ -65,8 +64,7 @@ public final class SchemaCodecs {
     }
 
     /**
-     * MIXIN when the codec-construction mixins are active, REFLECTION for the reduced-fidelity
-     * fallback (always on NeoForge, and on Fabric when a DFU type loaded too early).
+     * MIXIN when the codec-construction mixins are active, REFLECTION for the reduced-fidelity fallback (always on NeoForge, and on Fabric when a DFU type loaded too early).
      */
     public static Inference inferenceMode() {
         return MixinDetection.constructionInterceptionActive() ? Inference.MIXIN : Inference.REFLECTION;
@@ -74,8 +72,7 @@ public final class SchemaCodecs {
 
     /**
      * Hand-crafted schema for one codec instance; wins over inference wherever that codec shows up.
-     * The codec is held weakly but the schema strongly, so a per-instance codec must not appear
-     * inside its own schema (Opaque over it, Custom widget bound to it) or it is never collected.
+     * The codec is held weakly but the schema strongly, so a per-instance codec must not appear inside its own schema (Opaque over it, Custom widget bound to it) or it is never collected.
      */
     public static <A> void registerCompanion(Codec<A> codec, Schema<A> schema) {
         SchemaTags.tag(codec, schema);
@@ -229,8 +226,7 @@ public final class SchemaCodecs {
     }
 
     /**
-     * Labels an existing multi-format codec: the wire codec passes through untouched, the schema
-     * is a flat AnyOf over the given labeled parts.
+     * Labels an existing multi-format codec: the wire codec passes through untouched, the schema is a flat AnyOf over the given labeled parts.
      */
     public static <A> SchemaCodec<A> labeled(Codec<A> codec, Alt<?>... alternatives) {
         // an empty AnyOf is a dead picker, so with no parts just infer the codec itself
@@ -247,8 +243,8 @@ public final class SchemaCodecs {
     }
 
     /**
-     * N-ary labeled "try each" codec (AlternativeCodec) plus a flat AnyOf schema. Unlike
-     * withAlternative, every alternative is tried for both decode and encode.
+     * N-ary labeled "try each" codec (AlternativeCodec) plus a flat AnyOf schema.
+     * Unlike withAlternative, every alternative is tried for both decode and encode.
      */
     @SafeVarargs
     public static <A> SchemaCodec<A> alternatives(Alt<? extends A>... alternatives) {
@@ -374,16 +370,15 @@ public final class SchemaCodecs {
     }
 
     /**
-     * Vanilla-style HolderSet codec (tag, single entry, or list) whose list is recursive: elements
-     * may themselves be tags, entries or nested lists, all flattened into one set.
+     * Vanilla-style HolderSet codec (tag, single entry, or list) whose list is recursive: elements may themselves be tags, entries or nested lists, all flattened into one set.
      */
     public static <E> SchemaCodec<HolderSet<E>> recursiveHolderSet(ResourceKey<? extends Registry<E>> registryKey, Codec<Holder<E>> elementCodec) {
         return SchemaCodec.wrap(RecursiveHolderSetCodec.create(registryKey, elementCodec));
     }
 
     /**
-     * Sorted ids of the currently loaded tags of registryKey, for a TagId picker. Empty (never
-     * throws) for an unknown registry or before tags are bound, so backends can fall back to text.
+     * Sorted ids of the currently loaded tags of registryKey, for a TagId picker.
+     * Empty (never throws) for an unknown registry or before tags are bound, so backends can fall back to text.
      */
     public static List<Identifier> availableTagIds(ResourceKey<? extends Registry<?>> registryKey) {
         if (registryKey == null) return List.of();

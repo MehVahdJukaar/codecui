@@ -1,12 +1,16 @@
 package net.mehvahdjukaar.codecui.internal;
 
 import net.minecraft.core.Holder;
+import net.minecraft.core.HolderOwner;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.Identifier;
+import net.minecraft.resources.RegistryOps;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import org.jspecify.annotations.Nullable;
+
+import java.util.Optional;
 
 public final class McCompat {
 
@@ -15,8 +19,7 @@ public final class McCompat {
         return key./*? >=1.21.11 {*/identifier/*?} <1.21.11 {*//*location*//*?}*/();
     }
 
-    // Registry.get(Identifier) -> Registry.getValue(Identifier) (renamed in 1.21.2);
-    // both return the value directly, or null when absent.
+    // Registry.get(Identifier) -> Registry.getValue(Identifier) (renamed in 1.21.2); both return the value directly, or null when absent.
     public static <T> @Nullable T getValue(Registry<T> registry, Identifier id) {
         return registry./*? >=1.21.2 {*/getValue/*?} <1.21.2 {*//*get*//*?}*/(id);
     }
@@ -24,5 +27,9 @@ public final class McCompat {
     // ItemStack.getItemHolder() -> ItemStack.typeHolder() (renamed in 26.1)
     public static Holder<Item> itemHolder(ItemStack stack) {
         return stack./*? >=26.1 {*/typeHolder/*?} <26.1 {*//*getItemHolder*//*?}*/();
+    }
+
+    public static <E> Optional<? extends HolderOwner<E>> holderOwner(RegistryOps<?> ops, ResourceKey<? extends Registry<? extends E>> registryKey) {
+        return ops./*? >=26.3 {*//*getter*//*?} <26.3 {*/owner/*?}*/(registryKey);
     }
 }
