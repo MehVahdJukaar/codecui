@@ -1,8 +1,11 @@
 package net.mehvahdjukaar.codecui.fabric;
 
 //? fabric {
-/*import net.fabricmc.api.ModInitializer;
+/*import net.fabricmc.api.EnvType;
+import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.CommonLifecycleEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.mehvahdjukaar.codecui.CodecUI;
 import net.mehvahdjukaar.codecui.SchemaContext;
@@ -14,6 +17,10 @@ public class CodecUIFabric implements ModInitializer {
     public void onInitialize() {
         CodecUI.init(FabricLoader.getInstance().isDevelopmentEnvironment(), false);
         CommonLifecycleEvents.TAGS_LOADED.register(Identifier.fromNamespaceAndPath(CodecUI.MOD_ID, "extract_context"), (registryAccess, client) -> SchemaContext.update(registryAccess));
+        ServerLifecycleEvents.SERVER_STOPPED.register(server -> SchemaContext.reset());
+        if (FabricLoader.getInstance().getEnvironmentType() == EnvType.CLIENT) {
+            ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> SchemaContext.reset());
+        }
     }
 }
 *///?}

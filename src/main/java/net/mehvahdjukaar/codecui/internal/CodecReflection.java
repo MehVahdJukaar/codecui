@@ -98,7 +98,7 @@ public final class CodecReflection {
                 if (Codec.class.isAssignableFrom(t)) {
                     keyCodec = (Codec<?>) v;
                     codecCount++;
-                } else if (v instanceof Function<?, ?> fn) {
+                } else if (t == Function.class && v instanceof Function<?, ?> fn) { // declared type, dfu's compressors map is a fastutil Function too
                     getters.add((Function<Object, Object>) fn);
                 }
             }
@@ -414,7 +414,10 @@ public final class CodecReflection {
     // Tested structurally, not by "unit"/"empty" in toString, which drops fields on 5+ field records (see ARCHITECTURE.md).
     private static boolean isTerminalPointNode(RecordCodecBuilder<?, ?> rcb) {
         Object decoder = readField(rcb, "decoder");
-        return decoder == null || !capturesNestedCodec(decoder);
+        if (decoder == null) return true;
+        // a bare optionalFieldOf(name) is the field's own decoder and captures no nested codec either, its not the point node
+        if (decoder instanceof OptionalFieldCodec<?>) return false;
+        return !capturesNestedCodec(decoder);
     }
 
     private static boolean capturesNestedCodec(Object node) {

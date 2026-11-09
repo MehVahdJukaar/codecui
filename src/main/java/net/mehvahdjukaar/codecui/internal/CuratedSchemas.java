@@ -161,7 +161,8 @@ public final class CuratedSchemas {
                                 new Schema.Field<>("count", new Schema.IntRange(1, 99), true, 1))));
         //?}
 
-        // Ingredient.CODEC is either(list(Value), Value), Value = xor(item, tag): an unlabeled AnyOf.
+        //? <1.21.2 {
+        /*// Ingredient.CODEC is either(list(Value), Value), Value = xor(item, tag): an unlabeled AnyOf.
         // Curate with labels: {"item": id} / {"tag": id} or a list of those. NeoForge {"type": ...} not covered.
         Schema<Ingredient> ingredientItem = new Schema.Record<>(Ingredient.class,
                 List.of(
@@ -175,6 +176,13 @@ public final class CuratedSchemas {
                 Schema.option("item", ingredientItem),
                 Schema.option("tag", ingredientTag),
                 Schema.option("list", new Schema.ListOf<>(ingredientValue, 1, Integer.MAX_VALUE)));
+        *///?} else {
+        //plain item holder set now: "id", "#tag" or a list of ids. curated since neoforge cant weave the HolderSetCodec mixin
+        Schema<Ingredient> ingredient = Schema.anyOf(
+                Schema.option("item", new Schema.ResourceId(Registries.ITEM)),
+                Schema.option("tag", new Schema.TagId(Registries.ITEM)),
+                Schema.option("list", new Schema.ListOf<>(new Schema.ResourceId(Registries.ITEM), 1, Integer.MAX_VALUE)));
+        //?}
         SchemaCodecs.registerCompanion(Ingredient.CODEC, ingredient);
         // 1.21.2 removed CODEC_NONEMPTY; CODEC is non-empty itself now.
         //? <1.21.2
