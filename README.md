@@ -8,13 +8,11 @@ Codec UI purpose is turning any DataFixerUpper **`Codec`** into an editable **`S
 explicitly, or let the bundled inference engine derive one from an existing codec - then render
 your own editor UI from it. Ships the schema vocabulary **and** the resolver; the UI is yours.
 
-Multi-loader (Fabric + NeoForge), Minecraft **1.21.11** (also a `1.21.1` line). Depends on
-nothing beyond Minecraft + DataFixerUpper.
 
-## Adding it
+## How to add
 
 Published to the [somethingcatchy Nexus](https://registry.somethingcatchy.net/#browse/browse:maven-public).
-Jar-in-jar it so the library ships inside your mod:
+You can JIJ it as such:
 
 ```gradle
 repositories {
@@ -34,16 +32,17 @@ dependencies {
 
 ## Quick start
 
-**Infer a schema from any codec** - the engine walks the codec graph (records, lists, dispatch,
-registries, enums, …); anything it can't introspect degrades to a raw-JSON `Schema.Opaque`:
+**Inferred schema mode**:
+Given any codec just use SchemaCodec.wrap() and chances are it will work out of the box already
 
 ```java
 SchemaCodec<Biome> wrapped = SchemaCodec.wrap(Biome.DIRECT_CODEC);
 Schema<Biome> schema = wrapped.schema();   // feed this to your own editor UI
 ```
 
-**Or declare the edit surface explicitly** - `CODEC` stays a real `Codec<MyThing>` (wire format
-unchanged) and also carries its schema:
+**Explicit schema mode**:
+Declare your codec as a SchemaCodec. SchemaCodec subclasses Codec and as such you can use it as you would normally.
+SchemaCodecs class contains all your utilities that CodecUtil and Codec class normally contain. Check them out.
 
 ```java
 static final SchemaCodec<MyThing> CODEC = SchemaRecord.create(MyThing.class, i -> i.group(
@@ -52,13 +51,10 @@ static final SchemaCodec<MyThing> CODEC = SchemaRecord.create(MyThing.class, i -
 ).apply(i, MyThing::new));
 ```
 
-`SchemaCodecs` also has the primitives (`INT`, `STRING`, `BOOL`, …) and combinators
-(`list`, `either`, `dispatch`, `withAlternative`, `registryEntry`, `colorRgb`, `map`, `pair`, …).
-
 ## Teaching the engine
 
-For codecs it can't introspect (opaque `Codec.of(enc, dec)` wrappers, custom combinators),
-register the missing knowledge once at init:
+For codecs which arent introspected automatically ( such as opaque `Codec.of(enc, dec)` wrappers, custom combinators),
+you can register the missing knowledge once at init:
 
 ```java
 SchemaCodecs.registerCompanion(SomeCodec.INSTANCE, new Schema.Color(false));  // hand-made schema for one codec
