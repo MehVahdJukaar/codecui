@@ -1,8 +1,10 @@
 # CodecUI
 
 The problem this small project aim to solve is the following: 
-given an arbitrary Codec object how do I construct a user interface to edit its property? 
-The mod aims to solve this with the introduction of lots of mixin hacks and the use of a Schema & SchemaCodec concept
+given an arbitrary `Codec` object how do I construct a user interface to edit its property? 
+The mod aims to solve this with the introduction of lots of mixin hacks and the use of a `Schema` object attached to `Codec`s.
+
+A `Schema` is merely a walkable sealed tree that describes the shape of the data a codec reads and writes.
 
 
 This project is open source and you are welcome to include in your mods.
@@ -38,7 +40,7 @@ dependencies {
 ## Quick start
 
 **Inferred schema mode**:
-Given any codec just use SchemaCodec.wrap() and chances are it will work out of the box already
+Given any codec just use `SchemaCodec.wrap()` and chances are it will work out of the box already
 
 ```java
 SchemaCodec<Biome> wrapped = SchemaCodec.wrap(Biome.DIRECT_CODEC);
@@ -46,8 +48,8 @@ Schema<Biome> schema = wrapped.schema();   // feed this to your own editor UI
 ```
 
 **Explicit schema mode**:
-Declare your codec as a SchemaCodec. SchemaCodec subclasses Codec and as such you can use it as you would normally.
-SchemaCodecs class contains all your utilities that CodecUtil and Codec class normally contain. Check them out.
+Declare your codec as a `SchemaCodec`. `SchemaCodec` subclasses `Codec` and as such you can use it as you would normally.
+`SchemaCodecs` class contains all your utilities that `ExtraCodecs` and `Codec` class normally contain. Check them out.
 
 ```java
 static final SchemaCodec<MyThing> CODEC = SchemaRecord.create(MyThing.class, i -> i.group(
@@ -62,14 +64,14 @@ For codecs which arent introspected automatically ( such as opaque `Codec.of(enc
 you can register the missing knowledge once at init:
 
 ```java
-SchemaCodecs.registerCompanion(SomeCodec.INSTANCE, new Schema.Color(false));  // hand-made schema for one codec
+SchemaCodecs.registerCompanion(SomeCodec.INSTANCE, new Schema.Color(false, false));  // hand-made schema for one codec
 SchemaCodecs.registerHandler(handler);                                        // structural handler for a whole class of codecs
 SchemaCodecs.registerDispatchKeys(MyType.class, keys, MyType::codec, MyType::name);
 ```
 
 ## Building a GUI
 
-SchemaCodec provides a Schema. A `Schema` is merely a sealed tree. All an editor has to do is switch over it:
+`SchemaCodec` provides a `Schema`. A `Schema` is merely a sealed tree. All an editor has to do is switch over it:
 
 ```java
 switch (MyThing.CODEC.schema()) {
@@ -91,7 +93,7 @@ public record Spell(String name, int manaCost) {
     ).apply(i, Spell::new));
 }
 ```
-CODEC is still a normal codec so you use it as you normally would.
+`CODEC` is still a normal codec so you use it as you normally would.
 
 To build a UI we simply switch over its schema object as such (only using non exhaustive switch as we know the resulting schema only has these primitive but ideally you should cover them all.)
 
@@ -105,12 +107,12 @@ for (Schema.Field<Spell, ?> f : schema.fields()) {
     }
 }
 ```
-as the otput of your UI simply produce your new Spell object which you can put back ina  Json using the Spell.CODEC itself.
+as the otput of your UI simply produce your new `Spell` object which you can put back ina  Json using the `Spell.CODEC` itself.
 
 
 
 ## Companion Schemas
-For rare cases when you cant construct a SchemaCodec and have to rely on an existing Codec you don't own that isnt inferred correctly, attack a companion schema to it.
+For rare cases when you cant construct a `SchemaCodec` and have to rely on an existing `Codec` you don't own that isnt inferred correctly, attack a companion schema to it.
 
 ```java
 SchemaCodecs.registerCompanion(ThirdPartyMod.HEX_COLOR_CODEC, new Schema.Color(false, true));
