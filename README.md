@@ -1,11 +1,15 @@
 # CodecUI
 
 The problem this small project aim to solve is the following: 
+
 given an arbitrary `Codec` object how do I construct a user interface to edit its property? 
+
 The mod aims to solve this with the introduction of lots of mixin hacks and the use of a `Schema` object attached to `Codec`s.
 
 A `Schema` is merely a walkable sealed tree that describes the shape of the data a codec reads and writes.
 
+
+-----
 
 This project is open source and you are welcome to include in your mods.
 
