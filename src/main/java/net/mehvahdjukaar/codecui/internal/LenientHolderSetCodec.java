@@ -48,6 +48,10 @@ public final class LenientHolderSetCodec<E> implements Codec<HolderSet<E>> {
         return elementCodec;
     }
 
+    public ResourceKey<? extends Registry<E>> registryKey() {
+        return registryKey;
+    }
+
     @Override
     public <T> DataResult<Pair<HolderSet<E>, T>> decode(DynamicOps<T> ops, T input) {
         if (ops instanceof RegistryOps<T> registryOps) {

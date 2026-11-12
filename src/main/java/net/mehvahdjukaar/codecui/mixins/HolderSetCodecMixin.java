@@ -16,14 +16,22 @@ public class HolderSetCodecMixin implements HolderSetElementCodec {
 
     @Unique
     private Codec<?> codecui$elementCodec;
+    @Unique
+    private ResourceKey<? extends Registry<?>> codecui$registryKey;
 
     @Inject(method = "<init>", at = @At("TAIL"))
     private void codecui$captureElementCodec(ResourceKey<? extends Registry<?>> registryKey, Codec<?> elementCodec, boolean disallowInline, CallbackInfo ci) {
         this.codecui$elementCodec = elementCodec;
+        this.codecui$registryKey = registryKey;
     }
 
     @Override
     public Codec<?> codecui$getElementCodec() {
         return codecui$elementCodec;
+    }
+
+    @Override
+    public ResourceKey<? extends Registry<?>> codecui$getRegistryKey() {
+        return codecui$registryKey;
     }
 }

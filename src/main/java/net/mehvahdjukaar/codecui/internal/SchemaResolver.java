@@ -334,12 +334,19 @@ public final class SchemaResolver implements SchemaHandler.Resolver {
                     Schema.option("list", new Schema.ListOf(node, 0, Integer.MAX_VALUE)));
         }
         // HolderSet<E> (vanilla or our lenient copy): a "#namespace:path" tag, a single entry, or a list of entries.
-        Codec<?> holderSetElement = codec instanceof HolderSetElementCodec hs ? hs.codecui$getElementCodec()
-                : codec instanceof LenientHolderSetCodec<?> lhs ? lhs.elementCodec() : null;
+        Codec<?> holderSetElement = null;
+        ResourceKey<? extends Registry<?>> holderSetRegistry = null;
+        if (codec instanceof HolderSetElementCodec hs) {
+            holderSetElement = hs.codecui$getElementCodec();
+            holderSetRegistry = hs.codecui$getRegistryKey();
+        } else if (codec instanceof LenientHolderSetCodec<?> lhs) {
+            holderSetElement = lhs.elementCodec();
+            holderSetRegistry = lhs.registryKey();
+        }
         if (holderSetElement != null) {
             Schema<?> element = resolveCodec(holderSetElement, cache);
             ResourceKey<? extends Registry<?>> registry =
-                    element instanceof Schema.ResourceId r ? r.registry() : null;
+                    element instanceof Schema.ResourceId r ? r.registry() : holderSetRegistry;
             Schema<?> tag = registry != null
                     ? new Schema.TagId(registry)
                     : new Schema.Str(0, Integer.MAX_VALUE, null);
